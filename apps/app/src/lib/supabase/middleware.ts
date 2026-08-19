@@ -7,7 +7,7 @@ const PUBLIC_ROUTES = ["/login", "/esqueci-senha", "/redefinir-senha", "/auth/ca
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
-  const supabase = createServerClient(env.supabaseUrl(), env.supabaseAnonKey(), {
+  const supabase = createServerClient(env.supabaseUrl(), env.supabasePublishableKey(), {
     cookies: {
       getAll() {
         return request.cookies.getAll();
