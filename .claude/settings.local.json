@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:\\\\Users\\\\WEVERTON PARANHOS\\\\Desktop\\\\TERCEIRIZEI\\\\\" 2>/dev/null || dir \"C:\\\\Users\\\\WEVERTON PARANHOS\\\\Desktop\\\\TERCEIRIZEI\\\\\" 2>/dev/null; echo \"---\"; ls \"C:\\\\Users\\\\WEVERTON PARANHOS\\\\Desktop\\\\TERCEIRIZEI\\\\claude\\\\\" 2>/dev/null)",
+      "PowerShell($env:PATH = $env:PATH + \";C:\\\\Program Files\\\\nodejs\"; Get-Command npm -ErrorAction SilentlyContinue | Select-Object Source; node --version 2>&1; Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue | Select-Object Name -First 5)",
+      "Bash(npm --version)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(python3 -c ' *)",
+      "Bash(ls /c/Python*)",
+      "Read(//usr/**)"
+    ]
+  }
+}
