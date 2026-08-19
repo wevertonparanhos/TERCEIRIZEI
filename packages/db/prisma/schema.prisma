@@ -24,7 +24,8 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users User[]
+  users   User[]
+  clients Client[]
 
   @@map("tenants")
 }
@@ -66,15 +67,39 @@ model User {
   id        String   @id @db.Uuid
   tenantId  String   @map("tenant_id") @db.Uuid
   roleId    String   @map("role_id") @db.Uuid
+  clientId  String?  @map("client_id") @db.Uuid
   name      String
   email     String   @unique
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  role   Role   @relation(fields: [roleId], references: [id])
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  role   Role    @relation(fields: [roleId], references: [id])
+  client Client? @relation(fields: [clientId], references: [id])
 
   @@index([tenantId])
   @@map("users")
+}
+
+// Versão mínima do cadastro de clientes, só o necessário para o autocadastro do
+// portal (Etapa 2). O CRUD completo — empresas, contatos, tags — chega na Etapa 3.
+model Client {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  doc       String
+  email     String
+  phone     String?
+  status    String   @default("ativo")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  users  User[]
+
+  @@unique([tenantId, doc])
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("clients")
 }
