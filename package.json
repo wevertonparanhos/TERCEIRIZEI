@@ -1,32 +1,17 @@
 {
-  "name": "terceirizei",
+  "name": "terceirizei-monorepo",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "clsx": "^2.1.1",
-    "framer-motion": "^11.2.10",
-    "lucide-react": "^0.378.0",
-    "next": "14.2.3",
-    "react": "^18",
-    "react-dom": "^18",
-    "tailwind-merge": "^2.3.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "autoprefixer": "^10.0.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.3",
-    "pdf-parse": "^2.4.5",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.3",
-    "typescript": "^5"
+    "dev:site": "npm run dev --workspace=@terceirizei/site",
+    "dev:app": "npm run dev --workspace=@terceirizei/app",
+    "build:site": "npm run build --workspace=@terceirizei/site",
+    "build:app": "npm run build --workspace=@terceirizei/app",
+    "db:generate": "npm run generate --workspace=@terceirizei/db",
+    "db:seed": "npm run seed --workspace=@terceirizei/db"
   }
 }

@@ -2,10 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "terceirizei-dev",
+      "name": "terceirizei-site-dev",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": ["node_modules\\next\\dist\\bin\\next", "dev", "--port", "3001"],
+      "runtimeArgs": ["apps/site/scripts/dev.cjs"],
       "port": 3001
+    },
+    {
+      "name": "terceirizei-app-dev",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": ["apps/app/scripts/dev.cjs"],
+      "port": 3002
     }
   ]
 }
