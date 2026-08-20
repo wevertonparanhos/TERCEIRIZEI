@@ -3,8 +3,14 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, hasUnreadClientComment } from "@/modules/processes/labels";
+import {
+  PRIORITY_LABELS,
+  PRIORITY_BADGE_VARIANT,
+  hasUnreadClientComment,
+  getPaymentStatus,
+  PAYMENT_STATUS_LABELS,
+  PAYMENT_STATUS_BADGE_VARIANT,
+} from "@/modules/processes/labels";
 import { ProcessTabs } from "@/modules/processes/process-tabs";
 import { ProcessForm } from "@/modules/processes/process-form";
 import { TaskList } from "@/modules/processes/task-list";
@@ -23,6 +29,7 @@ import {
   deleteChecklistItem,
   addProcessComment,
   markCommentsRead,
+  setProcessPaid,
 } from "@/modules/processes/actions";
 import {
   uploadNewDocument,
@@ -90,6 +97,12 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
   ]);
   const userNameById = new Map(stageUsers.map((u) => [u.id, u.name]));
 
+  const paymentStatus = getPaymentStatus(
+    process.value ? Number(process.value) : null,
+    process.paymentDueDate,
+    process.paidAt
+  );
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-8">
       <MarkCommentsRead processId={process.id} markCommentsRead={markCommentsRead} />
@@ -106,6 +119,9 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
               {process.stage.label}
             </Badge>
             <Badge variant={PRIORITY_BADGE_VARIANT[process.priority]}>{PRIORITY_LABELS[process.priority]}</Badge>
+            {paymentStatus !== "SEM_PAGAMENTO" && (
+              <Badge variant={PAYMENT_STATUS_BADGE_VARIANT[paymentStatus]}>{PAYMENT_STATUS_LABELS[paymentStatus]}</Badge>
+            )}
           </div>
           <p className="text-sm text-muted">
             {process.serviceType.name}
@@ -117,11 +133,6 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {process.value ? ` · R$ ${Number(process.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
           </p>
         </div>
-        {["ADMIN", "GESTOR", "FINANCEIRO"].includes(user.role) && process.value && (
-          <Link href={`/financeiro/faturar?clientId=${process.clientId}&processId=${process.id}`}>
-            <Button variant="outline">Gerar Fatura</Button>
-          </Link>
-        )}
       </div>
 
       <div className="rounded-lg border border-border bg-surface p-6">
@@ -144,10 +155,13 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                     assignedUserId: process.assignedUserId ?? "",
                     priority: process.priority,
                     value: process.value ? String(process.value) : "",
+                    paymentDueDate: process.paymentDueDate ? process.paymentDueDate.toISOString().slice(0, 10) : "",
                     dueAt: process.dueAt ? process.dueAt.toISOString().slice(0, 10) : "",
                     notes: process.notes ?? "",
+                    paidAt: process.paidAt ? process.paidAt.toISOString() : null,
                   }}
                   updateProcess={updateProcess}
+                  setProcessPaid={setProcessPaid}
                 />
               ),
             },

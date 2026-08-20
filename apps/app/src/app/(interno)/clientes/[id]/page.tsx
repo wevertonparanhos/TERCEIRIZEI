@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
+import { getPaymentStatus, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_BADGE_VARIANT } from "@/modules/processes/labels";
 import { ClientForm } from "@/modules/clients/client-form";
 import { CompanyList } from "@/modules/clients/company-list";
 import { ContactList } from "@/modules/clients/contact-list";
@@ -25,6 +26,8 @@ import {
   cancelRequest,
 } from "@/modules/documents/actions";
 
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
 export default async function ClienteDetalhePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -44,7 +47,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
   const canWrite = user.role === "ADMIN" || user.role === "GESTOR";
   const canWriteDocs = canWrite || user.role === "OPERACIONAL";
 
-  const [owners, documents, documentRequests] = await Promise.all([
+  const [owners, documents, documentRequests, payments] = await Promise.all([
     prisma.user.findMany({
       where: { tenantId: user.tenantId, role: { name: { not: "CLIENTE" } }, active: true },
       select: { id: true, name: true },
@@ -59,6 +62,13 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
       where: { clientId: client.id, processId: null },
       orderBy: { createdAt: "desc" },
     }),
+    user.role !== "OPERACIONAL"
+      ? prisma.process.findMany({
+          where: { tenantId: user.tenantId, clientId: client.id, value: { not: null } },
+          orderBy: { paymentDueDate: "asc" },
+          select: { id: true, number: true, description: true, value: true, paymentDueDate: true, paidAt: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const updateThisClient = updateClient.bind(null, client.id);
@@ -130,6 +140,42 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
           defaultEmail={client.email}
           invite={inviteClientToPortal}
         />
+      )}
+
+      {user.role !== "OPERACIONAL" && (
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-ink">Pagamentos</h2>
+            <Link href={`/clientes/${client.id}/relatorio`} className="text-sm text-accent hover:underline">
+              Ver relatório por período →
+            </Link>
+          </div>
+          {payments.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-soft">Nenhuma demanda com pagamento para este cliente.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border">
+              {payments.map((p) => {
+                const status = getPaymentStatus(p.value ? Number(p.value) : null, p.paymentDueDate, p.paidAt);
+                return (
+                  <li key={p.id} className="flex items-center justify-between py-2.5 text-sm">
+                    <Link href={`/processos/${p.id}`} className="text-ink hover:underline">
+                      #{p.number} — {p.description.slice(0, 50)}
+                    </Link>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted">
+                        {p.paymentDueDate ? p.paymentDueDate.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—"}
+                      </span>
+                      <span className="font-mono text-muted">
+                        {currencyFormatter.format(Number(p.value))}
+                      </span>
+                      <Badge variant={PAYMENT_STATUS_BADGE_VARIANT[status]}>{PAYMENT_STATUS_LABELS[status]}</Badge>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       )}
 
       {user.role !== "FINANCEIRO" && (

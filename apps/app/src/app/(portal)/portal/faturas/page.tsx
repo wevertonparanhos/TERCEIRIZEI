@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
-import { STATUS_LABELS, STATUS_BADGE_VARIANT, displayStatus } from "@/modules/invoices/labels";
+import { getPaymentStatus, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_BADGE_VARIANT } from "@/modules/processes/labels";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -9,49 +10,44 @@ export default async function PortalFaturasPage() {
   const user = await getCurrentUser();
   if (!user || !user.clientId) return null;
 
-  const invoices = await prisma.invoice.findMany({
-    where: { clientId: user.clientId },
-    include: { items: true },
-    orderBy: { number: "desc" },
+  const processes = await prisma.process.findMany({
+    where: { clientId: user.clientId, value: { not: null } },
+    orderBy: { paymentDueDate: "asc" },
+    select: { id: true, number: true, description: true, value: true, paymentDueDate: true, paidAt: true },
   });
 
   return (
     <div className="mx-auto max-w-3xl p-8">
-      <h1 className="text-2xl font-bold text-ink">Faturas</h1>
-      <p className="mt-1 text-sm text-muted">Cobranças emitidas pela Terceirizei para sua conta.</p>
+      <h1 className="text-2xl font-bold text-ink">Financeiro</h1>
+      <p className="mt-1 text-sm text-muted">Pagamentos das suas demandas com a Terceirizei.</p>
 
       <div className="mt-6 space-y-3">
-        {invoices.length === 0 && <p className="text-sm text-muted-soft">Nenhuma fatura emitida ainda.</p>}
-        {invoices.map((invoice) => {
-          const status = displayStatus(invoice.status, invoice.dueDate);
+        {processes.length === 0 && <p className="text-sm text-muted-soft">Nenhuma cobrança registrada ainda.</p>}
+        {processes.map((p) => {
+          const status = getPaymentStatus(Number(p.value), p.paymentDueDate, p.paidAt);
           return (
-            <div key={invoice.id} className="rounded-lg border border-border bg-surface p-5">
+            <Link
+              key={p.id}
+              href={`/portal/processos/${p.id}`}
+              className="block rounded-lg border border-border bg-surface p-5 hover:shadow-sm"
+            >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs text-muted-soft">#{invoice.number}</span>
-                <Badge variant={STATUS_BADGE_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
+                <span className="font-mono text-xs text-muted-soft">#{p.number}</span>
+                <Badge variant={PAYMENT_STATUS_BADGE_VARIANT[status]}>{PAYMENT_STATUS_LABELS[status]}</Badge>
               </div>
               <div className="mt-2 flex items-baseline justify-between">
                 <p className="text-sm text-muted">
-                  Vencimento em {invoice.dueDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
-                  {invoice.status === "PAGA" && invoice.paidAt
-                    ? ` · paga em ${invoice.paidAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`
+                  {p.description.slice(0, 60)}
+                  {p.paymentDueDate
+                    ? ` · vencimento em ${p.paymentDueDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`
                     : ""}
+                  {p.paidAt ? ` · pago em ${p.paidAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}` : ""}
                 </p>
                 <span className="font-mono text-lg font-semibold text-ink">
-                  {currencyFormatter.format(Number(invoice.totalAmount))}
+                  {currencyFormatter.format(Number(p.value))}
                 </span>
               </div>
-              {invoice.items.length > 0 && (
-                <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm text-muted">
-                  {invoice.items.map((item) => (
-                    <li key={item.id} className="flex justify-between">
-                      <span>{item.description}</span>
-                      <span className="font-mono">{currencyFormatter.format(Number(item.amount))}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            </Link>
           );
         })}
       </div>

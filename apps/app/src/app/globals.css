@@ -33,3 +33,28 @@
 body {
   @apply bg-bg text-ink;
 }
+
+/* Relatórios usam window.print() como "Exportar PDF" — sempre imprime no
+ * tema claro (independente do modo escuro estar ativo) e esconde a barra
+ * lateral/nav, que só faz sentido na tela. */
+@media print {
+  :root,
+  .dark {
+    --color-bg: 255 255 255;
+    --color-surface: 255 255 255;
+    --color-surface-alt: 248 250 252;
+    --color-border: 226 232 240;
+    --color-border-strong: 203 213 225;
+    --color-ink: 15 23 42;
+    --color-muted: 71 85 105;
+    --color-muted-soft: 148 163 184;
+  }
+
+  aside {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+  }
+}

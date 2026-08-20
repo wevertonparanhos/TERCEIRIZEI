@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
-import { displayStatus as invoiceDisplayStatus } from "@/modules/invoices/labels";
 import { isProcessStale, hasUnreadClientComment } from "@/modules/processes/labels";
+import { resolvePeriod, summarizePayments } from "@/modules/finance/period";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -133,14 +133,15 @@ export default async function DashboardPage() {
 
   const canSeeFinance = user.role === "ADMIN" || user.role === "GESTOR" || user.role === "FINANCEIRO";
 
+  const { start: monthStart, end: monthEnd } = resolvePeriod("mes", undefined, undefined, now);
+
   const [
     activeProcesses,
     activeClients,
     newClientsThisMonth,
     stages,
     deadlines,
-    pendingInvoices,
-    paidThisMonth,
+    paymentsThisMonth,
     overdueProcesses,
     processesForStale,
     processesForUnread,
@@ -160,14 +161,11 @@ export default async function DashboardPage() {
         include: { client: { select: { name: true } } },
       }),
       canSeeFinance
-        ? prisma.invoice.findMany({ where: { tenantId: user.tenantId, status: "PENDENTE" } })
-        : Promise.resolve([]),
-      canSeeFinance
-        ? prisma.invoice.aggregate({
-            where: { tenantId: user.tenantId, status: "PAGA", paidAt: { gte: startOfMonth } },
-            _sum: { totalAmount: true },
+        ? prisma.process.findMany({
+            where: { tenantId: user.tenantId, value: { not: null }, paymentDueDate: { gte: monthStart, lte: monthEnd } },
+            select: { value: true, paymentDueDate: true, paidAt: true },
           })
-        : Promise.resolve({ _sum: { totalAmount: null } }),
+        : Promise.resolve([]),
       prisma.process.count({
         where: { tenantId: user.tenantId, dueAt: { lt: now }, stage: { label: ACTIVE_STAGE_FILTER } },
       }),
@@ -192,15 +190,12 @@ export default async function DashboardPage() {
       }),
     ]);
 
-  const pendingTotal = pendingInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
-  const overdueInvoices = pendingInvoices.filter((i) => invoiceDisplayStatus(i.status, i.dueDate) === "ATRASADA");
-  const overdueInvoicesCount = overdueInvoices.length;
-  const overdueTotal = overdueInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
-  const upcomingCount = pendingInvoices.length - overdueInvoicesCount;
+  const financeSummary = summarizePayments(
+    paymentsThisMonth.map((p) => ({ value: Number(p.value), paymentDueDate: p.paymentDueDate, paidAt: p.paidAt }))
+  );
   const unreadCommentsCount = processesForUnread.filter((p) =>
     hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null)
   ).length;
-  const upcomingTotal = pendingTotal - overdueTotal;
   const maxStageCount = Math.max(1, ...stages.map((s) => s._count.processes));
   const staleProcessesCount = processesForStale.filter(
     (p) => p.stageHistory[0] && isProcessStale(p.stage.label, p.stageHistory[0].changedAt)
@@ -254,26 +249,25 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-ink">Financeiro</h2>
             <Link href="/financeiro" className="text-sm text-accent hover:underline">
-              Ver faturas →
+              Ver relatório →
             </Link>
           </div>
+          <p className="mt-1 text-xs text-muted-soft">Demandas com pagamento previsto este mês</p>
           <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
             <div>
-              <p className="text-xl font-bold text-ink">{currencyFormatter.format(pendingTotal)}</p>
-              <p className="text-sm text-muted">{pendingInvoices.length} fatura(s) pendente(s)</p>
+              <p className="text-xl font-bold text-ink">{currencyFormatter.format(financeSummary.pendente)}</p>
+              <p className="text-sm text-muted">pendente</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-red-600">{overdueInvoicesCount}</p>
-              <p className="text-sm text-muted">fatura(s) atrasada(s)</p>
+              <p className="text-xl font-bold text-red-600">{currencyFormatter.format(financeSummary.atrasado)}</p>
+              <p className="text-sm text-muted">atrasado</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-ink">{currencyFormatter.format(upcomingTotal)}</p>
-              <p className="text-sm text-muted">{upcomingCount} previsto(s) dentro do prazo</p>
+              <p className="text-xl font-bold text-ink">{financeSummary.count}</p>
+              <p className="text-sm text-muted">demanda(s) no mês</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-emerald-600">
-                {currencyFormatter.format(Number(paidThisMonth._sum.totalAmount ?? 0))}
-              </p>
+              <p className="text-xl font-bold text-emerald-600">{currencyFormatter.format(financeSummary.recebido)}</p>
               <p className="text-sm text-muted">recebido este mês</p>
             </div>
           </div>

@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { isProcessOverdue, isProcessStale, STALE_PROCESS_DAYS, addDays, hasUnreadClientComment } from "./labels";
+import {
+  isProcessOverdue,
+  isProcessStale,
+  STALE_PROCESS_DAYS,
+  addDays,
+  hasUnreadClientComment,
+  getPaymentStatus,
+} from "./labels";
 
 function daysFromNow(days: number): Date {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -87,5 +94,28 @@ describe("hasUnreadClientComment", () => {
   it("é false quando lido exatamente no mesmo instante do comentário", () => {
     const t = new Date("2026-08-20T10:00:00Z");
     expect(hasUnreadClientComment(t, t)).toBe(false);
+  });
+});
+
+describe("getPaymentStatus", () => {
+  it("é SEM_PAGAMENTO quando não há valor", () => {
+    expect(getPaymentStatus(null, null, null)).toBe("SEM_PAGAMENTO");
+  });
+
+  it("é PAGO quando paidAt está preenchido, mesmo com prazo vencido", () => {
+    expect(getPaymentStatus(100, new Date("2020-01-01"), new Date())).toBe("PAGO");
+  });
+
+  it("é ATRASADO quando o prazo de pagamento já passou e não foi pago", () => {
+    expect(getPaymentStatus(100, new Date("2020-01-01"), null)).toBe("ATRASADO");
+  });
+
+  it("é PENDENTE quando tem valor mas ainda não venceu nem foi pago", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    expect(getPaymentStatus(100, future, null)).toBe("PENDENTE");
+  });
+
+  it("é PENDENTE quando tem valor mas não tem data de pagamento definida", () => {
+    expect(getPaymentStatus(100, null, null)).toBe("PENDENTE");
   });
 });

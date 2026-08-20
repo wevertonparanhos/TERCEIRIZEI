@@ -109,6 +109,7 @@ export async function createProcess(input: CreateProcessInput) {
       description: data.description,
       priority: data.priority,
       value: data.value ? Number(data.value) : serviceType.defaultPrice,
+      paymentDueDate: data.paymentDueDate ? new Date(data.paymentDueDate) : null,
       requestedDeadline: data.requestedDeadline
         ? new Date(data.requestedDeadline)
         : serviceType.defaultDeadlineDays
@@ -228,12 +229,18 @@ export async function updateProcess(processId: string, input: ProcessInput) {
   await loadProcessForWrite(processId, user);
   const data = processSchema.parse(input);
 
+  const hasPayment = Boolean(data.value);
+
   await prisma.process.update({
     where: { id: processId },
     data: {
       assignedUserId: data.assignedUserId || null,
       priority: data.priority,
-      value: data.value ? Number(data.value) : null,
+      value: hasPayment ? Number(data.value) : null,
+      // Sem valor não faz sentido manter prazo/data de pagamento — evita um
+      // processo "sem pagamento" continuar aparecendo em relatórios financeiros.
+      paymentDueDate: hasPayment && data.paymentDueDate ? new Date(data.paymentDueDate) : null,
+      paidAt: hasPayment ? undefined : null,
       dueAt: data.dueAt ? new Date(data.dueAt) : null,
       notes: data.notes || null,
     },
@@ -241,6 +248,33 @@ export async function updateProcess(processId: string, input: ProcessInput) {
 
   revalidatePath(`/processos/${processId}`);
   revalidatePath("/processos");
+  revalidatePath("/financeiro");
+}
+
+/** Marca/desmarca o pagamento do processo como recebido. */
+export async function setProcessPaid(processId: string, paid: boolean) {
+  const user = await requireStaff();
+  const process = await loadProcessForWrite(processId, user);
+  if (!process.value) throw new Error("Este processo não tem valor definido.");
+
+  await prisma.process.update({
+    where: { id: processId },
+    data: { paidAt: paid ? new Date() : null },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: paid ? "process.mark_paid" : "process.unmark_paid",
+    entityType: "process",
+    entityId: processId,
+    description: `Processo #${process.number} marcado como ${paid ? "pago" : "pendente"}.`,
+  });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+  revalidatePath("/financeiro");
+  revalidatePath("/clientes");
 }
 
 export async function createTask(processId: string, input: TaskInput) {

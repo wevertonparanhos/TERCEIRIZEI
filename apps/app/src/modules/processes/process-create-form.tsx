@@ -44,6 +44,7 @@ export function ProcessCreateForm({
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [hasPayment, setHasPayment] = useState(false);
 
   const {
     register,
@@ -72,6 +73,7 @@ export function ProcessCreateForm({
     // trocar de tipo de serviço nunca sobrescreve um ajuste manual.
     if (!dirtyFields.value && serviceType.defaultPrice) {
       setValue("value", serviceType.defaultPrice);
+      setHasPayment(true);
     }
     if (!dirtyFields.requestedDeadline && serviceType.defaultDeadlineDays) {
       setValue("requestedDeadline", addDaysAsInputDate(serviceType.defaultDeadlineDays));
@@ -85,7 +87,7 @@ export function ProcessCreateForm({
     setServerError(null);
     setSubmitting(true);
     try {
-      const result = await onSubmit(data);
+      const result = await onSubmit(hasPayment ? data : { ...data, value: "", paymentDueDate: "" });
       if (result?.id) router.push(`/processos/${result.id}`);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Não foi possível salvar.");
@@ -166,11 +168,31 @@ export function ProcessCreateForm({
           <Label htmlFor="requestedDeadline">Prazo desejado</Label>
           <Input id="requestedDeadline" type="date" {...register("requestedDeadline")} />
         </div>
+      </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="value">Valor (R$)</Label>
-          <Input id="value" type="number" step="0.01" min="0" {...register("value")} />
-        </div>
+      <div className="rounded-lg border border-border bg-surface-alt p-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-ink">
+          <input
+            type="checkbox"
+            checked={hasPayment}
+            onChange={(e) => setHasPayment(e.target.checked)}
+            className="h-4 w-4 rounded border-border-strong"
+          />
+          Esta demanda tem pagamento
+        </label>
+
+        {hasPayment && (
+          <div className="mt-3 grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="value">Valor (R$)</Label>
+              <Input id="value" type="number" step="0.01" min="0" {...register("value")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="paymentDueDate">Data prevista de pagamento</Label>
+              <Input id="paymentDueDate" type="date" {...register("paymentDueDate")} />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5">

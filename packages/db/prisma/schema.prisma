@@ -359,6 +359,8 @@ model Process {
   description       String
   priority          DemandPriority @default(MEDIA)
   value             Decimal?       @db.Decimal(12, 2)
+  paymentDueDate    DateTime?      @map("payment_due_date")
+  paidAt            DateTime?      @map("paid_at")
   requestedDeadline DateTime?      @map("requested_deadline")
   dueAt             DateTime?      @map("due_at")
   notes             String?

@@ -13,6 +13,7 @@ export const processSchema = z.object({
   assignedUserId: z.string().optional().or(z.literal("")),
   priority: z.enum(DEMAND_PRIORITIES),
   value: z.string().optional(),
+  paymentDueDate: z.string().optional(),
   dueAt: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -27,6 +28,7 @@ export const createProcessSchema = z.object({
   description: z.string().min(5, "Descreva o processo."),
   priority: z.enum(DEMAND_PRIORITIES),
   value: z.string().optional(),
+  paymentDueDate: z.string().optional(),
   requestedDeadline: z.string().optional(),
   notes: z.string().optional(),
 });

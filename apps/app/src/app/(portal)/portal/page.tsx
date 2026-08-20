@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
-import { PRIORITY_LABELS } from "@/modules/processes/labels";
-import { displayStatus } from "@/modules/invoices/labels";
+import { PRIORITY_LABELS, getPaymentStatus } from "@/modules/processes/labels";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -10,17 +9,22 @@ export default async function PortalDashboardPage() {
   const user = await getCurrentUser();
   if (!user || !user.clientId) return null;
 
-  const [activeProcesses, pendingRequests, openInvoices] = await Promise.all([
+  const [activeProcesses, pendingRequests, unpaidProcesses] = await Promise.all([
     prisma.process.count({
       where: { clientId: user.clientId, stage: { label: { notIn: ["Concluído", "Cancelado"] } } },
     }),
     prisma.documentRequest.count({ where: { clientId: user.clientId, status: "PENDENTE" } }),
-    prisma.invoice.findMany({ where: { clientId: user.clientId, status: "PENDENTE" } }),
+    prisma.process.findMany({
+      where: { clientId: user.clientId, value: { not: null }, paidAt: null },
+      select: { value: true, paymentDueDate: true, paidAt: true },
+    }),
   ]);
 
-  const overdueCount = openInvoices.filter((i) => displayStatus(i.status, i.dueDate) === "ATRASADA").length;
-  const openTotal = openInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
-  const upcomingCount = openInvoices.length - overdueCount;
+  const overdueCount = unpaidProcesses.filter(
+    (p) => getPaymentStatus(Number(p.value), p.paymentDueDate, p.paidAt) === "ATRASADO"
+  ).length;
+  const openTotal = unpaidProcesses.reduce((sum, p) => sum + Number(p.value), 0);
+  const upcomingCount = unpaidProcesses.length - overdueCount;
 
   const recentProcesses = await prisma.process.findMany({
     where: { clientId: user.clientId },
@@ -44,8 +48,8 @@ export default async function PortalDashboardPage() {
           <p className="text-sm text-muted">Documentos pendentes</p>
         </Link>
         <Link href="/portal/faturas" className="rounded-lg border border-border bg-surface p-5 hover:shadow-sm">
-          <p className="text-2xl font-bold text-ink">{openInvoices.length}</p>
-          <p className="text-sm text-muted">Faturas pendentes</p>
+          <p className="text-2xl font-bold text-ink">{unpaidProcesses.length}</p>
+          <p className="text-sm text-muted">Pagamentos pendentes</p>
         </Link>
       </div>
 
@@ -86,14 +90,14 @@ export default async function PortalDashboardPage() {
       <Link href="/portal/faturas" className="mt-6 block rounded-lg border border-border bg-surface p-6 hover:shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink">Financeiro</h2>
-          <span className="text-sm text-accent hover:underline">Ver faturas →</span>
+          <span className="text-sm text-accent hover:underline">Ver detalhes →</span>
         </div>
-        {openInvoices.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-soft">Nenhuma fatura pendente no momento.</p>
+        {unpaidProcesses.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-soft">Nenhum pagamento pendente no momento.</p>
         ) : (
           <p className="mt-2 text-sm text-muted">
-            {openInvoices.length} fatura(s) pendente(s) · {currencyFormatter.format(openTotal)}
-            {overdueCount > 0 && <span className="ml-2 text-red-600">{overdueCount} atrasada(s)</span>}
+            {unpaidProcesses.length} pagamento(s) pendente(s) · {currencyFormatter.format(openTotal)}
+            {overdueCount > 0 && <span className="ml-2 text-red-600">{overdueCount} atrasado(s)</span>}
             {upcomingCount > 0 && <span className="ml-2 text-muted-soft">{upcomingCount} dentro do prazo</span>}
           </p>
         )}

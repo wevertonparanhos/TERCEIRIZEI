@@ -54,3 +54,32 @@ export function hasUnreadClientComment(lastClientCommentAt: Date | null, lastRea
   if (!lastReadAt) return true;
   return lastClientCommentAt.getTime() > lastReadAt.getTime();
 }
+
+export type PaymentStatus = "SEM_PAGAMENTO" | "PAGO" | "ATRASADO" | "PENDENTE";
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  SEM_PAGAMENTO: "Sem pagamento",
+  PAGO: "Pago",
+  ATRASADO: "Atrasado",
+  PENDENTE: "Pendente",
+};
+
+export const PAYMENT_STATUS_BADGE_VARIANT: Record<PaymentStatus, "neutral" | "success" | "warning" | "danger" | "info"> = {
+  SEM_PAGAMENTO: "neutral",
+  PAGO: "success",
+  ATRASADO: "danger",
+  PENDENTE: "warning",
+};
+
+/** Deriva o status de pagamento de um processo a partir de value/paymentDueDate/paidAt —
+ * não é persistido, sempre calculado. */
+export function getPaymentStatus(
+  value: number | null,
+  paymentDueDate: Date | null,
+  paidAt: Date | null
+): PaymentStatus {
+  if (!value) return "SEM_PAGAMENTO";
+  if (paidAt) return "PAGO";
+  if (paymentDueDate && paymentDueDate.getTime() < Date.now()) return "ATRASADO";
+  return "PENDENTE";
+}
