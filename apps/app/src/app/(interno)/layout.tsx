@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
   { href: "/clientes", label: "Clientes", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
   { href: "/processos", label: "Processos", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
+  { href: "/servicos", label: "Modelos de Processo", roles: ["ADMIN", "GESTOR"] },
   { href: "/financeiro", label: "Financeiro", roles: ["ADMIN", "GESTOR", "FINANCEIRO"] },
   { href: "/auditoria", label: "Auditoria", roles: ["ADMIN"] },
   { href: "/equipe", label: "Equipe", roles: ["ADMIN"] },

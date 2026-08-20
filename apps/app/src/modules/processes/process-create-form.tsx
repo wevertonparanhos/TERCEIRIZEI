@@ -14,7 +14,20 @@ import { Input } from "@/components/ui/input";
 
 type Client = { id: string; name: string };
 type Company = { id: string; clientId: string; razaoSocial: string };
-type ServiceType = { id: string; name: string };
+type ServiceType = {
+  id: string;
+  name: string;
+  defaultPrice: string | null;
+  defaultDeadlineDays: number | null;
+  defaultPriority: string | null;
+  checklistCount: number;
+};
+
+function addDaysAsInputDate(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export function ProcessCreateForm({
   clients,
@@ -36,7 +49,8 @@ export function ProcessCreateForm({
     register,
     handleSubmit,
     watch,
-    formState: { errors },
+    setValue,
+    formState: { errors, dirtyFields },
   } = useForm<CreateProcessInput>({ resolver: zodResolver(createProcessSchema), defaultValues: { priority: "MEDIA" } });
 
   const watchedClientId = watch("clientId");
@@ -44,6 +58,28 @@ export function ProcessCreateForm({
     () => companies.filter((c) => c.clientId === (watchedClientId || selectedClientId)),
     [companies, watchedClientId, selectedClientId]
   );
+
+  const watchedServiceTypeId = watch("serviceTypeId");
+  const selectedServiceType = useMemo(
+    () => serviceTypes.find((st) => st.id === watchedServiceTypeId),
+    [serviceTypes, watchedServiceTypeId]
+  );
+
+  function handleServiceTypeChange(serviceTypeId: string) {
+    const serviceType = serviceTypes.find((st) => st.id === serviceTypeId);
+    if (!serviceType) return;
+    // Só preenche automaticamente campos que o usuário ainda não editou —
+    // trocar de tipo de serviço nunca sobrescreve um ajuste manual.
+    if (!dirtyFields.value && serviceType.defaultPrice) {
+      setValue("value", serviceType.defaultPrice);
+    }
+    if (!dirtyFields.requestedDeadline && serviceType.defaultDeadlineDays) {
+      setValue("requestedDeadline", addDaysAsInputDate(serviceType.defaultDeadlineDays));
+    }
+    if (!dirtyFields.priority && serviceType.defaultPriority) {
+      setValue("priority", serviceType.defaultPriority as CreateProcessInput["priority"]);
+    }
+  }
 
   async function submit(data: CreateProcessInput) {
     setServerError(null);
@@ -92,7 +128,14 @@ export function ProcessCreateForm({
 
         <div className="space-y-1.5">
           <Label htmlFor="serviceTypeId">Tipo de serviço</Label>
-          <Select id="serviceTypeId" {...register("serviceTypeId")}>
+          <Select
+            id="serviceTypeId"
+            {...register("serviceTypeId")}
+            onChange={(e) => {
+              register("serviceTypeId").onChange(e);
+              handleServiceTypeChange(e.target.value);
+            }}
+          >
             <option value="">Selecione...</option>
             {serviceTypes.map((type) => (
               <option key={type.id} value={type.id}>
@@ -101,6 +144,11 @@ export function ProcessCreateForm({
             ))}
           </Select>
           {errors.serviceTypeId && <p className="text-xs text-red-600">{errors.serviceTypeId.message}</p>}
+          {selectedServiceType && selectedServiceType.checklistCount > 0 && (
+            <p className="text-xs text-slate-400">
+              {selectedServiceType.checklistCount} item(s) de checklist padrão serão adicionados automaticamente.
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">

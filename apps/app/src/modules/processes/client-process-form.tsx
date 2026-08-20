@@ -13,7 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
 type Company = { id: string; razaoSocial: string };
-type ServiceType = { id: string; name: string };
+type ServiceType = { id: string; name: string; defaultDeadlineDays: number | null; defaultPriority: string | null };
+
+function addDaysAsInputDate(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 export function ClientProcessForm({
   companies,
@@ -32,11 +38,23 @@ export function ClientProcessForm({
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    setValue,
+    formState: { errors, dirtyFields },
   } = useForm<ClientCreateProcessInput>({
     resolver: zodResolver(clientCreateProcessSchema),
     defaultValues: { priority: "MEDIA" },
   });
+
+  function handleServiceTypeChange(serviceTypeId: string) {
+    const serviceType = serviceTypes.find((s) => s.id === serviceTypeId);
+    if (!serviceType) return;
+    if (!dirtyFields.requestedDeadline && serviceType.defaultDeadlineDays) {
+      setValue("requestedDeadline", addDaysAsInputDate(serviceType.defaultDeadlineDays));
+    }
+    if (!dirtyFields.priority && serviceType.defaultPriority) {
+      setValue("priority", serviceType.defaultPriority as ClientCreateProcessInput["priority"]);
+    }
+  }
 
   async function submit(data: ClientCreateProcessInput) {
     setServerError(null);
@@ -81,7 +99,14 @@ export function ClientProcessForm({
 
         <div className="space-y-1.5">
           <Label htmlFor="serviceTypeId">Serviço desejado</Label>
-          <Select id="serviceTypeId" {...register("serviceTypeId")}>
+          <Select
+            id="serviceTypeId"
+            {...register("serviceTypeId")}
+            onChange={(e) => {
+              register("serviceTypeId").onChange(e);
+              handleServiceTypeChange(e.target.value);
+            }}
+          >
             <option value="">Selecione...</option>
             {serviceTypes.map((s) => (
               <option key={s.id} value={s.id}>

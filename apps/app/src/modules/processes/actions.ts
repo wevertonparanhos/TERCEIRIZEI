@@ -15,6 +15,7 @@ import {
   type CreateProcessInput,
   type ClientCreateProcessInput,
 } from "@/lib/validations/process";
+import { addDays } from "@/modules/processes/labels";
 
 type TaskStatusValue = (typeof TASK_STATUSES)[number];
 
@@ -46,6 +47,21 @@ async function loadProcessForWrite(processId: string, user: CurrentUser) {
   return process;
 }
 
+/** Copia o checklist padrão do modelo de serviço pro processo recém-aberto —
+ * é uma cópia (não referência), então cada processo pode editar livremente
+ * sem afetar o modelo. */
+async function seedChecklistFromTemplate(processId: string, serviceTypeId: string) {
+  const templateItems = await prisma.serviceChecklistTemplateItem.findMany({
+    where: { serviceTypeId },
+    orderBy: { position: "asc" },
+  });
+  if (templateItems.length === 0) return;
+
+  await prisma.processChecklistItem.createMany({
+    data: templateItems.map((item) => ({ processId, label: item.label })),
+  });
+}
+
 async function nextProcessNumber(tenantId: string): Promise<number> {
   const rows = await prisma.$queryRaw<{ value: number }[]>`
     insert into tenant_counters (tenant_id, key, value)
@@ -69,6 +85,11 @@ export async function createProcess(input: CreateProcessInput) {
   });
   if (!client) throw new Error("Cliente não encontrado.");
 
+  const serviceType = await prisma.serviceType.findFirst({
+    where: { id: data.serviceTypeId, tenantId: user.tenantId },
+  });
+  if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
+
   const firstStage = await prisma.kanbanStage.findFirst({
     where: { tenantId: user.tenantId },
     orderBy: { position: "asc" },
@@ -87,15 +108,21 @@ export async function createProcess(input: CreateProcessInput) {
       stageId: firstStage.id,
       description: data.description,
       priority: data.priority,
-      value: data.value ? Number(data.value) : null,
-      requestedDeadline: data.requestedDeadline ? new Date(data.requestedDeadline) : null,
-      notes: data.notes || null,
+      value: data.value ? Number(data.value) : serviceType.defaultPrice,
+      requestedDeadline: data.requestedDeadline
+        ? new Date(data.requestedDeadline)
+        : serviceType.defaultDeadlineDays
+          ? addDays(new Date(), serviceType.defaultDeadlineDays)
+          : null,
+      notes: data.notes || serviceType.defaultNotes || null,
     },
   });
 
   await prisma.processStage.create({
     data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: user.id },
   });
+
+  await seedChecklistFromTemplate(process.id, data.serviceTypeId);
 
   await logAudit({
     tenantId: user.tenantId,
@@ -122,6 +149,11 @@ export async function clientCreateProcess(input: ClientCreateProcessInput) {
     if (!company) throw new Error("Empresa não encontrada.");
   }
 
+  const serviceType = await prisma.serviceType.findFirst({
+    where: { id: data.serviceTypeId, tenantId: user.tenantId },
+  });
+  if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
+
   const firstStage = await prisma.kanbanStage.findFirst({
     where: { tenantId: user.tenantId },
     orderBy: { position: "asc" },
@@ -140,14 +172,21 @@ export async function clientCreateProcess(input: ClientCreateProcessInput) {
       stageId: firstStage.id,
       description: data.description,
       priority: data.priority,
-      requestedDeadline: data.requestedDeadline ? new Date(data.requestedDeadline) : null,
-      notes: data.notes || null,
+      value: serviceType.defaultPrice,
+      requestedDeadline: data.requestedDeadline
+        ? new Date(data.requestedDeadline)
+        : serviceType.defaultDeadlineDays
+          ? addDays(new Date(), serviceType.defaultDeadlineDays)
+          : null,
+      notes: data.notes || serviceType.defaultNotes || null,
     },
   });
 
   await prisma.processStage.create({
     data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: user.id },
   });
+
+  await seedChecklistFromTemplate(process.id, data.serviceTypeId);
 
   revalidatePath("/portal");
   revalidatePath("/portal/processos");

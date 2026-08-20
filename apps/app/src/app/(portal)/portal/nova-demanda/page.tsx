@@ -11,7 +11,7 @@ export default async function PortalNovaDemandaPage() {
     prisma.company.findMany({ where: { clientId: user.clientId }, select: { id: true, razaoSocial: true } }),
     prisma.serviceType.findMany({
       where: { tenantId: user.tenantId, active: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, defaultDeadlineDays: true, defaultPriority: true },
       orderBy: { name: "asc" },
     }),
   ]);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isProcessOverdue, isProcessStale, STALE_PROCESS_DAYS } from "./labels";
+import { isProcessOverdue, isProcessStale, STALE_PROCESS_DAYS, addDays } from "./labels";
 
 function daysFromNow(days: number): Date {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -50,5 +50,19 @@ describe("isProcessStale", () => {
 
   it("é false para um processo recém-criado", () => {
     expect(isProcessStale("Triagem", new Date())).toBe(false);
+  });
+});
+
+describe("addDays", () => {
+  it("soma dias corretamente, inclusive virando o mês", () => {
+    const result = addDays(new Date("2026-08-30T00:00:00Z"), 5);
+    expect(result.getUTCMonth()).toBe(8); // setembro (0-indexado)
+    expect(result.getUTCDate()).toBe(4);
+  });
+
+  it("soma zero dias sem alterar a data", () => {
+    const base = new Date("2026-08-20T00:00:00Z");
+    const result = addDays(base, 0);
+    expect(result.getTime()).toBe(base.getTime());
   });
 });

@@ -269,19 +269,38 @@ model ClientTag {
 }
 
 model ServiceType {
-  id                  String   @id @default(uuid()) @db.Uuid
-  tenantId            String   @map("tenant_id") @db.Uuid
+  id                  String          @id @default(uuid()) @db.Uuid
+  tenantId            String          @map("tenant_id") @db.Uuid
   name                String
-  defaultPrice        Decimal? @map("default_price") @db.Decimal(12, 2)
-  defaultDeadlineDays Int?     @map("default_deadline_days")
-  active              Boolean  @default(true)
-  createdAt           DateTime @default(now()) @map("created_at")
+  defaultPrice        Decimal?        @map("default_price") @db.Decimal(12, 2)
+  defaultDeadlineDays Int?            @map("default_deadline_days")
+  defaultPriority     DemandPriority? @map("default_priority")
+  defaultNotes        String?         @map("default_notes")
+  active              Boolean         @default(true)
+  createdAt           DateTime        @default(now()) @map("created_at")
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id])
-  processes Process[]
+  tenant             Tenant                         @relation(fields: [tenantId], references: [id])
+  processes          Process[]
+  checklistTemplate  ServiceChecklistTemplateItem[]
 
   @@unique([tenantId, name])
   @@map("service_types")
+}
+
+// Checklist padrão de um tipo de serviço — copiado (não referenciado) para
+// ProcessChecklistItem na abertura do processo, então cada processo pode
+// editar/remover itens sem afetar o modelo.
+model ServiceChecklistTemplateItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  serviceTypeId String   @map("service_type_id") @db.Uuid
+  label         String
+  position      Int
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  serviceType ServiceType @relation(fields: [serviceTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceTypeId, position])
+  @@map("service_checklist_template_items")
 }
 
 // Mesma tabela serve equipe e cliente — RLS decide quem enxerga o quê (autor

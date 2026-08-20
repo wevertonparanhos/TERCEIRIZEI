@@ -37,3 +37,12 @@ export function isProcessStale(stageLabel: string, lastStageChangeAt: Date): boo
   const daysSince = (Date.now() - lastStageChangeAt.getTime()) / (1000 * 60 * 60 * 24);
   return daysSince > STALE_PROCESS_DAYS;
 }
+
+/** Usado para calcular o prazo desejado a partir do prazo padrão (em dias) do modelo de
+ * serviço. Soma em UTC (não no fuso local do servidor) pra não introduzir o mesmo tipo de
+ * bug de "um dia a menos/a mais" já visto em campos de data-only neste projeto. */
+export function addDays(base: Date, days: number): Date {
+  const result = new Date(base);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
+}

@@ -22,7 +22,14 @@ export default async function NovoProcessoPage() {
     }),
     prisma.serviceType.findMany({
       where: { tenantId: user.tenantId, active: true },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        defaultPrice: true,
+        defaultDeadlineDays: true,
+        defaultPriority: true,
+        _count: { select: { checklistTemplate: true } },
+      },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -35,7 +42,19 @@ export default async function NovoProcessoPage() {
       <h1 className="mt-2 text-2xl font-bold text-brand-navy">Novo Processo</h1>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-        <ProcessCreateForm clients={clients} companies={companies} serviceTypes={serviceTypes} onSubmit={createProcess} />
+        <ProcessCreateForm
+          clients={clients}
+          companies={companies}
+          serviceTypes={serviceTypes.map((st) => ({
+            id: st.id,
+            name: st.name,
+            defaultPrice: st.defaultPrice ? String(st.defaultPrice) : null,
+            defaultDeadlineDays: st.defaultDeadlineDays,
+            defaultPriority: st.defaultPriority,
+            checklistCount: st._count.checklistTemplate,
+          }))}
+          onSubmit={createProcess}
+        />
       </div>
     </div>
   );
