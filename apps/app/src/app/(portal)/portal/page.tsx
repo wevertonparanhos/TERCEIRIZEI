@@ -63,11 +63,16 @@ export default async function PortalDashboardPage() {
         ) : (
           <ul className="mt-3 divide-y divide-slate-100">
             {recentDemands.map((d) => (
-              <li key={d.id} className="flex items-center justify-between py-2.5 text-sm">
-                <span className="text-slate-700">
-                  #{d.number} — {d.serviceType.name}
-                </span>
-                <span className="text-xs text-slate-400">{DEMAND_STATUS_LABELS[d.status]}</span>
+              <li key={d.id}>
+                <Link
+                  href={`/portal/demandas/${d.id}`}
+                  className="flex items-center justify-between py-2.5 text-sm hover:text-brand-navy"
+                >
+                  <span className="text-slate-700">
+                    #{d.number} — {d.serviceType.name}
+                  </span>
+                  <span className="text-xs text-slate-400">{DEMAND_STATUS_LABELS[d.status]}</span>
+                </Link>
               </li>
             ))}
           </ul>

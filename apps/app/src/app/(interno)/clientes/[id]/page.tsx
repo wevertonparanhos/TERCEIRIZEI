@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ClientForm } from "@/modules/clients/client-form";
 import { CompanyList } from "@/modules/clients/company-list";
 import { ContactList } from "@/modules/clients/contact-list";
+import { PortalAccess } from "@/modules/clients/portal-access";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
@@ -14,6 +15,7 @@ import {
   deleteClientContact,
   addCompany,
   deleteCompany,
+  inviteClientToPortal,
 } from "@/modules/clients/actions";
 import {
   uploadNewDocument,
@@ -33,6 +35,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
       owner: { select: { name: true } },
       contacts: { orderBy: { createdAt: "asc" } },
       companies: { orderBy: { createdAt: "asc" } },
+      users: { select: { email: true }, take: 1 },
     },
   });
 
@@ -119,6 +122,15 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
         addContact={addClientContact}
         deleteContact={deleteClientContact}
       />
+
+      {canWrite && (
+        <PortalAccess
+          clientId={client.id}
+          linkedEmail={client.users[0]?.email ?? null}
+          defaultEmail={client.email}
+          invite={inviteClientToPortal}
+        />
+      )}
 
       {user.role !== "FINANCEIRO" && (
         <>

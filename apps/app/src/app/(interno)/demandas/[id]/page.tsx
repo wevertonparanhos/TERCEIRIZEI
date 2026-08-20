@@ -11,7 +11,8 @@ import {
   isDemandStale,
 } from "@/modules/demands/labels";
 import { StatusControl, AssignControl, ConvertToProcessButton } from "@/modules/demands/demand-controls";
-import { updateDemandStatus, assignDemand, convertDemandToProcess } from "@/modules/demands/actions";
+import { DemandComments } from "@/modules/demands/demand-comments";
+import { updateDemandStatus, assignDemand, convertDemandToProcess, addDemandComment } from "@/modules/demands/actions";
 import { Button } from "@/components/ui/button";
 
 export default async function DemandaDetalhePage({ params }: { params: { id: string } }) {
@@ -28,6 +29,10 @@ export default async function DemandaDetalhePage({ params }: { params: { id: str
       assignedUser: { select: { id: true, name: true } },
       history: { orderBy: { changedAt: "asc" } },
       process: { select: { id: true } },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { author: { select: { name: true, role: { select: { name: true } } } } },
+      },
     },
   });
 
@@ -115,6 +120,20 @@ export default async function DemandaDetalhePage({ params }: { params: { id: str
           />
         </div>
       )}
+
+      <div className="rounded-lg border border-slate-200 bg-white p-6">
+        <DemandComments
+          demandId={demand.id}
+          comments={demand.comments.map((c) => ({
+            id: c.id,
+            body: c.body,
+            createdAt: c.createdAt.toISOString(),
+            authorName: c.author.name,
+            authorIsClient: c.author.role.name === "CLIENTE",
+          }))}
+          addComment={addDemandComment}
+        />
+      </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-6">
         <h2 className="mb-3 text-base font-semibold text-brand-navy">Histórico</h2>

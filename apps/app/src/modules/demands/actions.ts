@@ -223,3 +223,31 @@ export async function convertDemandToProcess(demandId: string) {
   revalidatePath("/processos");
   return { id: process.id };
 }
+
+export async function addDemandComment(demandId: string, body: string) {
+  const user = await requireStaff();
+  if (!body.trim()) throw new Error("Escreva um comentário.");
+
+  const demand = await prisma.demand.findFirst({ where: { id: demandId, tenantId: user.tenantId } });
+  if (!demand) throw new Error("Demanda não encontrada.");
+
+  await prisma.demandComment.create({ data: { demandId, authorId: user.id, body: body.trim() } });
+
+  revalidatePath(`/demandas/${demandId}`);
+  revalidatePath(`/portal/demandas/${demandId}`);
+}
+
+/** Cliente comentando na própria demanda, pelo Portal. */
+export async function clientAddDemandComment(demandId: string, body: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "CLIENTE" || !user.clientId) throw new Error("Acesso negado.");
+  if (!body.trim()) throw new Error("Escreva um comentário.");
+
+  const demand = await prisma.demand.findFirst({ where: { id: demandId, clientId: user.clientId } });
+  if (!demand) throw new Error("Demanda não encontrada.");
+
+  await prisma.demandComment.create({ data: { demandId, authorId: user.id, body: body.trim() } });
+
+  revalidatePath(`/portal/demandas/${demandId}`);
+  revalidatePath(`/demandas/${demandId}`);
+}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma, prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
+import { provisionInvitedUser } from "@/lib/invite-user";
 import {
   clientSchema,
   clientContactSchema,
@@ -203,4 +204,46 @@ export async function deleteCompany(clientId: string, companyId: string) {
 
   await prisma.company.delete({ where: { id: companyId, clientId } });
   revalidatePath(`/clientes/${clientId}`);
+}
+
+/** Convida o cliente para o Portal — cria um login CLIENTE vinculado a este
+ * registro e gera um link pra ele definir a própria senha. */
+export async function inviteClientToPortal(clientId: string, email: string) {
+  const user = await requireWriteAccess();
+
+  const client = await prisma.client.findFirst({ where: { id: clientId, tenantId: user.tenantId } });
+  if (!client) throw new Error("Cliente não encontrado.");
+
+  const alreadyLinked = await prisma.user.findFirst({ where: { clientId }, select: { id: true } });
+  if (alreadyLinked) throw new Error("Este cliente já tem acesso ao Portal.");
+
+  const existingEmail = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (existingEmail) throw new Error("Já existe um usuário com este e-mail.");
+
+  const role = await prisma.role.findUnique({ where: { name: "CLIENTE" } });
+  if (!role) throw new Error("Papel CLIENTE não configurado.");
+
+  const inviteLink = await provisionInvitedUser({
+    email,
+    name: client.name,
+    tenantId: user.tenantId,
+    roleId: role.id,
+  });
+
+  const newUser = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (newUser) {
+    await prisma.user.update({ where: { id: newUser.id }, data: { clientId } });
+  }
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "client.invite_portal",
+    entityType: "client",
+    entityId: clientId,
+    description: `Acesso ao Portal criado para "${client.name}" (${email}).`,
+  });
+
+  revalidatePath(`/clientes/${clientId}`);
+  return { inviteLink };
 }

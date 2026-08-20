@@ -165,6 +165,7 @@ model User {
   requestedDocuments DocumentRequest[]
   createdInvoices    Invoice[]
   auditLogs          AuditLog[]
+  demandComments     DemandComment[]
 
   @@index([tenantId])
   @@map("users")
@@ -321,6 +322,7 @@ model Demand {
   assignedUser User?                  @relation("DemandAssignee", fields: [assignedUserId], references: [id])
   history      DemandStatusHistory[]
   process      Process?
+  comments     DemandComment[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -341,6 +343,23 @@ model DemandStatusHistory {
 
   @@index([demandId])
   @@map("demand_status_history")
+}
+
+// Comentários visíveis tanto pela equipe quanto pelo cliente dono da demanda —
+// mesma tabela, RLS decide quem enxerga o quê (autor sempre é um public.users,
+// então dá pra saber se foi a equipe ou o próprio cliente que comentou).
+model DemandComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  demandId  String   @map("demand_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  demand Demand @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([demandId])
+  @@map("demand_comments")
 }
 
 // contador atômico por tenant — usado para numerar demandas (e, mais tarde, processos)
