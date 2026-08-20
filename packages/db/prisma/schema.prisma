@@ -46,6 +46,15 @@ enum DemandPriority {
   @@map("demand_priority")
 }
 
+enum TaskStatus {
+  A_FAZER
+  EM_ANDAMENTO
+  BLOQUEADA
+  CONCLUIDA
+
+  @@map("task_status")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -60,6 +69,8 @@ model Tenant {
   tags         Tag[]
   serviceTypes ServiceType[]
   demands      Demand[]
+  processes    Process[]
+  kanbanStages KanbanStage[]
   counters     TenantCounter[]
 
   @@map("tenants")
@@ -109,11 +120,13 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant         Tenant   @relation(fields: [tenantId], references: [id])
-  role           Role     @relation(fields: [roleId], references: [id])
-  client         Client?  @relation(fields: [clientId], references: [id])
-  ownedClients   Client[] @relation("ClientOwner")
-  assignedDemands Demand[] @relation("DemandAssignee")
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  role            Role      @relation(fields: [roleId], references: [id])
+  client          Client?   @relation(fields: [clientId], references: [id])
+  ownedClients    Client[]  @relation("ClientOwner")
+  assignedDemands Demand[]  @relation("DemandAssignee")
+  assignedProcesses Process[] @relation("ProcessAssignee")
+  assignedTasks   Task[]    @relation("TaskAssignee")
 
   @@index([tenantId])
   @@map("users")
@@ -146,6 +159,7 @@ model Client {
   companies Company[]
   tags      ClientTag[]
   demands   Demand[]
+  processes Process[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -190,9 +204,10 @@ model Company {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id])
-  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  demands Demand[]
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  demands   Demand[]
+  processes Process[]
 
   @@unique([tenantId, cnpj])
   @@index([clientId])
@@ -205,8 +220,9 @@ model Tag {
   label    String
   color    String @default("#14528D")
 
-  tenant  Tenant      @relation(fields: [tenantId], references: [id])
-  clients ClientTag[]
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  clients   ClientTag[]
+  processes ProcessTag[]
 
   @@unique([tenantId, label])
   @@map("tags")
@@ -232,8 +248,9 @@ model ServiceType {
   active              Boolean  @default(true)
   createdAt           DateTime @default(now()) @map("created_at")
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id])
-  demands Demand[]
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  demands   Demand[]
+  processes Process[]
 
   @@unique([tenantId, name])
   @@map("service_types")
@@ -261,6 +278,7 @@ model Demand {
   serviceType  ServiceType            @relation(fields: [serviceTypeId], references: [id])
   assignedUser User?                  @relation("DemandAssignee", fields: [assignedUserId], references: [id])
   history      DemandStatusHistory[]
+  process      Process?
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -293,4 +311,121 @@ model TenantCounter {
 
   @@id([tenantId, key])
   @@map("tenant_counters")
+}
+
+model Process {
+  id             String         @id @default(uuid()) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  number         Int
+  demandId       String?        @unique @map("demand_id") @db.Uuid
+  clientId       String         @map("client_id") @db.Uuid
+  companyId      String?        @map("company_id") @db.Uuid
+  serviceTypeId  String         @map("service_type_id") @db.Uuid
+  assignedUserId String?        @map("assigned_user_id") @db.Uuid
+  stageId        String         @map("stage_id") @db.Uuid
+  description    String
+  priority       DemandPriority @default(MEDIA)
+  value          Decimal?       @db.Decimal(12, 2)
+  dueAt          DateTime?      @map("due_at")
+  notes          String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id])
+  demand       Demand?                @relation(fields: [demandId], references: [id])
+  client       Client                 @relation(fields: [clientId], references: [id])
+  company      Company?               @relation(fields: [companyId], references: [id])
+  serviceType  ServiceType            @relation(fields: [serviceTypeId], references: [id])
+  assignedUser User?                  @relation("ProcessAssignee", fields: [assignedUserId], references: [id])
+  stage        KanbanStage            @relation(fields: [stageId], references: [id])
+  stageHistory ProcessStage[]
+  tasks        Task[]
+  checklist    ProcessChecklistItem[]
+  tags         ProcessTag[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([assignedUserId])
+  @@index([stageId])
+  @@map("processes")
+}
+
+// colunas do Kanban de processos — configuráveis por tenant, não um enum fixo,
+// para o time poder criar/renomear/reordenar etapas conforme o fluxo real de trabalho.
+model KanbanStage {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  label     String
+  position  Int
+  color     String   @default("#64748B")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  processes    Process[]
+  movesFrom    ProcessStage[] @relation("StageFrom")
+  movesTo      ProcessStage[] @relation("StageTo")
+
+  @@unique([tenantId, position])
+  @@map("kanban_stages")
+}
+
+model ProcessStage {
+  id          String       @id @default(uuid()) @db.Uuid
+  processId   String       @map("process_id") @db.Uuid
+  fromStageId String?      @map("from_stage_id") @db.Uuid
+  toStageId   String       @map("to_stage_id") @db.Uuid
+  userId      String?      @map("user_id") @db.Uuid
+  changedAt   DateTime     @default(now()) @map("changed_at")
+
+  process   Process     @relation(fields: [processId], references: [id], onDelete: Cascade)
+  fromStage KanbanStage? @relation("StageFrom", fields: [fromStageId], references: [id])
+  toStage   KanbanStage  @relation("StageTo", fields: [toStageId], references: [id])
+
+  @@index([processId])
+  @@map("process_stages")
+}
+
+model Task {
+  id          String         @id @default(uuid()) @db.Uuid
+  processId   String         @map("process_id") @db.Uuid
+  title       String
+  assigneeId  String?        @map("assignee_id") @db.Uuid
+  status      TaskStatus     @default(A_FAZER)
+  priority    DemandPriority @default(MEDIA)
+  dueAt       DateTime?      @map("due_at")
+  completedAt DateTime?      @map("completed_at")
+  notes       String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  process  Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([processId])
+  @@map("tasks")
+}
+
+model ProcessChecklistItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  processId String   @map("process_id") @db.Uuid
+  label     String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@index([processId])
+  @@map("process_checklist_items")
+}
+
+model ProcessTag {
+  processId String @map("process_id") @db.Uuid
+  tagId     String @map("tag_id") @db.Uuid
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([processId, tagId])
+  @@map("process_tags")
 }

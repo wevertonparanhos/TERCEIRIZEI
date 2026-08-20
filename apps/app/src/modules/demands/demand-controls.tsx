@@ -9,6 +9,40 @@ import { STATUS_LABELS } from "@/modules/demands/labels";
 
 type StaffUser = { id: string; name: string };
 
+export function ConvertToProcessButton({
+  demandId,
+  convert,
+}: {
+  demandId: string;
+  convert: (demandId: string) => Promise<{ id: string } | void>;
+}) {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleClick() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await convert(demandId);
+      if (result?.id) router.push(`/processos/${result.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível transformar em processo.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div>
+      <Button onClick={handleClick} disabled={submitting}>
+        {submitting ? "Transformando..." : "Transformar em Processo"}
+      </Button>
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 export function StatusControl({
   demandId,
   currentStatus,

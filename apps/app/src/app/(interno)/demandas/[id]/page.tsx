@@ -4,8 +4,9 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_LABELS, STATUS_BADGE_VARIANT, PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/demands/labels";
-import { StatusControl, AssignControl } from "@/modules/demands/demand-controls";
-import { updateDemandStatus, assignDemand } from "@/modules/demands/actions";
+import { StatusControl, AssignControl, ConvertToProcessButton } from "@/modules/demands/demand-controls";
+import { updateDemandStatus, assignDemand, convertDemandToProcess } from "@/modules/demands/actions";
+import { Button } from "@/components/ui/button";
 
 export default async function DemandaDetalhePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -20,6 +21,7 @@ export default async function DemandaDetalhePage({ params }: { params: { id: str
       serviceType: { select: { name: true } },
       assignedUser: { select: { id: true, name: true } },
       history: { orderBy: { changedAt: "asc" } },
+      process: { select: { id: true } },
     },
   });
 
@@ -77,6 +79,21 @@ export default async function DemandaDetalhePage({ params }: { params: { id: str
         <h2 className="mb-3 text-base font-semibold text-brand-navy">Status</h2>
         <StatusControl demandId={demand.id} currentStatus={demand.status} updateStatus={updateDemandStatus} />
       </div>
+
+      {canManage && (
+        <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <h2 className="mb-3 text-base font-semibold text-brand-navy">Processo</h2>
+          {demand.process ? (
+            <Link href={`/processos/${demand.process.id}`}>
+              <Button variant="outline">Ver processo</Button>
+            </Link>
+          ) : demand.status === "CANCELADA" ? (
+            <p className="text-sm text-slate-400">Demandas canceladas não podem virar processo.</p>
+          ) : (
+            <ConvertToProcessButton demandId={demand.id} convert={convertDemandToProcess} />
+          )}
+        </div>
+      )}
 
       {canManage && (
         <div className="rounded-lg border border-slate-200 bg-white p-6">
