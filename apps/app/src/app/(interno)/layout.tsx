@@ -11,8 +11,9 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/clientes", label: "Clientes" },
+  { href: "/dashboard", label: "Dashboard", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
+  { href: "/clientes", label: "Clientes", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
+  { href: "/demandas", label: "Demandas", roles: ["ADMIN", "GESTOR", "OPERACIONAL"] },
 ];
 
 export default async function InternoLayout({ children }: { children: React.ReactNode }) {
@@ -20,6 +21,8 @@ export default async function InternoLayout({ children }: { children: React.Reac
 
   if (!user) redirect("/login");
   if (user.role === "CLIENTE") redirect("/");
+
+  const navItems = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -30,7 +33,7 @@ export default async function InternoLayout({ children }: { children: React.Reac
           </span>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

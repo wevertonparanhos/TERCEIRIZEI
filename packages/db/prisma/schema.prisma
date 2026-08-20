@@ -25,6 +25,27 @@ enum ClientType {
   @@map("client_type")
 }
 
+enum DemandStatus {
+  NOVA
+  EM_ANALISE
+  AGUARDANDO_CLIENTE
+  EM_EXECUCAO
+  EM_REVISAO
+  CONCLUIDA
+  CANCELADA
+
+  @@map("demand_status")
+}
+
+enum DemandPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+
+  @@map("demand_priority")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -33,10 +54,13 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users     User[]
-  clients   Client[]
-  companies Company[]
-  tags      Tag[]
+  users        User[]
+  clients      Client[]
+  companies    Company[]
+  tags         Tag[]
+  serviceTypes ServiceType[]
+  demands      Demand[]
+  counters     TenantCounter[]
 
   @@map("tenants")
 }
@@ -85,10 +109,11 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant       Tenant  @relation(fields: [tenantId], references: [id])
-  role         Role    @relation(fields: [roleId], references: [id])
-  client       Client? @relation(fields: [clientId], references: [id])
-  ownedClients Client[] @relation("ClientOwner")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  role           Role     @relation(fields: [roleId], references: [id])
+  client         Client?  @relation(fields: [clientId], references: [id])
+  ownedClients   Client[] @relation("ClientOwner")
+  assignedDemands Demand[] @relation("DemandAssignee")
 
   @@index([tenantId])
   @@map("users")
@@ -120,6 +145,7 @@ model Client {
   contacts  ClientContact[]
   companies Company[]
   tags      ClientTag[]
+  demands   Demand[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -164,8 +190,9 @@ model Company {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  demands Demand[]
 
   @@unique([tenantId, cnpj])
   @@index([clientId])
@@ -194,4 +221,76 @@ model ClientTag {
 
   @@id([clientId, tagId])
   @@map("client_tags")
+}
+
+model ServiceType {
+  id                  String   @id @default(uuid()) @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  name                String
+  defaultPrice        Decimal? @map("default_price") @db.Decimal(12, 2)
+  defaultDeadlineDays Int?     @map("default_deadline_days")
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  demands Demand[]
+
+  @@unique([tenantId, name])
+  @@map("service_types")
+}
+
+model Demand {
+  id                String         @id @default(uuid()) @db.Uuid
+  tenantId          String         @map("tenant_id") @db.Uuid
+  number            Int
+  clientId          String         @map("client_id") @db.Uuid
+  companyId         String?        @map("company_id") @db.Uuid
+  serviceTypeId     String         @map("service_type_id") @db.Uuid
+  assignedUserId    String?        @map("assigned_user_id") @db.Uuid
+  description       String
+  priority          DemandPriority @default(MEDIA)
+  status            DemandStatus   @default(NOVA)
+  requestedDeadline DateTime?      @map("requested_deadline")
+  notes             String?
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id])
+  client       Client                 @relation(fields: [clientId], references: [id])
+  company      Company?               @relation(fields: [companyId], references: [id])
+  serviceType  ServiceType            @relation(fields: [serviceTypeId], references: [id])
+  assignedUser User?                  @relation("DemandAssignee", fields: [assignedUserId], references: [id])
+  history      DemandStatusHistory[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([assignedUserId])
+  @@map("demands")
+}
+
+model DemandStatusHistory {
+  id         String        @id @default(uuid()) @db.Uuid
+  demandId   String        @map("demand_id") @db.Uuid
+  fromStatus DemandStatus? @map("from_status")
+  toStatus   DemandStatus  @map("to_status")
+  userId     String?       @map("user_id") @db.Uuid
+  changedAt  DateTime      @default(now()) @map("changed_at")
+
+  demand Demand @relation(fields: [demandId], references: [id], onDelete: Cascade)
+
+  @@index([demandId])
+  @@map("demand_status_history")
+}
+
+// contador atômico por tenant — usado para numerar demandas (e, mais tarde, processos)
+model TenantCounter {
+  tenantId String @map("tenant_id") @db.Uuid
+  key      String
+  value    Int    @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, key])
+  @@map("tenant_counters")
 }
