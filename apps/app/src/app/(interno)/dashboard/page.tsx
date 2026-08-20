@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { displayStatus as invoiceDisplayStatus } from "@/modules/invoices/labels";
+import { isDemandStale } from "@/modules/demands/labels";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -30,6 +31,20 @@ function KpiCard({ href, value, label }: { href?: string; value: string | number
   return <div className="rounded-lg border border-slate-200 bg-white p-5">{content}</div>;
 }
 
+function AttentionCard({ href, value, label }: { href: string; value: number; label: string }) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-lg border p-5 hover:shadow-sm ${
+        value > 0 ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"
+      }`}
+    >
+      <p className={`text-2xl font-bold ${value > 0 ? "text-red-600" : "text-brand-navy"}`}>{value}</p>
+      <p className="text-sm text-slate-500">{label}</p>
+    </Link>
+  );
+}
+
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -39,28 +54,45 @@ export default async function DashboardPage() {
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   if (user.role === "OPERACIONAL") {
-    const [myOpenDemands, myOpenTasks, myActiveProcesses, myDeadlines] = await Promise.all([
-      prisma.demand.count({
-        where: { tenantId: user.tenantId, assignedUserId: user.id, status: { notIn: ["CONCLUIDA", "CANCELADA"] } },
-      }),
-      prisma.task.count({
-        where: { assigneeId: user.id, status: { not: "CONCLUIDA" }, process: { tenantId: user.tenantId } },
-      }),
-      prisma.process.count({
-        where: { tenantId: user.tenantId, assignedUserId: user.id, stage: { label: ACTIVE_STAGE_FILTER } },
-      }),
-      prisma.process.findMany({
-        where: {
-          tenantId: user.tenantId,
-          assignedUserId: user.id,
-          dueAt: { gte: now, lte: in7Days },
-          stage: { label: ACTIVE_STAGE_FILTER },
-        },
-        orderBy: { dueAt: "asc" },
-        take: 5,
-        include: { client: { select: { name: true } } },
-      }),
-    ]);
+    const [myOpenDemands, myOpenTasks, myActiveProcesses, myDeadlines, myOverdueProcesses, myOpenDemandsForStale] =
+      await Promise.all([
+        prisma.demand.count({
+          where: { tenantId: user.tenantId, assignedUserId: user.id, status: { notIn: ["CONCLUIDA", "CANCELADA"] } },
+        }),
+        prisma.task.count({
+          where: { assigneeId: user.id, status: { not: "CONCLUIDA" }, process: { tenantId: user.tenantId } },
+        }),
+        prisma.process.count({
+          where: { tenantId: user.tenantId, assignedUserId: user.id, stage: { label: ACTIVE_STAGE_FILTER } },
+        }),
+        prisma.process.findMany({
+          where: {
+            tenantId: user.tenantId,
+            assignedUserId: user.id,
+            dueAt: { gte: now, lte: in7Days },
+            stage: { label: ACTIVE_STAGE_FILTER },
+          },
+          orderBy: { dueAt: "asc" },
+          take: 5,
+          include: { client: { select: { name: true } } },
+        }),
+        prisma.process.count({
+          where: {
+            tenantId: user.tenantId,
+            assignedUserId: user.id,
+            dueAt: { lt: now },
+            stage: { label: ACTIVE_STAGE_FILTER },
+          },
+        }),
+        prisma.demand.findMany({
+          where: { tenantId: user.tenantId, assignedUserId: user.id, status: { notIn: ["CONCLUIDA", "CANCELADA"] } },
+          select: { status: true, history: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } } },
+        }),
+      ]);
+
+    const myStaleDemands = myOpenDemandsForStale.filter(
+      (d) => d.history[0] && isDemandStale(d.status, d.history[0].changedAt)
+    ).length;
 
     return (
       <div className="p-8">
@@ -73,6 +105,12 @@ export default async function DashboardPage() {
           <KpiCard value={myOpenTasks} label="Tarefas pendentes" />
         </div>
 
+        <h2 className="mt-6 text-base font-semibold text-brand-navy">Atenção</h2>
+        <div className="mt-3 grid grid-cols-2 gap-4">
+          <AttentionCard href="/processos" value={myOverdueProcesses} label="Meus processos com prazo vencido" />
+          <AttentionCard href="/demandas" value={myStaleDemands} label="Minhas demandas sem mudança de status há 5+ dias" />
+        </div>
+
         <DeadlinesList title="Meus prazos nos próximos 7 dias" deadlines={myDeadlines} />
       </div>
     );
@@ -81,39 +119,63 @@ export default async function DashboardPage() {
   const canSeeDemands = user.role === "ADMIN" || user.role === "GESTOR";
   const canSeeFinance = user.role === "ADMIN" || user.role === "GESTOR" || user.role === "FINANCEIRO";
 
-  const [openDemands, activeProcesses, activeClients, newClientsThisMonth, stages, deadlines, pendingInvoices, paidThisMonth] =
-    await Promise.all([
-      canSeeDemands
-        ? prisma.demand.count({ where: { tenantId: user.tenantId, status: { notIn: ["CONCLUIDA", "CANCELADA"] } } })
-        : Promise.resolve(0),
-      prisma.process.count({ where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } } }),
-      prisma.client.count({ where: { tenantId: user.tenantId, status: "ativo" } }),
-      prisma.client.count({ where: { tenantId: user.tenantId, createdAt: { gte: startOfMonth } } }),
-      prisma.kanbanStage.findMany({
-        where: { tenantId: user.tenantId },
-        orderBy: { position: "asc" },
-        include: { _count: { select: { processes: true } } },
-      }),
-      prisma.process.findMany({
-        where: { tenantId: user.tenantId, dueAt: { gte: now, lte: in7Days }, stage: { label: ACTIVE_STAGE_FILTER } },
-        orderBy: { dueAt: "asc" },
-        take: 5,
-        include: { client: { select: { name: true } } },
-      }),
-      canSeeFinance
-        ? prisma.invoice.findMany({ where: { tenantId: user.tenantId, status: "PENDENTE" } })
-        : Promise.resolve([]),
-      canSeeFinance
-        ? prisma.invoice.aggregate({
-            where: { tenantId: user.tenantId, status: "PAGA", paidAt: { gte: startOfMonth } },
-            _sum: { totalAmount: true },
-          })
-        : Promise.resolve({ _sum: { totalAmount: null } }),
-    ]);
+  const [
+    openDemands,
+    activeProcesses,
+    activeClients,
+    newClientsThisMonth,
+    stages,
+    deadlines,
+    pendingInvoices,
+    paidThisMonth,
+    overdueProcesses,
+    openDemandsForStale,
+  ] = await Promise.all([
+    canSeeDemands
+      ? prisma.demand.count({ where: { tenantId: user.tenantId, status: { notIn: ["CONCLUIDA", "CANCELADA"] } } })
+      : Promise.resolve(0),
+    prisma.process.count({ where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } } }),
+    prisma.client.count({ where: { tenantId: user.tenantId, status: "ativo" } }),
+    prisma.client.count({ where: { tenantId: user.tenantId, createdAt: { gte: startOfMonth } } }),
+    prisma.kanbanStage.findMany({
+      where: { tenantId: user.tenantId },
+      orderBy: { position: "asc" },
+      include: { _count: { select: { processes: true } } },
+    }),
+    prisma.process.findMany({
+      where: { tenantId: user.tenantId, dueAt: { gte: now, lte: in7Days }, stage: { label: ACTIVE_STAGE_FILTER } },
+      orderBy: { dueAt: "asc" },
+      take: 5,
+      include: { client: { select: { name: true } } },
+    }),
+    canSeeFinance
+      ? prisma.invoice.findMany({ where: { tenantId: user.tenantId, status: "PENDENTE" } })
+      : Promise.resolve([]),
+    canSeeFinance
+      ? prisma.invoice.aggregate({
+          where: { tenantId: user.tenantId, status: "PAGA", paidAt: { gte: startOfMonth } },
+          _sum: { totalAmount: true },
+        })
+      : Promise.resolve({ _sum: { totalAmount: null } }),
+    prisma.process.count({
+      where: { tenantId: user.tenantId, dueAt: { lt: now }, stage: { label: ACTIVE_STAGE_FILTER } },
+    }),
+    canSeeDemands
+      ? prisma.demand.findMany({
+          where: { tenantId: user.tenantId, status: { notIn: ["CONCLUIDA", "CANCELADA"] } },
+          select: { status: true, history: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const pendingTotal = pendingInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
-  const overdueCount = pendingInvoices.filter((i) => invoiceDisplayStatus(i.status, i.dueDate) === "ATRASADA").length;
+  const overdueInvoicesCount = pendingInvoices.filter(
+    (i) => invoiceDisplayStatus(i.status, i.dueDate) === "ATRASADA"
+  ).length;
   const maxStageCount = Math.max(1, ...stages.map((s) => s._count.processes));
+  const staleDemandsCount = openDemandsForStale.filter(
+    (d) => d.history[0] && isDemandStale(d.status, d.history[0].changedAt)
+  ).length;
 
   return (
     <div className="p-8">
@@ -123,6 +185,14 @@ export default async function DashboardPage() {
         {canSeeDemands && <KpiCard href="/demandas" value={openDemands} label="Demandas abertas" />}
         <KpiCard href="/processos" value={activeProcesses} label="Processos ativos" />
         <KpiCard href="/clientes" value={activeClients} label={`Clientes ativos (${newClientsThisMonth} novos este mês)`} />
+      </div>
+
+      <h2 className="mt-6 text-base font-semibold text-brand-navy">Atenção</h2>
+      <div className={`mt-3 grid gap-4 ${canSeeDemands ? "grid-cols-2" : "grid-cols-1"}`}>
+        <AttentionCard href="/processos" value={overdueProcesses} label="Processos com prazo vencido" />
+        {canSeeDemands && (
+          <AttentionCard href="/demandas" value={staleDemandsCount} label="Demandas sem mudança de status há 5+ dias" />
+        )}
       </div>
 
       {stages.length > 0 && (
@@ -166,7 +236,7 @@ export default async function DashboardPage() {
               <p className="text-sm text-slate-500">{pendingInvoices.length} fatura(s) pendente(s)</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-red-600">{overdueCount}</p>
+              <p className="text-xl font-bold text-red-600">{overdueInvoicesCount}</p>
               <p className="text-sm text-slate-500">fatura(s) atrasada(s)</p>
             </div>
             <div>

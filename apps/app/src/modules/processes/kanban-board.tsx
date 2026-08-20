@@ -18,6 +18,7 @@ export type KanbanCard = {
   stageId: string;
   assignedUserName: string | null;
   dueAt: string | null;
+  isOverdue: boolean;
 };
 
 function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean }) {
@@ -33,9 +34,14 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
       </div>
       <p className="mt-1 text-sm font-medium text-brand-navy">{card.clientName}</p>
       <p className="text-xs text-slate-500">{card.serviceTypeName}</p>
-      <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-        <span>{card.assignedUserName ?? "Sem responsável"}</span>
-        {card.dueAt && <span>{new Date(card.dueAt).toLocaleDateString("pt-BR")}</span>}
+      <div className="mt-2 flex items-center justify-between text-xs">
+        <span className="text-slate-400">{card.assignedUserName ?? "Sem responsável"}</span>
+        {card.dueAt && (
+          <span className={card.isOverdue ? "font-medium text-red-600" : "text-slate-400"}>
+            {new Date(card.dueAt).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+            {card.isOverdue && " · atrasado"}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,13 @@ import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { STATUS_LABELS, STATUS_BADGE_VARIANT, PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/demands/labels";
+import {
+  STATUS_LABELS,
+  STATUS_BADGE_VARIANT,
+  PRIORITY_LABELS,
+  PRIORITY_BADGE_VARIANT,
+  isDemandStale,
+} from "@/modules/demands/labels";
 import { DEMAND_STATUSES, DEMAND_PRIORITIES } from "@/lib/validations/demand";
 
 export default async function DemandasPage({
@@ -30,6 +36,7 @@ export default async function DemandasPage({
       client: { select: { name: true } },
       serviceType: { select: { name: true } },
       assignedUser: { select: { name: true } },
+      history: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
     },
     orderBy: { number: "desc" },
   });
@@ -104,7 +111,12 @@ export default async function DemandasPage({
                 </td>
                 <td className="px-4 py-3 text-slate-600">{demand.assignedUser?.name ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <Badge variant={STATUS_BADGE_VARIANT[demand.status]}>{STATUS_LABELS[demand.status]}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={STATUS_BADGE_VARIANT[demand.status]}>{STATUS_LABELS[demand.status]}</Badge>
+                    {demand.history[0] && isDemandStale(demand.status, demand.history[0].changedAt) && (
+                      <Badge variant="danger">Sem movimentação</Badge>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

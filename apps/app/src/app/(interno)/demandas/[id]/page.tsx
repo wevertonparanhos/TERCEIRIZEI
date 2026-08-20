@@ -3,7 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
-import { STATUS_LABELS, STATUS_BADGE_VARIANT, PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/demands/labels";
+import {
+  STATUS_LABELS,
+  STATUS_BADGE_VARIANT,
+  PRIORITY_LABELS,
+  PRIORITY_BADGE_VARIANT,
+  isDemandStale,
+} from "@/modules/demands/labels";
 import { StatusControl, AssignControl, ConvertToProcessButton } from "@/modules/demands/demand-controls";
 import { updateDemandStatus, assignDemand, convertDemandToProcess } from "@/modules/demands/actions";
 import { Button } from "@/components/ui/button";
@@ -42,6 +48,8 @@ export default async function DemandaDetalhePage({ params }: { params: { id: str
     }),
   ]);
   const userNameById = new Map(historyUsers.map((u) => [u.id, u.name]));
+  const lastStatusChangeAt = demand.history[demand.history.length - 1]?.changedAt;
+  const stale = lastStatusChangeAt ? isDemandStale(demand.status, lastStatusChangeAt) : false;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-8">
@@ -55,6 +63,7 @@ export default async function DemandaDetalhePage({ params }: { params: { id: str
           </h1>
           <Badge variant={STATUS_BADGE_VARIANT[demand.status]}>{STATUS_LABELS[demand.status]}</Badge>
           <Badge variant={PRIORITY_BADGE_VARIANT[demand.priority]}>{PRIORITY_LABELS[demand.priority]}</Badge>
+          {stale && <Badge variant="danger">Sem movimentação</Badge>}
         </div>
         <p className="text-sm text-slate-500">
           {demand.serviceType.name}

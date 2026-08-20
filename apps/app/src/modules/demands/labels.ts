@@ -31,3 +31,13 @@ export const PRIORITY_BADGE_VARIANT: Record<string, "neutral" | "success" | "war
   ALTA: "warning",
   URGENTE: "warning",
 };
+
+/** Dias sem mudança de status para uma demanda ser considerada "parada". */
+export const STALE_DEMAND_DAYS = 5;
+
+/** true quando a demanda está aberta e não muda de status há mais de STALE_DEMAND_DAYS dias. */
+export function isDemandStale(status: string, lastStatusChangeAt: Date): boolean {
+  if (status === "CONCLUIDA" || status === "CANCELADA") return false;
+  const daysSince = (Date.now() - lastStatusChangeAt.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSince > STALE_DEMAND_DAYS;
+}

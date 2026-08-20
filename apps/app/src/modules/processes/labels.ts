@@ -18,3 +18,12 @@ export const TASK_STATUS_LABELS: Record<string, string> = {
   BLOQUEADA: "Bloqueada",
   CONCLUIDA: "Concluída",
 };
+
+const TERMINAL_STAGE_LABELS = ["Concluído", "Cancelado"];
+
+/** true quando o processo tem prazo vencido e ainda não está numa etapa terminal. */
+export function isProcessOverdue(dueAt: Date | null, stageLabel: string): boolean {
+  if (!dueAt) return false;
+  if (TERMINAL_STAGE_LABELS.includes(stageLabel)) return false;
+  return dueAt.getTime() < Date.now();
+}
