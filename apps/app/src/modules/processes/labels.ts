@@ -46,3 +46,11 @@ export function addDays(base: Date, days: number): Date {
   result.setUTCDate(result.getUTCDate() + days);
   return result;
 }
+
+/** true quando existe comentário do cliente mais recente que a última vez que esse
+ * membro da equipe visualizou o processo (ou nunca visualizou). */
+export function hasUnreadClientComment(lastClientCommentAt: Date | null, lastReadAt: Date | null): boolean {
+  if (!lastClientCommentAt) return false;
+  if (!lastReadAt) return true;
+  return lastClientCommentAt.getTime() > lastReadAt.getTime();
+}

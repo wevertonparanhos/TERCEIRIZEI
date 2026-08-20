@@ -3,7 +3,11 @@
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export function ProcessTabs({ tabs }: { tabs: { key: string; label: string; content: ReactNode }[] }) {
+export function ProcessTabs({
+  tabs,
+}: {
+  tabs: { key: string; label: string; content: ReactNode; badge?: boolean }[];
+}) {
   const [active, setActive] = useState(tabs[0].key);
   const activeTab = tabs.find((t) => t.key === active) ?? tabs[0];
 
@@ -16,13 +20,14 @@ export function ProcessTabs({ tabs }: { tabs: { key: string; label: string; cont
             type="button"
             onClick={() => setActive(tab.key)}
             className={cn(
-              "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors",
               tab.key === active
                 ? "border-brand-navy text-brand-navy"
                 : "border-transparent text-slate-500 hover:text-brand-navy"
             )}
           >
             {tab.label}
+            {tab.badge && <span className="h-1.5 w-1.5 flex-none rounded-full bg-brand-blue" />}
           </button>
         ))}
       </div>

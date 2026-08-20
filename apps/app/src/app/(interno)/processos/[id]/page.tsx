@@ -4,12 +4,13 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/processes/labels";
+import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, hasUnreadClientComment } from "@/modules/processes/labels";
 import { ProcessTabs } from "@/modules/processes/process-tabs";
 import { ProcessForm } from "@/modules/processes/process-form";
 import { TaskList } from "@/modules/processes/task-list";
 import { Checklist } from "@/modules/processes/checklist";
 import { ProcessComments } from "@/modules/processes/process-comments";
+import { MarkCommentsRead } from "@/modules/processes/mark-comments-read";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
@@ -21,6 +22,7 @@ import {
   toggleChecklistItem,
   deleteChecklistItem,
   addProcessComment,
+  markCommentsRead,
 } from "@/modules/processes/actions";
 import {
   uploadNewDocument,
@@ -58,6 +60,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
         orderBy: { createdAt: "asc" },
         include: { author: { select: { name: true, role: { select: { name: true } } } } },
       },
+      commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
     },
   });
 
@@ -65,6 +68,14 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
   if (user.role === "OPERACIONAL" && process.assignedUserId !== user.id) redirect("/processos");
 
   const canWrite = user.role === "ADMIN" || user.role === "GESTOR" || (user.role === "OPERACIONAL" && process.assignedUserId === user.id);
+
+  const lastClientCommentAt = [...process.comments]
+    .reverse()
+    .find((c) => c.author.role.name === "CLIENTE")?.createdAt;
+  const hasUnreadComment = hasUnreadClientComment(
+    lastClientCommentAt ?? null,
+    process.commentReads[0]?.lastReadAt ?? null
+  );
 
   const [staff, stageUsers] = await Promise.all([
     prisma.user.findMany({
@@ -81,6 +92,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-8">
+      <MarkCommentsRead processId={process.id} markCommentsRead={markCommentsRead} />
       <div className="flex items-start justify-between">
         <div>
           <Link href="/processos" className="text-sm text-brand-blue hover:underline">
@@ -142,6 +154,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "comentarios",
               label: "Comentários",
+              badge: hasUnreadComment,
               content: (
                 <ProcessComments
                   processId={process.id}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isProcessOverdue, isProcessStale, STALE_PROCESS_DAYS, addDays } from "./labels";
+import { isProcessOverdue, isProcessStale, STALE_PROCESS_DAYS, addDays, hasUnreadClientComment } from "./labels";
 
 function daysFromNow(days: number): Date {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -64,5 +64,28 @@ describe("addDays", () => {
     const base = new Date("2026-08-20T00:00:00Z");
     const result = addDays(base, 0);
     expect(result.getTime()).toBe(base.getTime());
+  });
+});
+
+describe("hasUnreadClientComment", () => {
+  it("é false quando não há comentário do cliente", () => {
+    expect(hasUnreadClientComment(null, new Date("2026-08-01"))).toBe(false);
+  });
+
+  it("é true quando nunca foi lido e existe comentário do cliente", () => {
+    expect(hasUnreadClientComment(new Date("2026-08-20"), null)).toBe(true);
+  });
+
+  it("é true quando o comentário é mais recente que a última leitura", () => {
+    expect(hasUnreadClientComment(new Date("2026-08-20"), new Date("2026-08-19"))).toBe(true);
+  });
+
+  it("é false quando a última leitura é mais recente que o comentário", () => {
+    expect(hasUnreadClientComment(new Date("2026-08-19"), new Date("2026-08-20"))).toBe(false);
+  });
+
+  it("é false quando lido exatamente no mesmo instante do comentário", () => {
+    const t = new Date("2026-08-20T10:00:00Z");
+    expect(hasUnreadClientComment(t, t)).toBe(false);
   });
 });

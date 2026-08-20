@@ -4,7 +4,7 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard, type KanbanCard, type Stage } from "@/modules/processes/kanban-board";
-import { isProcessOverdue } from "@/modules/processes/labels";
+import { isProcessOverdue, hasUnreadClientComment } from "@/modules/processes/labels";
 import { updateProcessStage } from "@/modules/processes/actions";
 
 export default async function ProcessosPage() {
@@ -26,6 +26,13 @@ export default async function ProcessosPage() {
         serviceType: { select: { name: true } },
         assignedUser: { select: { name: true } },
         stage: { select: { label: true } },
+        comments: {
+          where: { author: { role: { name: "CLIENTE" } } },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true },
+        },
+        commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
       },
       orderBy: { number: "desc" },
     }),
@@ -42,6 +49,7 @@ export default async function ProcessosPage() {
     assignedUserName: p.assignedUser?.name ?? null,
     dueAt: p.dueAt ? p.dueAt.toISOString() : null,
     isOverdue: isProcessOverdue(p.dueAt, p.stage.label),
+    hasUnreadComment: hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null),
   }));
 
   const canDrag = user.role !== "FINANCEIRO";

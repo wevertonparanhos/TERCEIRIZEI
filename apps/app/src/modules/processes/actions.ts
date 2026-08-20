@@ -418,3 +418,19 @@ export async function clientAddProcessComment(processId: string, body: string) {
   revalidatePath(`/portal/processos/${processId}`);
   revalidatePath(`/processos/${processId}`);
 }
+
+/** Chamado ao abrir a tela do processo — marca os comentários como vistos por
+ * esse membro da equipe, pra não continuar aparecendo como "não lido". */
+export async function markCommentsRead(processId: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role === "CLIENTE") return;
+
+  const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
+  if (!process) return;
+
+  await prisma.processCommentRead.upsert({
+    where: { processId_userId: { processId, userId: user.id } },
+    create: { processId, userId: user.id, lastReadAt: new Date() },
+    update: { lastReadAt: new Date() },
+  });
+}

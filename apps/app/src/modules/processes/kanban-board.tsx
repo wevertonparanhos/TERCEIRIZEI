@@ -19,6 +19,7 @@ export type KanbanCard = {
   assignedUserName: string | null;
   dueAt: string | null;
   isOverdue: boolean;
+  hasUnreadComment: boolean;
 };
 
 function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean }) {
@@ -29,7 +30,15 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="font-mono text-xs text-slate-400">#{card.number}</span>
+        <span className="flex items-center gap-1.5 font-mono text-xs text-slate-400">
+          #{card.number}
+          {card.hasUnreadComment && (
+            <span
+              title="Comentário do cliente não lido"
+              className="h-2 w-2 flex-none rounded-full bg-brand-blue"
+            />
+          )}
+        </span>
         <Badge variant={PRIORITY_BADGE_VARIANT[card.priority]}>{PRIORITY_LABELS[card.priority]}</Badge>
       </div>
       <p className="mt-1 text-sm font-medium text-brand-navy">{card.clientName}</p>

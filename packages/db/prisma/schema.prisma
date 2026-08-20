@@ -154,6 +154,7 @@ model User {
   createdInvoices    Invoice[]
   auditLogs          AuditLog[]
   processComments    ProcessComment[]
+  commentReads       ProcessCommentRead[]
 
   @@index([tenantId])
   @@map("users")
@@ -320,6 +321,20 @@ model ProcessComment {
   @@map("process_comments")
 }
 
+// Marca até quando cada membro da equipe já viu os comentários de um processo —
+// usado só pra calcular "comentário do cliente não lido", não guarda o comentário em si.
+model ProcessCommentRead {
+  processId  String   @map("process_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  lastReadAt DateTime @map("last_read_at")
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([processId, userId])
+  @@map("process_comment_reads")
+}
+
 // contador atômico por tenant — usado para numerar demandas (e, mais tarde, processos)
 model TenantCounter {
   tenantId String @map("tenant_id") @db.Uuid
@@ -364,6 +379,7 @@ model Process {
   documentRequests DocumentRequest[]
   invoiceItems InvoiceItem[]
   comments     ProcessComment[]
+  commentReads ProcessCommentRead[]
 
   @@unique([tenantId, number])
   @@index([tenantId])

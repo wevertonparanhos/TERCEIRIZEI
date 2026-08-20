@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { displayStatus as invoiceDisplayStatus } from "@/modules/invoices/labels";
-import { isProcessStale } from "@/modules/processes/labels";
+import { isProcessStale, hasUnreadClientComment } from "@/modules/processes/labels";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -54,7 +54,8 @@ export default async function DashboardPage() {
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   if (user.role === "OPERACIONAL") {
-    const [myOpenTasks, myActiveProcesses, myDeadlines, myOverdueProcesses, myProcessesForStale] = await Promise.all([
+    const [myOpenTasks, myActiveProcesses, myDeadlines, myOverdueProcesses, myProcessesForStale, myProcessesForUnread] =
+      await Promise.all([
       prisma.task.count({
         where: { assigneeId: user.id, status: { not: "CONCLUIDA" }, process: { tenantId: user.tenantId } },
       }),
@@ -87,10 +88,25 @@ export default async function DashboardPage() {
           stageHistory: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
         },
       }),
+      prisma.process.findMany({
+        where: { tenantId: user.tenantId, assignedUserId: user.id, stage: { label: ACTIVE_STAGE_FILTER } },
+        select: {
+          comments: {
+            where: { author: { role: { name: "CLIENTE" } } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { createdAt: true },
+          },
+          commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
+        },
+      }),
     ]);
 
     const myStaleProcesses = myProcessesForStale.filter(
       (p) => p.stageHistory[0] && isProcessStale(p.stage.label, p.stageHistory[0].changedAt)
+    ).length;
+    const myUnreadComments = myProcessesForUnread.filter((p) =>
+      hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null)
     ).length;
 
     return (
@@ -104,9 +120,10 @@ export default async function DashboardPage() {
         </div>
 
         <h2 className="mt-6 text-base font-semibold text-brand-navy">Atenção</h2>
-        <div className="mt-3 grid grid-cols-2 gap-4">
+        <div className="mt-3 grid grid-cols-3 gap-4">
           <AttentionCard href="/processos" value={myOverdueProcesses} label="Meus processos com prazo vencido" />
           <AttentionCard href="/processos" value={myStaleProcesses} label="Meus processos sem mudança de etapa há 5+ dias" />
+          <AttentionCard href="/processos" value={myUnreadComments} label="Comentários do cliente não lidos" />
         </div>
 
         <DeadlinesList title="Meus prazos nos próximos 7 dias" deadlines={myDeadlines} />
@@ -116,8 +133,18 @@ export default async function DashboardPage() {
 
   const canSeeFinance = user.role === "ADMIN" || user.role === "GESTOR" || user.role === "FINANCEIRO";
 
-  const [activeProcesses, activeClients, newClientsThisMonth, stages, deadlines, pendingInvoices, paidThisMonth, overdueProcesses, processesForStale] =
-    await Promise.all([
+  const [
+    activeProcesses,
+    activeClients,
+    newClientsThisMonth,
+    stages,
+    deadlines,
+    pendingInvoices,
+    paidThisMonth,
+    overdueProcesses,
+    processesForStale,
+    processesForUnread,
+  ] = await Promise.all([
       prisma.process.count({ where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } } }),
       prisma.client.count({ where: { tenantId: user.tenantId, status: "ativo" } }),
       prisma.client.count({ where: { tenantId: user.tenantId, createdAt: { gte: startOfMonth } } }),
@@ -151,6 +178,18 @@ export default async function DashboardPage() {
           stageHistory: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
         },
       }),
+      prisma.process.findMany({
+        where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } },
+        select: {
+          comments: {
+            where: { author: { role: { name: "CLIENTE" } } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { createdAt: true },
+          },
+          commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
+        },
+      }),
     ]);
 
   const pendingTotal = pendingInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
@@ -158,6 +197,9 @@ export default async function DashboardPage() {
   const overdueInvoicesCount = overdueInvoices.length;
   const overdueTotal = overdueInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
   const upcomingCount = pendingInvoices.length - overdueInvoicesCount;
+  const unreadCommentsCount = processesForUnread.filter((p) =>
+    hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null)
+  ).length;
   const upcomingTotal = pendingTotal - overdueTotal;
   const maxStageCount = Math.max(1, ...stages.map((s) => s._count.processes));
   const staleProcessesCount = processesForStale.filter(
@@ -174,9 +216,10 @@ export default async function DashboardPage() {
       </div>
 
       <h2 className="mt-6 text-base font-semibold text-brand-navy">Atenção</h2>
-      <div className="mt-3 grid grid-cols-2 gap-4">
+      <div className="mt-3 grid grid-cols-3 gap-4">
         <AttentionCard href="/processos" value={overdueProcesses} label="Processos com prazo vencido" />
         <AttentionCard href="/processos" value={staleProcessesCount} label="Processos sem mudança de etapa há 5+ dias" />
+        <AttentionCard href="/processos" value={unreadCommentsCount} label="Comentários do cliente não lidos" />
       </div>
 
       {stages.length > 0 && (
