@@ -4,7 +4,17 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
-import { processSchema, taskSchema, TASK_STATUSES, type ProcessInput, type TaskInput } from "@/lib/validations/process";
+import {
+  processSchema,
+  taskSchema,
+  createProcessSchema,
+  clientCreateProcessSchema,
+  TASK_STATUSES,
+  type ProcessInput,
+  type TaskInput,
+  type CreateProcessInput,
+  type ClientCreateProcessInput,
+} from "@/lib/validations/process";
 
 type TaskStatusValue = (typeof TASK_STATUSES)[number];
 
@@ -34,6 +44,113 @@ async function loadProcessForWrite(processId: string, user: CurrentUser) {
   }
   if (user.role === "FINANCEIRO") throw new Error("Financeiro tem acesso somente leitura a processos.");
   return process;
+}
+
+async function nextProcessNumber(tenantId: string): Promise<number> {
+  const rows = await prisma.$queryRaw<{ value: number }[]>`
+    insert into tenant_counters (tenant_id, key, value)
+    values (${tenantId}::uuid, 'process', 1)
+    on conflict (tenant_id, key) do update set value = tenant_counters.value + 1
+    returning value
+  `;
+  return rows[0].value;
+}
+
+/** Abre um processo direto — antes existia um passo intermediário de
+ * "demanda", removido na fusão Demanda/Processo. Já nasce na primeira etapa
+ * do Kanban do tenant. */
+export async function createProcess(input: CreateProcessInput) {
+  const user = await requireManageAccess();
+  const data = createProcessSchema.parse(input);
+
+  const client = await prisma.client.findFirst({
+    where: { id: data.clientId, tenantId: user.tenantId },
+    select: { id: true },
+  });
+  if (!client) throw new Error("Cliente não encontrado.");
+
+  const firstStage = await prisma.kanbanStage.findFirst({
+    where: { tenantId: user.tenantId },
+    orderBy: { position: "asc" },
+  });
+  if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para este tenant.");
+
+  const number = await nextProcessNumber(user.tenantId);
+
+  const process = await prisma.process.create({
+    data: {
+      tenantId: user.tenantId,
+      number,
+      clientId: data.clientId,
+      companyId: data.companyId || null,
+      serviceTypeId: data.serviceTypeId,
+      stageId: firstStage.id,
+      description: data.description,
+      priority: data.priority,
+      requestedDeadline: data.requestedDeadline ? new Date(data.requestedDeadline) : null,
+      notes: data.notes || null,
+    },
+  });
+
+  await prisma.processStage.create({
+    data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: user.id },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.create",
+    entityType: "process",
+    entityId: process.id,
+    description: `Processo #${process.number} aberto.`,
+  });
+
+  revalidatePath("/processos");
+  return { id: process.id };
+}
+
+/** Cliente abrindo processo pelo Portal — clientId vem da sessão, nunca do formulário. */
+export async function clientCreateProcess(input: ClientCreateProcessInput) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "CLIENTE" || !user.clientId) throw new Error("Acesso negado.");
+
+  const data = clientCreateProcessSchema.parse(input);
+
+  if (data.companyId) {
+    const company = await prisma.company.findFirst({ where: { id: data.companyId, clientId: user.clientId } });
+    if (!company) throw new Error("Empresa não encontrada.");
+  }
+
+  const firstStage = await prisma.kanbanStage.findFirst({
+    where: { tenantId: user.tenantId },
+    orderBy: { position: "asc" },
+  });
+  if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para este tenant.");
+
+  const number = await nextProcessNumber(user.tenantId);
+
+  const process = await prisma.process.create({
+    data: {
+      tenantId: user.tenantId,
+      number,
+      clientId: user.clientId,
+      companyId: data.companyId || null,
+      serviceTypeId: data.serviceTypeId,
+      stageId: firstStage.id,
+      description: data.description,
+      priority: data.priority,
+      requestedDeadline: data.requestedDeadline ? new Date(data.requestedDeadline) : null,
+      notes: data.notes || null,
+    },
+  });
+
+  await prisma.processStage.create({
+    data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: user.id },
+  });
+
+  revalidatePath("/portal");
+  revalidatePath("/portal/processos");
+  return { id: process.id };
 }
 
 export async function updateProcessStage(processId: string, toStageId: string) {
@@ -227,4 +344,37 @@ export async function moveStage(stageId: string, direction: "up" | "down") {
 
   revalidatePath("/processos");
   revalidatePath("/processos/etapas");
+}
+
+// --- Comentários (equipe + cliente, integrado ao Portal) ---
+
+export async function addProcessComment(processId: string, body: string) {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
+    throw new Error("Você não tem acesso a este módulo.");
+  }
+  if (!body.trim()) throw new Error("Escreva um comentário.");
+
+  const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
+  if (!process) throw new Error("Processo não encontrado.");
+
+  await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim() } });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath(`/portal/processos/${processId}`);
+}
+
+/** Cliente comentando no próprio processo, pelo Portal. */
+export async function clientAddProcessComment(processId: string, body: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "CLIENTE" || !user.clientId) throw new Error("Acesso negado.");
+  if (!body.trim()) throw new Error("Escreva um comentário.");
+
+  const process = await prisma.process.findFirst({ where: { id: processId, clientId: user.clientId } });
+  if (!process) throw new Error("Processo não encontrado.");
+
+  await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim() } });
+
+  revalidatePath(`/portal/processos/${processId}`);
+  revalidatePath(`/processos/${processId}`);
 }

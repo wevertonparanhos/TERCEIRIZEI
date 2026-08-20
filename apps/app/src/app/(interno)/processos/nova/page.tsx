@@ -2,13 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
-import { DemandForm } from "@/modules/demands/demand-form";
-import { createDemand } from "@/modules/demands/actions";
+import { ProcessCreateForm } from "@/modules/processes/process-create-form";
+import { createProcess } from "@/modules/processes/actions";
 
-export default async function NovaDemandaPage() {
+export default async function NovoProcessoPage() {
   const user = await getCurrentUser();
   if (!user) return null;
-  if (user.role !== "ADMIN" && user.role !== "GESTOR") redirect("/demandas");
+  if (user.role !== "ADMIN" && user.role !== "GESTOR") redirect("/processos");
 
   const [clients, companies, serviceTypes] = await Promise.all([
     prisma.client.findMany({
@@ -29,13 +29,13 @@ export default async function NovaDemandaPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <Link href="/demandas" className="text-sm text-brand-blue hover:underline">
-        ← Voltar para Demandas
+      <Link href="/processos" className="text-sm text-brand-blue hover:underline">
+        ← Voltar para Processos
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-brand-navy">Nova Demanda</h1>
+      <h1 className="mt-2 text-2xl font-bold text-brand-navy">Novo Processo</h1>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-        <DemandForm clients={clients} companies={companies} serviceTypes={serviceTypes} onSubmit={createDemand} />
+        <ProcessCreateForm clients={clients} companies={companies} serviceTypes={serviceTypes} onSubmit={createProcess} />
       </div>
     </div>
   );

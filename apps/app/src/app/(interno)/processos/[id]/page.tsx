@@ -9,6 +9,7 @@ import { ProcessTabs } from "@/modules/processes/process-tabs";
 import { ProcessForm } from "@/modules/processes/process-form";
 import { TaskList } from "@/modules/processes/task-list";
 import { Checklist } from "@/modules/processes/checklist";
+import { ProcessComments } from "@/modules/processes/process-comments";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
@@ -19,6 +20,7 @@ import {
   addChecklistItem,
   toggleChecklistItem,
   deleteChecklistItem,
+  addProcessComment,
 } from "@/modules/processes/actions";
 import {
   uploadNewDocument,
@@ -52,6 +54,10 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
         include: { uploadedBy: { select: { name: true } }, versions: true },
       },
       documentRequests: { orderBy: { createdAt: "desc" } },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { author: { select: { name: true, role: { select: { name: true } } } } },
+      },
     },
   });
 
@@ -93,6 +99,9 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {process.serviceType.name}
             {process.company ? ` · ${process.company.razaoSocial}` : ""} · aberto em{" "}
             {process.createdAt.toLocaleDateString("pt-BR")}
+            {process.requestedDeadline
+              ? ` · prazo desejado ${process.requestedDeadline.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`
+              : ""}
             {process.value ? ` · R$ ${Number(process.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
           </p>
         </div>
@@ -127,6 +136,23 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                     notes: process.notes ?? "",
                   }}
                   updateProcess={updateProcess}
+                />
+              ),
+            },
+            {
+              key: "comentarios",
+              label: "Comentários",
+              content: (
+                <ProcessComments
+                  processId={process.id}
+                  comments={process.comments.map((c) => ({
+                    id: c.id,
+                    body: c.body,
+                    createdAt: c.createdAt.toISOString(),
+                    authorName: c.author.name,
+                    authorIsClient: c.author.role.name === "CLIENTE",
+                  }))}
+                  addComment={addProcessComment}
                 />
               ),
             },

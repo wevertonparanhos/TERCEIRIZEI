@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { clientDemandSchema, type ClientDemandInput } from "@/lib/validations/demand";
-import { PRIORITY_LABELS } from "@/modules/demands/labels";
+import { clientCreateProcessSchema, type ClientCreateProcessInput } from "@/lib/validations/process";
+import { PRIORITY_LABELS } from "@/modules/processes/labels";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -15,14 +15,14 @@ import { Input } from "@/components/ui/input";
 type Company = { id: string; razaoSocial: string };
 type ServiceType = { id: string; name: string };
 
-export function ClientDemandForm({
+export function ClientProcessForm({
   companies,
   serviceTypes,
   onSubmit,
 }: {
   companies: Company[];
   serviceTypes: ServiceType[];
-  onSubmit: (data: ClientDemandInput) => Promise<{ id: string } | void>;
+  onSubmit: (data: ClientCreateProcessInput) => Promise<{ id: string } | void>;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -33,16 +33,19 @@ export function ClientDemandForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<ClientDemandInput>({ resolver: zodResolver(clientDemandSchema), defaultValues: { priority: "MEDIA" } });
+  } = useForm<ClientCreateProcessInput>({
+    resolver: zodResolver(clientCreateProcessSchema),
+    defaultValues: { priority: "MEDIA" },
+  });
 
-  async function submit(data: ClientDemandInput) {
+  async function submit(data: ClientCreateProcessInput) {
     setServerError(null);
     setSubmitting(true);
     try {
       const result = await onSubmit(data);
       if (result?.id) {
         setSent(true);
-        router.push("/portal/processos");
+        router.push(`/portal/processos/${result.id}`);
       }
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Não foi possível enviar sua solicitação.");
@@ -54,7 +57,7 @@ export function ClientDemandForm({
   if (sent) {
     return (
       <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-        Demanda enviada! Nossa equipe vai analisar e entrar em contato.
+        Solicitação enviada! Nossa equipe vai analisar e entrar em contato.
       </p>
     );
   }

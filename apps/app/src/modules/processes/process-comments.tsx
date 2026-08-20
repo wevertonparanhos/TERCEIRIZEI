@@ -7,14 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 
 type Comment = { id: string; body: string; createdAt: string; authorName: string; authorIsClient: boolean };
 
-export function DemandComments({
-  demandId,
+export function ProcessComments({
+  processId,
   comments,
   addComment,
 }: {
-  demandId: string;
+  processId: string;
   comments: Comment[];
-  addComment: (demandId: string, body: string) => Promise<void>;
+  addComment: (processId: string, body: string) => Promise<void>;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -25,7 +25,7 @@ export function DemandComments({
     setSubmitting(true);
     setError(null);
     try {
-      await addComment(demandId, body);
+      await addComment(processId, body);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível enviar o comentário.");

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
   { href: "/portal", label: "Dashboard" },
-  { href: "/portal/demandas", label: "Minhas Demandas" },
   { href: "/portal/processos", label: "Meus Processos" },
   { href: "/portal/nova-demanda", label: "Nova Demanda" },
   { href: "/portal/documentos", label: "Documentos" },

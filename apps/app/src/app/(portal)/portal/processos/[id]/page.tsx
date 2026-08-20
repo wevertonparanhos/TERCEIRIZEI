@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/processes/labels";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
+import { ProcessComments } from "@/modules/processes/process-comments";
 import { RealtimeRefresh } from "@/modules/portal/realtime-refresh";
 import {
   clientUploadDocument,
@@ -14,6 +15,7 @@ import {
   markRequestReceived,
   cancelRequest,
 } from "@/modules/documents/actions";
+import { clientAddProcessComment } from "@/modules/processes/actions";
 
 export default async function PortalProcessoDetalhePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -28,6 +30,10 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
       checklist: { orderBy: { createdAt: "asc" } },
       documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { name: true } }, versions: true } },
       documentRequests: { orderBy: { createdAt: "desc" } },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { author: { select: { name: true, role: { select: { name: true } } } } },
+      },
     },
   });
 
@@ -119,6 +125,20 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
           />
         </div>
       )}
+
+      <div className="rounded-lg border border-slate-200 bg-white p-6">
+        <ProcessComments
+          processId={process.id}
+          comments={process.comments.map((c) => ({
+            id: c.id,
+            body: c.body,
+            createdAt: c.createdAt.toISOString(),
+            authorName: c.author.name,
+            authorIsClient: c.author.role.name === "CLIENTE",
+          }))}
+          addComment={clientAddProcessComment}
+        />
+      </div>
     </div>
   );
 }

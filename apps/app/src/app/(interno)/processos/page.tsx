@@ -59,9 +59,11 @@ export default async function ProcessosPage() {
               <Button variant="outline">Gerenciar etapas</Button>
             </Link>
           )}
-          <Link href="/demandas">
-            <Button variant="outline">Ver Demandas</Button>
-          </Link>
+          {canManage && (
+            <Link href="/processos/nova">
+              <Button>+ Novo Processo</Button>
+            </Link>
+          )}
         </div>
       </div>
 

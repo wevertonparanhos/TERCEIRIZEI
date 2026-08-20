@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { demandSchema, type DemandInput } from "@/lib/validations/demand";
-import { PRIORITY_LABELS } from "@/modules/demands/labels";
+import { createProcessSchema, type CreateProcessInput } from "@/lib/validations/process";
+import { PRIORITY_LABELS } from "@/modules/processes/labels";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -16,7 +16,7 @@ type Client = { id: string; name: string };
 type Company = { id: string; clientId: string; razaoSocial: string };
 type ServiceType = { id: string; name: string };
 
-export function DemandForm({
+export function ProcessCreateForm({
   clients,
   companies,
   serviceTypes,
@@ -25,7 +25,7 @@ export function DemandForm({
   clients: Client[];
   companies: Company[];
   serviceTypes: ServiceType[];
-  onSubmit: (data: DemandInput) => Promise<{ id: string } | void>;
+  onSubmit: (data: CreateProcessInput) => Promise<{ id: string } | void>;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export function DemandForm({
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm<DemandInput>({ resolver: zodResolver(demandSchema), defaultValues: { priority: "MEDIA" } });
+  } = useForm<CreateProcessInput>({ resolver: zodResolver(createProcessSchema), defaultValues: { priority: "MEDIA" } });
 
   const watchedClientId = watch("clientId");
   const clientCompanies = useMemo(
@@ -45,12 +45,12 @@ export function DemandForm({
     [companies, watchedClientId, selectedClientId]
   );
 
-  async function submit(data: DemandInput) {
+  async function submit(data: CreateProcessInput) {
     setServerError(null);
     setSubmitting(true);
     try {
       const result = await onSubmit(data);
-      if (result?.id) router.push(`/demandas/${result.id}`);
+      if (result?.id) router.push(`/processos/${result.id}`);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Não foi possível salvar.");
     } finally {
@@ -138,7 +138,7 @@ export function DemandForm({
       )}
 
       <Button type="submit" disabled={submitting}>
-        {submitting ? "Salvando..." : "Abrir demanda"}
+        {submitting ? "Salvando..." : "Abrir processo"}
       </Button>
     </form>
   );

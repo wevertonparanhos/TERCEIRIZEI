@@ -1,7 +1,7 @@
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
-import { ClientDemandForm } from "@/modules/portal/client-demand-form";
-import { clientCreateDemand } from "@/modules/demands/actions";
+import { ClientProcessForm } from "@/modules/processes/client-process-form";
+import { clientCreateProcess } from "@/modules/processes/actions";
 
 export default async function PortalNovaDemandaPage() {
   const user = await getCurrentUser();
@@ -24,7 +24,7 @@ export default async function PortalNovaDemandaPage() {
       </p>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-        <ClientDemandForm companies={companies} serviceTypes={serviceTypes} onSubmit={clientCreateDemand} />
+        <ClientProcessForm companies={companies} serviceTypes={serviceTypes} onSubmit={clientCreateProcess} />
       </div>
     </div>
   );
