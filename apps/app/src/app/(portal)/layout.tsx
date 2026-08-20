@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/portal/nova-demanda", label: "Nova Demanda" },
   { href: "/portal/documentos", label: "Documentos" },
   { href: "/portal/faturas", label: "Faturas" },
+  { href: "/portal/perfil", label: "Meu Perfil" },
 ];
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
