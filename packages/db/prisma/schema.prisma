@@ -76,6 +76,14 @@ enum DocumentRequestStatus {
   @@map("document_request_status")
 }
 
+enum InvoiceStatus {
+  PENDENTE
+  PAGA
+  CANCELADA
+
+  @@map("invoice_status")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -95,6 +103,7 @@ model Tenant {
   counters         TenantCounter[]
   documents        Document[]
   documentRequests DocumentRequest[]
+  invoices         Invoice[]
 
   @@map("tenants")
 }
@@ -153,6 +162,7 @@ model User {
   uploadedDocuments  Document[]
   uploadedVersions   DocumentVersion[]
   requestedDocuments DocumentRequest[]
+  createdInvoices    Invoice[]
 
   @@index([tenantId])
   @@map("users")
@@ -188,6 +198,7 @@ model Client {
   processes        Process[]
   documents        Document[]
   documentRequests DocumentRequest[]
+  invoices         Invoice[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -236,6 +247,7 @@ model Company {
   client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   demands   Demand[]
   processes Process[]
+  invoices  Invoice[]
 
   @@unique([tenantId, cnpj])
   @@index([clientId])
@@ -372,6 +384,7 @@ model Process {
   tags         ProcessTag[]
   documents    Document[]
   documentRequests DocumentRequest[]
+  invoiceItems InvoiceItem[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -527,4 +540,48 @@ model DocumentRequest {
   @@index([clientId])
   @@index([processId])
   @@map("document_requests")
+}
+
+model Invoice {
+  id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  number        Int
+  clientId      String        @map("client_id") @db.Uuid
+  companyId     String?       @map("company_id") @db.Uuid
+  status        InvoiceStatus @default(PENDENTE)
+  issueDate     DateTime      @default(now()) @map("issue_date")
+  dueDate       DateTime      @map("due_date")
+  paidAt        DateTime?     @map("paid_at")
+  paymentMethod String?       @map("payment_method")
+  totalAmount   Decimal       @map("total_amount") @db.Decimal(12, 2)
+  notes         String?
+  createdById   String        @map("created_by_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  client    Client        @relation(fields: [clientId], references: [id])
+  company   Company?      @relation(fields: [companyId], references: [id])
+  createdBy User          @relation(fields: [createdById], references: [id])
+  items     InvoiceItem[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+  @@index([clientId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  processId   String?  @map("process_id") @db.Uuid
+  description String
+  amount      Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  process Process? @relation(fields: [processId], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_items")
 }

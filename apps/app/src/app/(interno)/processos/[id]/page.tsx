@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/processes/labels";
 import { ProcessTabs } from "@/modules/processes/process-tabs";
 import { ProcessForm } from "@/modules/processes/process-form";
@@ -74,25 +75,32 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-8">
-      <div>
-        <Link href="/processos" className="text-sm text-brand-blue hover:underline">
-          ← Voltar para Processos
-        </Link>
-        <div className="mt-2 flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-brand-navy">
-            #{process.number} · {process.client.name}
-          </h1>
-          <Badge variant="info" style={{ backgroundColor: `${process.stage.color}1A`, color: process.stage.color }}>
-            {process.stage.label}
-          </Badge>
-          <Badge variant={PRIORITY_BADGE_VARIANT[process.priority]}>{PRIORITY_LABELS[process.priority]}</Badge>
+      <div className="flex items-start justify-between">
+        <div>
+          <Link href="/processos" className="text-sm text-brand-blue hover:underline">
+            ← Voltar para Processos
+          </Link>
+          <div className="mt-2 flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-brand-navy">
+              #{process.number} · {process.client.name}
+            </h1>
+            <Badge variant="info" style={{ backgroundColor: `${process.stage.color}1A`, color: process.stage.color }}>
+              {process.stage.label}
+            </Badge>
+            <Badge variant={PRIORITY_BADGE_VARIANT[process.priority]}>{PRIORITY_LABELS[process.priority]}</Badge>
+          </div>
+          <p className="text-sm text-slate-500">
+            {process.serviceType.name}
+            {process.company ? ` · ${process.company.razaoSocial}` : ""} · aberto em{" "}
+            {process.createdAt.toLocaleDateString("pt-BR")}
+            {process.value ? ` · R$ ${Number(process.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
+          </p>
         </div>
-        <p className="text-sm text-slate-500">
-          {process.serviceType.name}
-          {process.company ? ` · ${process.company.razaoSocial}` : ""} · aberto em{" "}
-          {process.createdAt.toLocaleDateString("pt-BR")}
-          {process.value ? ` · R$ ${Number(process.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
-        </p>
+        {["ADMIN", "GESTOR", "FINANCEIRO"].includes(user.role) && (
+          <Link href={`/financeiro/nova?processId=${process.id}`}>
+            <Button variant="outline">Gerar Fatura</Button>
+          </Link>
+        )}
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-6">

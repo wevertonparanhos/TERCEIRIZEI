@@ -2,12 +2,15 @@ import Link from "next/link";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { STATUS_LABELS as DEMAND_STATUS_LABELS } from "@/modules/demands/labels";
+import { displayStatus } from "@/modules/invoices/labels";
+
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default async function PortalDashboardPage() {
   const user = await getCurrentUser();
   if (!user || !user.clientId) return null;
 
-  const [activeProcesses, pendingRequests, openDemands] = await Promise.all([
+  const [activeProcesses, pendingRequests, openDemands, openInvoices] = await Promise.all([
     prisma.process.count({
       where: { clientId: user.clientId, stage: { label: { notIn: ["Concluído", "Cancelado"] } } },
     }),
@@ -15,7 +18,11 @@ export default async function PortalDashboardPage() {
     prisma.demand.count({
       where: { clientId: user.clientId, status: { notIn: ["CONCLUIDA", "CANCELADA"] } },
     }),
+    prisma.invoice.findMany({ where: { clientId: user.clientId, status: "PENDENTE" } }),
   ]);
+
+  const overdueCount = openInvoices.filter((i) => displayStatus(i.status, i.dueDate) === "ATRASADA").length;
+  const openTotal = openInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
 
   const recentDemands = await prisma.demand.findMany({
     where: { clientId: user.clientId },
@@ -67,12 +74,20 @@ export default async function PortalDashboardPage() {
         )}
       </div>
 
-      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="text-base font-semibold text-brand-navy">Financeiro</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          O acompanhamento financeiro do seu contrato chega na Etapa 8 do sistema.
-        </p>
-      </div>
+      <Link href="/portal/faturas" className="mt-6 block rounded-lg border border-slate-200 bg-white p-6 hover:shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-brand-navy">Financeiro</h2>
+          <span className="text-sm text-brand-blue hover:underline">Ver faturas →</span>
+        </div>
+        {openInvoices.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-400">Nenhuma fatura pendente no momento.</p>
+        ) : (
+          <p className="mt-2 text-sm text-slate-600">
+            {openInvoices.length} fatura(s) pendente(s) · {currencyFormatter.format(openTotal)}
+            {overdueCount > 0 && <span className="ml-2 text-red-600">{overdueCount} atrasada(s)</span>}
+          </p>
+        )}
+      </Link>
     </div>
   );
 }
