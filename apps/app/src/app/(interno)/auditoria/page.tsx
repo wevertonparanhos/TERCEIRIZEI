@@ -42,8 +42,8 @@ export default async function AuditoriaPage({
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold text-brand-navy">Auditoria</h1>
-      <p className="text-sm text-slate-500">
+      <h1 className="text-2xl font-bold text-ink">Auditoria</h1>
+      <p className="text-sm text-muted">
         Trilha das ações mais sensíveis do sistema — últimos {logs.length} registro(s).
       </p>
 
@@ -60,23 +60,23 @@ export default async function AuditoriaPage({
           type="date"
           name="from"
           defaultValue={searchParams.from ?? ""}
-          className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+          className="rounded-md border border-border px-3 py-2 text-sm"
         />
         <input
           type="date"
           name="to"
           defaultValue={searchParams.to ?? ""}
-          className="rounded-md border border-slate-200 px-3 py-2 text-sm"
+          className="rounded-md border border-border px-3 py-2 text-sm"
         />
         <Button type="submit" variant="outline">
           Filtrar
         </Button>
       </form>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3 font-medium">Data/Hora</th>
               <th className="px-4 py-3 font-medium">Usuário</th>
               <th className="px-4 py-3 font-medium">Tipo</th>
@@ -86,19 +86,19 @@ export default async function AuditoriaPage({
           <tbody>
             {logs.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={4} className="px-4 py-10 text-center text-muted-soft">
                   Nenhum registro encontrado.
                 </td>
               </tr>
             )}
             {logs.map((log) => (
-              <tr key={log.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-500">
+              <tr key={log.id} className="border-b border-border last:border-0 hover:bg-surface-alt">
+                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-muted">
                   {log.createdAt.toLocaleString("pt-BR")}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{log.user?.name ?? "Sistema"}</td>
-                <td className="px-4 py-3 text-slate-600">{ENTITY_TYPE_LABELS[log.entityType] ?? log.entityType}</td>
-                <td className="px-4 py-3 text-slate-700">{log.description}</td>
+                <td className="px-4 py-3 text-muted">{log.user?.name ?? "Sistema"}</td>
+                <td className="px-4 py-3 text-muted">{ENTITY_TYPE_LABELS[log.entityType] ?? log.entityType}</td>
+                <td className="px-4 py-3 text-ink">{log.description}</td>
               </tr>
             ))}
           </tbody>

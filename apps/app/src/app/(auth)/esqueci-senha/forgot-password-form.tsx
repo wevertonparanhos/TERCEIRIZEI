@@ -31,7 +31,7 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+      <p className="rounded-md bg-emerald-50 dark:bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
         Se o e-mail informado estiver cadastrado, você receberá um link para redefinir sua senha em instantes.
       </p>
     );

@@ -17,32 +17,32 @@ export default async function PortalFaturasPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-8">
-      <h1 className="text-2xl font-bold text-brand-navy">Faturas</h1>
-      <p className="mt-1 text-sm text-slate-500">Cobranças emitidas pela Terceirizei para sua conta.</p>
+      <h1 className="text-2xl font-bold text-ink">Faturas</h1>
+      <p className="mt-1 text-sm text-muted">Cobranças emitidas pela Terceirizei para sua conta.</p>
 
       <div className="mt-6 space-y-3">
-        {invoices.length === 0 && <p className="text-sm text-slate-400">Nenhuma fatura emitida ainda.</p>}
+        {invoices.length === 0 && <p className="text-sm text-muted-soft">Nenhuma fatura emitida ainda.</p>}
         {invoices.map((invoice) => {
           const status = displayStatus(invoice.status, invoice.dueDate);
           return (
-            <div key={invoice.id} className="rounded-lg border border-slate-200 bg-white p-5">
+            <div key={invoice.id} className="rounded-lg border border-border bg-surface p-5">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs text-slate-400">#{invoice.number}</span>
+                <span className="font-mono text-xs text-muted-soft">#{invoice.number}</span>
                 <Badge variant={STATUS_BADGE_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
               </div>
               <div className="mt-2 flex items-baseline justify-between">
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted">
                   Vencimento em {invoice.dueDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                   {invoice.status === "PAGA" && invoice.paidAt
                     ? ` · paga em ${invoice.paidAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`
                     : ""}
                 </p>
-                <span className="font-mono text-lg font-semibold text-brand-navy">
+                <span className="font-mono text-lg font-semibold text-ink">
                   {currencyFormatter.format(Number(invoice.totalAmount))}
                 </span>
               </div>
               {invoice.items.length > 0 && (
-                <ul className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm text-muted">
                   {invoice.items.map((item) => (
                     <li key={item.id} className="flex justify-between">
                       <span>{item.description}</span>

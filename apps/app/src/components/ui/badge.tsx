@@ -2,11 +2,11 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const VARIANT_CLASSES: Record<string, string> = {
-  neutral: "bg-slate-100 text-slate-600",
-  success: "bg-emerald-50 text-emerald-700",
-  warning: "bg-amber-50 text-amber-700",
-  danger: "bg-red-50 text-red-700",
-  info: "bg-blue-50 text-brand-blue",
+  neutral: "bg-surface-alt text-muted",
+  success: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
+  warning: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+  danger: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400",
+  info: "bg-accent-soft text-accent",
 };
 
 export function Badge({

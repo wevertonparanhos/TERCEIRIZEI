@@ -30,17 +30,17 @@ export default async function NovaFaturaPage({ searchParams }: { searchParams: {
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <Link href="/financeiro" className="text-sm text-brand-blue hover:underline">
+      <Link href="/financeiro" className="text-sm text-accent hover:underline">
         ← Voltar para Financeiro
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-brand-navy">Nova Fatura</h1>
+      <h1 className="mt-2 text-2xl font-bold text-ink">Nova Fatura</h1>
       {sourceProcess && (
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted">
           Cliente pré-preenchido a partir do processo. Adicione os itens da cobrança depois de criar a fatura.
         </p>
       )}
 
-      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
         <InvoiceForm
           clients={clients}
           companies={companies}

@@ -52,7 +52,7 @@ export function StageManager({
 
   return (
     <div>
-      <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {stages.map((stage, index) => (
           <li key={stage.id} className="flex items-center gap-3 px-4 py-3">
             <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ backgroundColor: stage.color }} />
@@ -70,14 +70,14 @@ export function StageManager({
               </form>
             ) : (
               <>
-                <span className="flex-1 text-sm font-medium text-brand-navy">{stage.label}</span>
-                <span className="text-xs text-slate-400">{stage.processCount} processo(s)</span>
+                <span className="flex-1 text-sm font-medium text-ink">{stage.label}</span>
+                <span className="text-xs text-muted-soft">{stage.processCount} processo(s)</span>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     disabled={busy || index === 0}
                     onClick={() => run(() => moveStage(stage.id, "up"))}
-                    className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                    className="rounded px-2 py-1 text-xs text-muted hover:bg-surface-alt disabled:opacity-30"
                   >
                     ↑
                   </button>
@@ -85,14 +85,14 @@ export function StageManager({
                     type="button"
                     disabled={busy || index === stages.length - 1}
                     onClick={() => run(() => moveStage(stage.id, "down"))}
-                    className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                    className="rounded px-2 py-1 text-xs text-muted hover:bg-surface-alt disabled:opacity-30"
                   >
                     ↓
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingId(stage.id)}
-                    className="rounded px-2 py-1 text-xs text-brand-blue hover:bg-slate-100"
+                    className="rounded px-2 py-1 text-xs text-accent hover:bg-surface-alt"
                   >
                     Renomear
                   </button>
@@ -100,7 +100,7 @@ export function StageManager({
                     type="button"
                     disabled={busy}
                     onClick={() => run(() => deleteStage(stage.id))}
-                    className="rounded px-2 py-1 text-xs text-red-500 hover:bg-slate-100"
+                    className="rounded px-2 py-1 text-xs text-red-500 hover:bg-surface-alt"
                   >
                     Excluir
                   </button>
@@ -118,7 +118,7 @@ export function StageManager({
         </Button>
       </form>
 
-      {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-3 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
     </div>
   );
 }

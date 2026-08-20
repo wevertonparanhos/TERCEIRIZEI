@@ -41,8 +41,8 @@ export default async function ClientesPage({
     <div className="p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-navy">Clientes</h1>
-          <p className="text-sm text-slate-500">{clients.length} cliente(s) cadastrado(s)</p>
+          <h1 className="text-2xl font-bold text-ink">Clientes</h1>
+          <p className="text-sm text-muted">{clients.length} cliente(s) cadastrado(s)</p>
         </div>
         {canWrite && (
           <Link href="/clientes/novo">
@@ -68,10 +68,10 @@ export default async function ClientesPage({
         </Button>
       </form>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3 font-medium">Nome</th>
               <th className="px-4 py-3 font-medium">Documento</th>
               <th className="px-4 py-3 font-medium">Tipo</th>
@@ -82,22 +82,22 @@ export default async function ClientesPage({
           <tbody>
             {clients.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-10 text-center text-muted-soft">
                   Nenhum cliente encontrado.
                 </td>
               </tr>
             )}
             {clients.map((client) => (
-              <tr key={client.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+              <tr key={client.id} className="border-b border-border last:border-0 hover:bg-surface-alt">
                 <td className="px-4 py-3">
-                  <Link href={`/clientes/${client.id}`} className="font-medium text-brand-navy hover:underline">
+                  <Link href={`/clientes/${client.id}`} className="font-medium text-ink hover:underline">
                     {client.name}
                   </Link>
-                  {client.fantasyName && <p className="text-xs text-slate-400">{client.fantasyName}</p>}
+                  {client.fantasyName && <p className="text-xs text-muted-soft">{client.fantasyName}</p>}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{formatDoc(client.doc)}</td>
-                <td className="px-4 py-3 text-slate-600">{client.type === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}</td>
-                <td className="px-4 py-3 text-slate-600">{client.owner?.name ?? "—"}</td>
+                <td className="px-4 py-3 text-muted">{formatDoc(client.doc)}</td>
+                <td className="px-4 py-3 text-muted">{client.type === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}</td>
+                <td className="px-4 py-3 text-muted">{client.owner?.name ?? "—"}</td>
                 <td className="px-4 py-3">
                   <Badge variant={client.status === "ativo" ? "success" : "neutral"}>
                     {client.status === "ativo" ? "Ativo" : "Inativo"}

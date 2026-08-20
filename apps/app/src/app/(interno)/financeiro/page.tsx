@@ -27,8 +27,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: {
     <div className="p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-navy">Financeiro</h1>
-          <p className="text-sm text-slate-500">{invoices.length} fatura(s)</p>
+          <h1 className="text-2xl font-bold text-ink">Financeiro</h1>
+          <p className="text-sm text-muted">{invoices.length} fatura(s)</p>
         </div>
         <div className="flex gap-2">
           <Link href="/financeiro/faturar">
@@ -52,10 +52,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: {
         </Button>
       </form>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3 font-medium">Nº</th>
               <th className="px-4 py-3 font-medium">Cliente</th>
               <th className="px-4 py-3 font-medium">Vencimento</th>
@@ -66,7 +66,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: {
           <tbody>
             {invoices.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-10 text-center text-muted-soft">
                   Nenhuma fatura encontrada.
                 </td>
               </tr>
@@ -74,17 +74,17 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: {
             {invoices.map((invoice) => {
               const status = displayStatus(invoice.status, invoice.dueDate);
               return (
-                <tr key={invoice.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">#{invoice.number}</td>
+                <tr key={invoice.id} className="border-b border-border last:border-0 hover:bg-surface-alt">
+                  <td className="px-4 py-3 font-mono text-xs text-muted">#{invoice.number}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/financeiro/${invoice.id}`} className="font-medium text-brand-navy hover:underline">
+                    <Link href={`/financeiro/${invoice.id}`} className="font-medium text-ink hover:underline">
                       {invoice.client.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-muted">
                     {invoice.dueDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                   </td>
-                  <td className="px-4 py-3 font-mono text-slate-600">
+                  <td className="px-4 py-3 font-mono text-muted">
                     {currencyFormatter.format(Number(invoice.totalAmount))}
                   </td>
                   <td className="px-4 py-3">

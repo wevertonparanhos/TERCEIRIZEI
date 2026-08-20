@@ -65,7 +65,7 @@ export function DocumentRequests({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-brand-navy">Documentos solicitados</h3>
+        <h3 className="text-sm font-semibold text-ink">Documentos solicitados</h3>
         {canWrite && (
           <Button variant="outline" size="sm" onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Cancelar" : "+ Solicitar"}
@@ -73,23 +73,23 @@ export function DocumentRequests({
         )}
       </div>
 
-      {requests.length === 0 && !showForm && <p className="mt-3 text-sm text-slate-400">Nenhuma solicitação.</p>}
+      {requests.length === 0 && !showForm && <p className="mt-3 text-sm text-muted-soft">Nenhuma solicitação.</p>}
 
       {requests.length > 0 && (
-        <ul className="mt-3 divide-y divide-slate-100">
+        <ul className="mt-3 divide-y divide-border">
           {requests.map((r) => (
             <li key={r.id} className="flex items-center justify-between py-2.5">
               <div>
-                <p className="text-sm font-medium text-brand-navy">{r.label}</p>
+                <p className="text-sm font-medium text-ink">{r.label}</p>
                 {r.deadline && (
-                  <p className="text-xs text-slate-400">prazo {new Date(r.deadline).toLocaleDateString("pt-BR")}</p>
+                  <p className="text-xs text-muted-soft">prazo {new Date(r.deadline).toLocaleDateString("pt-BR")}</p>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={REQUEST_STATUS_VARIANT[r.status]}>{REQUEST_STATUS_LABELS[r.status]}</Badge>
                 {canWrite && r.status === "PENDENTE" && (
                   <>
-                    <button onClick={() => handleReceived(r.id)} className="text-xs text-brand-blue hover:underline">
+                    <button onClick={() => handleReceived(r.id)} className="text-xs text-accent hover:underline">
                       Marcar recebido
                     </button>
                     <button onClick={() => handleCancel(r.id)} className="text-xs text-red-500 hover:underline">
@@ -104,7 +104,7 @@ export function DocumentRequests({
       )}
 
       {showForm && (
-        <form action={handleCreate} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+        <form action={handleCreate} className="mt-4 space-y-3 border-t border-border pt-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="reqLabel">Documento necessário</Label>
@@ -126,7 +126,7 @@ export function DocumentRequests({
         </form>
       )}
 
-      {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-3 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
     </div>
   );
 }

@@ -45,9 +45,9 @@ export function PortalAccess({
 
   if (linkedEmail) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="text-base font-semibold text-brand-navy">Acesso ao Portal</h2>
-        <p className="mt-2 text-sm text-slate-600">
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="text-base font-semibold text-ink">Acesso ao Portal</h2>
+        <p className="mt-2 text-sm text-muted">
           Este cliente já acessa o Portal com o e-mail <b>{linkedEmail}</b>.
         </p>
       </div>
@@ -55,9 +55,9 @@ export function PortalAccess({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6">
-      <h2 className="text-base font-semibold text-brand-navy">Acesso ao Portal</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <div className="rounded-lg border border-border bg-surface p-6">
+      <h2 className="text-base font-semibold text-ink">Acesso ao Portal</h2>
+      <p className="mt-1 text-sm text-muted">
         Este cliente ainda não tem acesso ao Portal. Crie o acesso e envie o link pra ele definir a própria senha.
       </p>
       <div className="mt-3 flex items-center gap-2">
@@ -70,10 +70,10 @@ export function PortalAccess({
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
       {inviteLink && (
-        <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4">
+        <div className="mt-4 rounded-md border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-4">
           <p className="text-sm font-medium text-emerald-800">Acesso criado! Copie o link e envie pro cliente.</p>
           <div className="mt-2 flex items-center gap-2">
-            <Input value={inviteLink} readOnly className="flex-1 bg-white font-mono text-xs" />
+            <Input value={inviteLink} readOnly className="flex-1 bg-surface font-mono text-xs" />
             <Button type="button" variant="outline" onClick={copyLink}>
               {copied ? "Copiado!" : "Copiar"}
             </Button>

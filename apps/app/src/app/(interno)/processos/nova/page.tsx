@@ -36,12 +36,12 @@ export default async function NovoProcessoPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <Link href="/processos" className="text-sm text-brand-blue hover:underline">
+      <Link href="/processos" className="text-sm text-accent hover:underline">
         ← Voltar para Processos
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-brand-navy">Novo Processo</h1>
+      <h1 className="mt-2 text-2xl font-bold text-ink">Novo Processo</h1>
 
-      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
         <ProcessCreateForm
           clients={clients}
           companies={companies}

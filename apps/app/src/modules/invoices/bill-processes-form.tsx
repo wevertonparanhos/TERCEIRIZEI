@@ -61,40 +61,40 @@ export function BillProcessesForm({
 
   return (
     <form action={submit} className="space-y-4">
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-border">
         {processes.map((p) => (
           <li key={p.id} className="flex items-center gap-3 py-2">
             <input
               type="checkbox"
               checked={selected.has(p.id)}
               onChange={() => toggle(p.id)}
-              className="h-4 w-4 rounded border-slate-300"
+              className="h-4 w-4 rounded border-border-strong"
               aria-label={`Selecionar processo #${p.number}`}
             />
-            <span className="flex-1 text-sm text-slate-700">
+            <span className="flex-1 text-sm text-ink">
               #{p.number} — {p.description.slice(0, 60)}
             </span>
-            <span className="font-mono text-sm text-slate-600">{currencyFormatter.format(Number(p.value))}</span>
+            <span className="font-mono text-sm text-muted">{currencyFormatter.format(Number(p.value))}</span>
           </li>
         ))}
       </ul>
 
-      <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm">
-        <span className="text-slate-500">{selected.size} selecionado(s)</span>
-        <span className="font-semibold text-brand-navy">{currencyFormatter.format(selectedTotal)}</span>
+      <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+        <span className="text-muted">{selected.size} selecionado(s)</span>
+        <span className="font-semibold text-ink">{currencyFormatter.format(selectedTotal)}</span>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-slate-700">
+      <label className="flex items-center gap-2 text-sm text-ink">
         <input
           type="checkbox"
           checked={grouped}
           onChange={(e) => setGrouped(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300"
+          className="h-4 w-4 rounded border-border-strong"
         />
         Agrupar em uma única fatura
       </label>
       {!grouped && selected.size > 1 && (
-        <p className="text-xs text-slate-400">Será gerada uma fatura separada para cada processo selecionado.</p>
+        <p className="text-xs text-muted-soft">Será gerada uma fatura separada para cada processo selecionado.</p>
       )}
 
       <div className="space-y-1.5">
@@ -103,7 +103,7 @@ export function BillProcessesForm({
       </div>
 
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {error}
         </p>
       )}

@@ -18,12 +18,12 @@ export default async function PortalNovaDemandaPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-bold text-brand-navy">Nova Demanda</h1>
-      <p className="mt-1 text-sm text-slate-500">
+      <h1 className="text-2xl font-bold text-ink">Nova Demanda</h1>
+      <p className="mt-1 text-sm text-muted">
         Conte pra gente o que você precisa — nossa equipe vai analisar e entrar em contato.
       </p>
 
-      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
         <ClientProcessForm companies={companies} serviceTypes={serviceTypes} onSubmit={clientCreateProcess} />
       </div>
     </div>

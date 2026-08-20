@@ -53,7 +53,7 @@ export function ResetPasswordForm() {
       </div>
 
       {serverError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {serverError}
         </p>
       )}

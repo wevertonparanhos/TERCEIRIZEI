@@ -150,12 +150,12 @@ export function ClientForm({
       </fieldset>
 
       {serverError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {serverError}
         </p>
       )}
       {saved && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Alterações salvas.</p>
+        <p className="rounded-md bg-emerald-50 dark:bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">Alterações salvas.</p>
       )}
 
       {!readOnly && (

@@ -53,19 +53,19 @@ export function InvoiceItems({
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-brand-navy">Itens</h3>
+      <h3 className="text-sm font-semibold text-ink">Itens</h3>
 
-      {items.length === 0 && <p className="mt-3 text-sm text-slate-400">Nenhum item adicionado.</p>}
+      {items.length === 0 && <p className="mt-3 text-sm text-muted-soft">Nenhum item adicionado.</p>}
 
       {items.length > 0 && (
-        <ul className="mt-3 divide-y divide-slate-100">
+        <ul className="mt-3 divide-y divide-border">
           {items.map((item) => (
             <li key={item.id} className="flex items-center gap-3 py-2">
-              <span className="flex-1 text-sm text-slate-700">
+              <span className="flex-1 text-sm text-ink">
                 {item.description}
-                {item.process && <span className="ml-2 text-xs text-slate-400">Processo #{item.process.number}</span>}
+                {item.process && <span className="ml-2 text-xs text-muted-soft">Processo #{item.process.number}</span>}
               </span>
-              <span className="font-mono text-sm text-slate-600">{currencyFormatter.format(Number(item.amount))}</span>
+              <span className="font-mono text-sm text-muted">{currencyFormatter.format(Number(item.amount))}</span>
               {canWrite && (
                 <button
                   type="button"
@@ -81,7 +81,7 @@ export function InvoiceItems({
       )}
 
       {canWrite && (
-        <form action={action} className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4">
+        <form action={action} className="mt-4 flex flex-wrap items-end gap-2 border-t border-border pt-4">
           <div className="flex-1 min-w-[180px]">
             <Input name="description" placeholder="Descrição do item" required />
           </div>
@@ -105,7 +105,7 @@ export function InvoiceItems({
           </Button>
         </form>
       )}
-      {error && <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-2 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
     </div>
   );
 }

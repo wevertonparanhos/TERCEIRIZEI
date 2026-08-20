@@ -35,15 +35,15 @@ export function MarkPaidForm({
   return (
     <form action={action} className="flex flex-wrap items-end gap-2">
       <div>
-        <label className="text-xs text-slate-500">Data do pagamento</label>
+        <label className="text-xs text-muted">Data do pagamento</label>
         <Input name="paidAt" type="date" required className="w-40" />
       </div>
       <div>
-        <label className="text-xs text-slate-500">Forma de pagamento</label>
+        <label className="text-xs text-muted">Forma de pagamento</label>
         <Input name="paymentMethod" placeholder="Pix, boleto, transferência..." required className="w-56" />
       </div>
       <div className="flex-1 min-w-[180px]">
-        <label className="text-xs text-slate-500">Observação (opcional)</label>
+        <label className="text-xs text-muted">Observação (opcional)</label>
         <Input name="notes" placeholder="Comprovante, referência..." />
       </div>
       <Button type="submit" disabled={submitting}>
@@ -83,7 +83,7 @@ export function CancelInvoiceButton({
   if (confirming) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-sm text-slate-600">Cancelar esta fatura?</span>
+        <span className="text-sm text-muted">Cancelar esta fatura?</span>
         <Button variant="outline" onClick={handleConfirm} disabled={submitting}>
           {submitting ? "Cancelando..." : "Sim, cancelar"}
         </Button>

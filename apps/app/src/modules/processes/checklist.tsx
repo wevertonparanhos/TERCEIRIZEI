@@ -54,11 +54,11 @@ export function Checklist({
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-brand-navy">
-        Checklist {items.length > 0 && <span className="font-normal text-slate-400">({done}/{items.length})</span>}
+      <h3 className="text-sm font-semibold text-ink">
+        Checklist {items.length > 0 && <span className="font-normal text-muted-soft">({done}/{items.length})</span>}
       </h3>
 
-      {items.length === 0 && <p className="mt-3 text-sm text-slate-400">Nenhum item no checklist.</p>}
+      {items.length === 0 && <p className="mt-3 text-sm text-muted-soft">Nenhum item no checklist.</p>}
 
       {items.length > 0 && (
         <ul className="mt-3 space-y-1.5">
@@ -69,9 +69,9 @@ export function Checklist({
                 checked={item.done}
                 disabled={!canWrite}
                 onChange={(e) => handleToggle(item.id, e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-blue"
+                className="h-4 w-4 rounded border-border-strong text-ink focus:ring-accent"
               />
-              <span className={`flex-1 text-sm ${item.done ? "text-slate-400 line-through" : "text-slate-700"}`}>
+              <span className={`flex-1 text-sm ${item.done ? "text-muted-soft line-through" : "text-ink"}`}>
                 {item.label}
               </span>
               {canWrite && (
@@ -89,14 +89,14 @@ export function Checklist({
       )}
 
       {canWrite && (
-        <form action={action} className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
+        <form action={action} className="mt-4 flex gap-2 border-t border-border pt-4">
           <Input name="label" placeholder="Novo item do checklist" className="flex-1" />
           <Button type="submit" size="sm" disabled={submitting}>
             {submitting ? "Salvando..." : "Adicionar"}
           </Button>
         </form>
       )}
-      {error && <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-2 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
     </div>
   );
 }

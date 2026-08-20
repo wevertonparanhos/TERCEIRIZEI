@@ -89,18 +89,18 @@ export function InviteStaffForm({
       </form>
 
       {serverError && (
-        <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="mt-3 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {serverError}
         </p>
       )}
 
       {inviteLink && (
-        <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-4">
+        <div className="mt-4 rounded-md border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-4">
           <p className="text-sm font-medium text-emerald-800">
             Convite criado! Copie o link abaixo e envie pra pessoa — ela vai usá-lo pra definir a própria senha.
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <Input value={inviteLink} readOnly className="flex-1 bg-white font-mono text-xs" />
+            <Input value={inviteLink} readOnly className="flex-1 bg-surface font-mono text-xs" />
             <Button type="button" variant="outline" onClick={copyLink}>
               {copied ? "Copiado!" : "Copiar"}
             </Button>

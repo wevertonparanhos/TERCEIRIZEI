@@ -26,18 +26,18 @@ export default async function EquipePage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold text-brand-navy">Equipe</h1>
-      <p className="mt-1 text-sm text-slate-500">{staff.length} membro(s)</p>
+      <h1 className="text-2xl font-bold text-ink">Equipe</h1>
+      <p className="mt-1 text-sm text-muted">{staff.length} membro(s)</p>
 
-      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-brand-navy">Convidar novo membro</h2>
+      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+        <h2 className="mb-4 text-base font-semibold text-ink">Convidar novo membro</h2>
         <InviteStaffForm invite={inviteStaffMember} />
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3 font-medium">Nome</th>
               <th className="px-4 py-3 font-medium">E-mail</th>
               <th className="px-4 py-3 font-medium">Papel</th>
@@ -47,9 +47,9 @@ export default async function EquipePage() {
           </thead>
           <tbody>
             {staff.map((member) => (
-              <tr key={member.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                <td className="px-4 py-3 font-medium text-brand-navy">{member.name}</td>
-                <td className="px-4 py-3 text-slate-600">{member.email}</td>
+              <tr key={member.id} className="border-b border-border last:border-0 hover:bg-surface-alt">
+                <td className="px-4 py-3 font-medium text-ink">{member.name}</td>
+                <td className="px-4 py-3 text-muted">{member.email}</td>
                 <td className="px-4 py-3">
                   <Badge variant="info">{ROLE_LABELS[member.role.name] ?? member.role.name}</Badge>
                 </td>

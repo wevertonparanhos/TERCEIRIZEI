@@ -66,23 +66,23 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-8">
       <div>
-        <Link href="/clientes" className="text-sm text-brand-blue hover:underline">
+        <Link href="/clientes" className="text-sm text-accent hover:underline">
           ← Voltar para Clientes
         </Link>
         <div className="mt-2 flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-brand-navy">{client.name}</h1>
+          <h1 className="text-2xl font-bold text-ink">{client.name}</h1>
           <Badge variant={client.status === "ativo" ? "success" : "neutral"}>
             {client.status === "ativo" ? "Ativo" : "Inativo"}
           </Badge>
         </div>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           {client.type === "PF" ? "Pessoa Física" : "Pessoa Jurídica"} · cliente desde{" "}
           {client.createdAt.toLocaleDateString("pt-BR")}
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-brand-navy">Dados do cliente</h2>
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="mb-4 text-base font-semibold text-ink">Dados do cliente</h2>
         <ClientForm
           owners={owners}
           submitLabel="Salvar alterações"
@@ -134,7 +134,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
 
       {user.role !== "FINANCEIRO" && (
         <>
-          <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <div className="rounded-lg border border-border bg-surface p-6">
             <DocumentList
               clientId={client.id}
               processId={null}
@@ -160,7 +160,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
             />
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-6">
+          <div className="rounded-lg border border-border bg-surface p-6">
             <DocumentRequests
               clientId={client.id}
               processId={null}

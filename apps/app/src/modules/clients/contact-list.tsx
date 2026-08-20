@@ -65,9 +65,9 @@ export function ContactList({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6">
+    <div className="rounded-lg border border-border bg-surface p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-brand-navy">Contatos</h2>
+        <h2 className="text-base font-semibold text-ink">Contatos</h2>
         {canWrite && (
           <Button variant="outline" size="sm" onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Cancelar" : "+ Contato"}
@@ -75,15 +75,15 @@ export function ContactList({
         )}
       </div>
 
-      {contacts.length === 0 && !showForm && <p className="mt-3 text-sm text-slate-400">Nenhum contato cadastrado.</p>}
+      {contacts.length === 0 && !showForm && <p className="mt-3 text-sm text-muted-soft">Nenhum contato cadastrado.</p>}
 
       {contacts.length > 0 && (
-        <ul className="mt-3 divide-y divide-slate-100">
+        <ul className="mt-3 divide-y divide-border">
           {contacts.map((contact) => (
             <li key={contact.id} className="flex items-center justify-between py-2.5">
               <div>
-                <p className="text-sm font-medium text-brand-navy">{contact.name}</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-sm font-medium text-ink">{contact.name}</p>
+                <p className="text-xs text-muted-soft">
                   {CONTACT_ROLES.find((r) => r.value === contact.role)?.label ?? contact.role}
                   {contact.email ? ` · ${contact.email}` : ""}
                   {contact.phone ? ` · ${contact.phone}` : ""}
@@ -104,7 +104,7 @@ export function ContactList({
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit(submit)} method="post" className="mt-4 space-y-3 border-t border-slate-100 pt-4" noValidate>
+        <form onSubmit={handleSubmit(submit)} method="post" className="mt-4 space-y-3 border-t border-border pt-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="contactName">Nome</Label>
@@ -132,7 +132,7 @@ export function ContactList({
             </div>
           </div>
 
-          {serverError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
+          {serverError && <p className="rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">{serverError}</p>}
 
           <Button type="submit" size="sm" disabled={submitting}>
             {submitting ? "Salvando..." : "Salvar contato"}

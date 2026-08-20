@@ -13,7 +13,7 @@ export function ProcessTabs({
 
   return (
     <div>
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="flex gap-1 border-b border-border">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -22,12 +22,12 @@ export function ProcessTabs({
             className={cn(
               "flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors",
               tab.key === active
-                ? "border-brand-navy text-brand-navy"
-                : "border-transparent text-slate-500 hover:text-brand-navy"
+                ? "border-brand-navy text-ink dark:border-accent"
+                : "border-transparent text-muted hover:text-ink"
             )}
           >
             {tab.label}
-            {tab.badge && <span className="h-1.5 w-1.5 flex-none rounded-full bg-brand-blue" />}
+            {tab.badge && <span className="h-1.5 w-1.5 flex-none rounded-full bg-accent" />}
           </button>
         ))}
       </div>

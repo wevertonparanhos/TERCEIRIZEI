@@ -43,11 +43,11 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
     <div className="mx-auto max-w-3xl space-y-6 p-8">
       <RealtimeRefresh table="processes" filterColumn="client_id" filterValue={user.clientId} />
       <div>
-        <Link href="/portal/processos" className="text-sm text-brand-blue hover:underline">
+        <Link href="/portal/processos" className="text-sm text-accent hover:underline">
           ← Voltar para Meus Processos
         </Link>
         <div className="mt-2 flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-brand-navy">
+          <h1 className="text-2xl font-bold text-ink">
             #{process.number} — {process.serviceType.name}
           </h1>
           <Badge variant="info" style={{ backgroundColor: `${process.stage.color}1A`, color: process.stage.color }}>
@@ -55,33 +55,33 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
           </Badge>
           <Badge variant={PRIORITY_BADGE_VARIANT[process.priority]}>{PRIORITY_LABELS[process.priority]}</Badge>
         </div>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           {process.company ? `${process.company.razaoSocial} · ` : ""}aberto em{" "}
           {process.createdAt.toLocaleDateString("pt-BR")}
           {process.dueAt ? ` · prazo previsto ${process.dueAt.toLocaleDateString("pt-BR")}` : ""}
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="mb-2 text-base font-semibold text-brand-navy">Descrição</h2>
-        <p className="whitespace-pre-wrap text-sm text-slate-700">{process.description}</p>
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="mb-2 text-base font-semibold text-ink">Descrição</h2>
+        <p className="whitespace-pre-wrap text-sm text-ink">{process.description}</p>
       </div>
 
       {process.checklist.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="mb-3 text-base font-semibold text-brand-navy">Checklist</h2>
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="mb-3 text-base font-semibold text-ink">Checklist</h2>
           <ul className="space-y-1.5">
             {process.checklist.map((item) => (
               <li key={item.id} className="flex items-center gap-2 text-sm">
-                <span className={item.done ? "text-emerald-600" : "text-slate-300"}>{item.done ? "✓" : "○"}</span>
-                <span className={item.done ? "text-slate-400 line-through" : "text-slate-700"}>{item.label}</span>
+                <span className={item.done ? "text-emerald-600" : "text-muted-soft"}>{item.done ? "✓" : "○"}</span>
+                <span className={item.done ? "text-muted-soft line-through" : "text-ink"}>{item.label}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <DocumentList
           clientId={user.clientId}
           processId={process.id}
@@ -108,7 +108,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
       </div>
 
       {process.documentRequests.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
+        <div className="rounded-lg border border-border bg-surface p-6">
           <DocumentRequests
             clientId={user.clientId}
             processId={process.id}
@@ -126,7 +126,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <ProcessComments
           processId={process.id}
           comments={process.comments.map((c) => ({

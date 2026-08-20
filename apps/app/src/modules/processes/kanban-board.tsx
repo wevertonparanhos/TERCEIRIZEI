@@ -25,28 +25,28 @@ export type KanbanCard = {
 function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean }) {
   return (
     <div
-      className={`rounded-md border border-slate-200 bg-white p-3 shadow-sm transition-shadow ${
+      className={`rounded-md border border-border bg-surface p-3 shadow-sm transition-shadow ${
         dragging ? "shadow-lg" : "hover:shadow-md"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="flex items-center gap-1.5 font-mono text-xs text-slate-400">
+        <span className="flex items-center gap-1.5 font-mono text-xs text-muted-soft">
           #{card.number}
           {card.hasUnreadComment && (
             <span
               title="Comentário do cliente não lido"
-              className="h-2 w-2 flex-none rounded-full bg-brand-blue"
+              className="h-2 w-2 flex-none rounded-full bg-accent"
             />
           )}
         </span>
         <Badge variant={PRIORITY_BADGE_VARIANT[card.priority]}>{PRIORITY_LABELS[card.priority]}</Badge>
       </div>
-      <p className="mt-1 text-sm font-medium text-brand-navy">{card.clientName}</p>
-      <p className="text-xs text-slate-500">{card.serviceTypeName}</p>
+      <p className="mt-1 text-sm font-medium text-ink">{card.clientName}</p>
+      <p className="text-xs text-muted">{card.serviceTypeName}</p>
       <div className="mt-2 flex items-center justify-between text-xs">
-        <span className="text-slate-400">{card.assignedUserName ?? "Sem responsável"}</span>
+        <span className="text-muted-soft">{card.assignedUserName ?? "Sem responsável"}</span>
         {card.dueAt && (
-          <span className={card.isOverdue ? "font-medium text-red-600" : "text-slate-400"}>
+          <span className={card.isOverdue ? "font-medium text-red-600" : "text-muted-soft"}>
             {new Date(card.dueAt).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
             {card.isOverdue && " · atrasado"}
           </span>
@@ -87,15 +87,15 @@ function DroppableColumn({ stage, cards, canDrag }: { stage: Stage; cards: Kanba
     <div
       ref={setNodeRef}
       className={`flex w-64 flex-none flex-col rounded-lg border ${
-        isOver ? "border-brand-blue bg-blue-50/40" : "border-slate-200 bg-slate-50"
+        isOver ? "border-accent bg-accent-soft" : "border-border bg-surface-alt"
       }`}
     >
-      <div className="border-b border-slate-200 px-3 py-2">
-        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="border-b border-border px-3 py-2">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color }} />
           {stage.label}
         </p>
-        <p className="text-[11px] text-slate-400">{cards.length} processo(s)</p>
+        <p className="text-[11px] text-muted-soft">{cards.length} processo(s)</p>
       </div>
       <div className="flex-1 space-y-2 p-2">
         {cards.map((card) => (
@@ -152,7 +152,7 @@ export function KanbanBoard({
   return (
     <div>
       {error && (
-        <p role="alert" className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {error}
         </p>
       )}

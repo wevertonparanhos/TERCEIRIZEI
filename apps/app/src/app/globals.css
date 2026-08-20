@@ -1,9 +1,35 @@
-@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-bg: 248 250 252; /* slate-50 */
+  --color-surface: 255 255 255; /* white */
+  --color-surface-alt: 248 250 252; /* slate-50 */
+  --color-border: 226 232 240; /* slate-200 */
+  --color-border-strong: 203 213 225; /* slate-300 */
+  --color-ink: 27 37 88; /* brand-navy */
+  --color-muted: 100 116 139; /* slate-500 */
+  --color-muted-soft: 148 163 184; /* slate-400 */
+  --color-accent: 20 82 141; /* brand-blue */
+  --color-accent-soft: 219 234 254; /* blue-100 */
+}
+
+.dark {
+  --color-bg: 8 12 26;
+  --color-surface: 17 24 46;
+  --color-surface-alt: 23 31 58;
+  --color-border: 36 46 79;
+  --color-border-strong: 51 63 99;
+  --color-ink: 226 231 245;
+  --color-muted: 148 160 197;
+  --color-muted-soft: 100 112 148;
+  --color-accent: 56 189 248;
+  --color-accent-soft: 15 47 74;
+}
+
 body {
-  @apply bg-slate-50 text-brand-navy;
+  @apply bg-bg text-ink;
 }

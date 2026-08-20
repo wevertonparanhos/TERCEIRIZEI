@@ -17,18 +17,18 @@ const ACTIVE_STAGE_FILTER = { notIn: ["Concluído", "Cancelado"] };
 function KpiCard({ href, value, label }: { href?: string; value: string | number; label: string }) {
   const content = (
     <>
-      <p className="text-2xl font-bold text-brand-navy">{value}</p>
-      <p className="text-sm text-slate-500">{label}</p>
+      <p className="text-2xl font-bold text-ink">{value}</p>
+      <p className="text-sm text-muted">{label}</p>
     </>
   );
   if (href) {
     return (
-      <Link href={href} className="rounded-lg border border-slate-200 bg-white p-5 hover:shadow-sm">
+      <Link href={href} className="rounded-lg border border-border bg-surface p-5 hover:shadow-sm">
         {content}
       </Link>
     );
   }
-  return <div className="rounded-lg border border-slate-200 bg-white p-5">{content}</div>;
+  return <div className="rounded-lg border border-border bg-surface p-5">{content}</div>;
 }
 
 function AttentionCard({ href, value, label }: { href: string; value: number; label: string }) {
@@ -36,11 +36,11 @@ function AttentionCard({ href, value, label }: { href: string; value: number; la
     <Link
       href={href}
       className={`rounded-lg border p-5 hover:shadow-sm ${
-        value > 0 ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"
+        value > 0 ? "border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10" : "border-border bg-surface"
       }`}
     >
-      <p className={`text-2xl font-bold ${value > 0 ? "text-red-600" : "text-brand-navy"}`}>{value}</p>
-      <p className="text-sm text-slate-500">{label}</p>
+      <p className={`text-2xl font-bold ${value > 0 ? "text-red-600" : "text-ink"}`}>{value}</p>
+      <p className="text-sm text-muted">{label}</p>
     </Link>
   );
 }
@@ -113,13 +113,13 @@ export default async function DashboardPage() {
       <div className="p-8">
         <Header user={user} />
 
-        <h2 className="mt-8 text-base font-semibold text-brand-navy">Minha carga de trabalho</h2>
+        <h2 className="mt-8 text-base font-semibold text-ink">Minha carga de trabalho</h2>
         <div className="mt-3 grid grid-cols-2 gap-4">
           <KpiCard href="/processos" value={myActiveProcesses} label="Processos atribuídos a mim" />
           <KpiCard value={myOpenTasks} label="Tarefas pendentes" />
         </div>
 
-        <h2 className="mt-6 text-base font-semibold text-brand-navy">Atenção</h2>
+        <h2 className="mt-6 text-base font-semibold text-ink">Atenção</h2>
         <div className="mt-3 grid grid-cols-3 gap-4">
           <AttentionCard href="/processos" value={myOverdueProcesses} label="Meus processos com prazo vencido" />
           <AttentionCard href="/processos" value={myStaleProcesses} label="Meus processos sem mudança de etapa há 5+ dias" />
@@ -215,7 +215,7 @@ export default async function DashboardPage() {
         <KpiCard href="/clientes" value={activeClients} label={`Clientes ativos (${newClientsThisMonth} novos este mês)`} />
       </div>
 
-      <h2 className="mt-6 text-base font-semibold text-brand-navy">Atenção</h2>
+      <h2 className="mt-6 text-base font-semibold text-ink">Atenção</h2>
       <div className="mt-3 grid grid-cols-3 gap-4">
         <AttentionCard href="/processos" value={overdueProcesses} label="Processos com prazo vencido" />
         <AttentionCard href="/processos" value={staleProcessesCount} label="Processos sem mudança de etapa há 5+ dias" />
@@ -223,13 +223,13 @@ export default async function DashboardPage() {
       </div>
 
       {stages.length > 0 && (
-        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="text-base font-semibold text-brand-navy">Processos por etapa</h2>
+        <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+          <h2 className="text-base font-semibold text-ink">Processos por etapa</h2>
           <div className="mt-4 space-y-2.5">
             {stages.map((stage) => (
               <div key={stage.id} className="flex items-center gap-3">
-                <span className="w-40 shrink-0 truncate text-sm text-slate-600">{stage.label}</span>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                <span className="w-40 shrink-0 truncate text-sm text-muted">{stage.label}</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-alt">
                   <div
                     className="h-full rounded-full"
                     style={{
@@ -238,7 +238,7 @@ export default async function DashboardPage() {
                     }}
                   />
                 </div>
-                <span className="w-6 shrink-0 text-right text-sm font-medium text-slate-600">
+                <span className="w-6 shrink-0 text-right text-sm font-medium text-muted">
                   {stage._count.processes}
                 </span>
               </div>
@@ -250,31 +250,31 @@ export default async function DashboardPage() {
       <DeadlinesList title="Prazos nos próximos 7 dias" deadlines={deadlines} />
 
       {canSeeFinance && (
-        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+        <div className="mt-6 rounded-lg border border-border bg-surface p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-brand-navy">Financeiro</h2>
-            <Link href="/financeiro" className="text-sm text-brand-blue hover:underline">
+            <h2 className="text-base font-semibold text-ink">Financeiro</h2>
+            <Link href="/financeiro" className="text-sm text-accent hover:underline">
               Ver faturas →
             </Link>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
             <div>
-              <p className="text-xl font-bold text-brand-navy">{currencyFormatter.format(pendingTotal)}</p>
-              <p className="text-sm text-slate-500">{pendingInvoices.length} fatura(s) pendente(s)</p>
+              <p className="text-xl font-bold text-ink">{currencyFormatter.format(pendingTotal)}</p>
+              <p className="text-sm text-muted">{pendingInvoices.length} fatura(s) pendente(s)</p>
             </div>
             <div>
               <p className="text-xl font-bold text-red-600">{overdueInvoicesCount}</p>
-              <p className="text-sm text-slate-500">fatura(s) atrasada(s)</p>
+              <p className="text-sm text-muted">fatura(s) atrasada(s)</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-brand-navy">{currencyFormatter.format(upcomingTotal)}</p>
-              <p className="text-sm text-slate-500">{upcomingCount} previsto(s) dentro do prazo</p>
+              <p className="text-xl font-bold text-ink">{currencyFormatter.format(upcomingTotal)}</p>
+              <p className="text-sm text-muted">{upcomingCount} previsto(s) dentro do prazo</p>
             </div>
             <div>
               <p className="text-xl font-bold text-emerald-600">
                 {currencyFormatter.format(Number(paidThisMonth._sum.totalAmount ?? 0))}
               </p>
-              <p className="text-sm text-slate-500">recebido este mês</p>
+              <p className="text-sm text-muted">recebido este mês</p>
             </div>
           </div>
         </div>
@@ -286,9 +286,9 @@ export default async function DashboardPage() {
 function Header({ user }: { user: { name: string; role: string } }) {
   return (
     <>
-      <p className="text-sm text-slate-500">Bom dia,</p>
-      <h1 className="mt-1 text-2xl font-bold text-brand-navy">{user.name}</h1>
-      <p className="mt-1 text-sm text-slate-500">{ROLE_LABELS[user.role]}</p>
+      <p className="text-sm text-muted">Bom dia,</p>
+      <h1 className="mt-1 text-2xl font-bold text-ink">{user.name}</h1>
+      <p className="mt-1 text-sm text-muted">{ROLE_LABELS[user.role]}</p>
     </>
   );
 }
@@ -302,18 +302,18 @@ type DeadlineProcess = {
 
 function DeadlinesList({ title, deadlines }: { title: string; deadlines: DeadlineProcess[] }) {
   return (
-    <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
-      <h2 className="text-base font-semibold text-brand-navy">{title}</h2>
+    <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+      <h2 className="text-base font-semibold text-ink">{title}</h2>
       {deadlines.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-400">Nenhum prazo nos próximos 7 dias.</p>
+        <p className="mt-3 text-sm text-muted-soft">Nenhum prazo nos próximos 7 dias.</p>
       ) : (
-        <ul className="mt-3 divide-y divide-slate-100">
+        <ul className="mt-3 divide-y divide-border">
           {deadlines.map((process) => (
             <li key={process.id} className="flex items-center justify-between py-2.5 text-sm">
-              <Link href={`/processos/${process.id}`} className="text-slate-700 hover:text-brand-navy hover:underline">
+              <Link href={`/processos/${process.id}`} className="text-ink hover:text-ink hover:underline">
                 #{process.number} — {process.client.name}
               </Link>
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-muted-soft">
                 {process.dueAt?.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
               </span>
             </li>

@@ -46,11 +46,11 @@ export default async function FaturarProcessosPage({
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <Link href="/financeiro" className="text-sm text-brand-blue hover:underline">
+      <Link href="/financeiro" className="text-sm text-accent hover:underline">
         ← Voltar para Financeiro
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-brand-navy">Faturar Processos</h1>
-      <p className="mt-1 text-sm text-slate-500">
+      <h1 className="mt-2 text-2xl font-bold text-ink">Faturar Processos</h1>
+      <p className="mt-1 text-sm text-muted">
         Gere uma fatura a partir do valor já definido em um ou mais processos do mesmo cliente.
       </p>
 
@@ -69,9 +69,9 @@ export default async function FaturarProcessosPage({
       </form>
 
       {searchParams.clientId && (
-        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6">
+        <div className="mt-6 rounded-lg border border-border bg-surface p-6">
           {processes.length === 0 ? (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted-soft">
               Nenhum processo com valor definido e sem fatura vinculada para este cliente.
             </p>
           ) : (

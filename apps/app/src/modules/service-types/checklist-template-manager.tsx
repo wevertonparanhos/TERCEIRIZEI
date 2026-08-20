@@ -44,25 +44,25 @@ export function ChecklistTemplateManager({
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-brand-navy">Checklist padrão</h3>
-      <p className="mt-1 text-xs text-slate-500">
+      <h3 className="text-sm font-semibold text-ink">Checklist padrão</h3>
+      <p className="mt-1 text-xs text-muted">
         Copiado automaticamente para cada novo processo deste tipo de serviço — depois pode ser editado livremente
         em cada processo.
       </p>
 
-      {items.length === 0 && <p className="mt-3 text-sm text-slate-400">Nenhum item no checklist padrão.</p>}
+      {items.length === 0 && <p className="mt-3 text-sm text-muted-soft">Nenhum item no checklist padrão.</p>}
 
       {items.length > 0 && (
-        <ul className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+        <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-surface">
           {items.map((item, index) => (
             <li key={item.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="flex-1 text-sm text-slate-700">{item.label}</span>
+              <span className="flex-1 text-sm text-ink">{item.label}</span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   disabled={busy || index === 0}
                   onClick={() => run(() => moveItem(serviceTypeId, item.id, "up"))}
-                  className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                  className="rounded px-2 py-1 text-xs text-muted hover:bg-surface-alt disabled:opacity-30"
                 >
                   ↑
                 </button>
@@ -70,7 +70,7 @@ export function ChecklistTemplateManager({
                   type="button"
                   disabled={busy || index === items.length - 1}
                   onClick={() => run(() => moveItem(serviceTypeId, item.id, "down"))}
-                  className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                  className="rounded px-2 py-1 text-xs text-muted hover:bg-surface-alt disabled:opacity-30"
                 >
                   ↓
                 </button>
@@ -78,7 +78,7 @@ export function ChecklistTemplateManager({
                   type="button"
                   disabled={busy}
                   onClick={() => run(() => removeItem(serviceTypeId, item.id))}
-                  className="rounded px-2 py-1 text-xs text-red-500 hover:bg-slate-100"
+                  className="rounded px-2 py-1 text-xs text-red-500 hover:bg-surface-alt"
                 >
                   Remover
                 </button>
@@ -95,7 +95,7 @@ export function ChecklistTemplateManager({
         </Button>
       </form>
 
-      {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-3 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
     </div>
   );
 }

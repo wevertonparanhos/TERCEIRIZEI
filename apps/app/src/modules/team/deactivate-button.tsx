@@ -35,7 +35,7 @@ export function DeactivateButton({
         <button type="button" onClick={handleConfirm} disabled={submitting} className="text-red-600 hover:underline">
           {submitting ? "Desativando..." : "Confirmar"}
         </button>
-        <button type="button" onClick={() => setConfirming(false)} className="text-slate-400 hover:underline">
+        <button type="button" onClick={() => setConfirming(false)} className="text-muted-soft hover:underline">
           Voltar
         </button>
         {error && <span className="text-red-600">{error}</span>}

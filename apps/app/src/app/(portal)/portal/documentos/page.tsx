@@ -31,11 +31,11 @@ export default async function PortalDocumentosPage() {
     <div className="mx-auto max-w-3xl space-y-6 p-8">
       <RealtimeRefresh table="document_requests" filterColumn="client_id" filterValue={user.clientId} />
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Documentos</h1>
-        <p className="text-sm text-slate-500">Documentos gerais, não ligados a um processo específico.</p>
+        <h1 className="text-2xl font-bold text-ink">Documentos</h1>
+        <p className="text-sm text-muted">Documentos gerais, não ligados a um processo específico.</p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <DocumentList
           clientId={user.clientId}
           processId={null}
@@ -60,7 +60,7 @@ export default async function PortalDocumentosPage() {
       </div>
 
       {requests.length > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
+        <div className="rounded-lg border border-border bg-surface p-6">
           <DocumentRequests
             clientId={user.clientId}
             processId={null}

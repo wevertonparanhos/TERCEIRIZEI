@@ -76,7 +76,7 @@ export function DocumentList({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-brand-navy">Documentos</h3>
+        <h3 className="text-sm font-semibold text-ink">Documentos</h3>
         {canWrite && (
           <Button variant="outline" size="sm" onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Cancelar" : "+ Documento"}
@@ -84,16 +84,16 @@ export function DocumentList({
         )}
       </div>
 
-      {documents.length === 0 && !showForm && <p className="mt-3 text-sm text-slate-400">Nenhum documento enviado.</p>}
+      {documents.length === 0 && !showForm && <p className="mt-3 text-sm text-muted-soft">Nenhum documento enviado.</p>}
 
       {documents.length > 0 && (
-        <ul className="mt-3 divide-y divide-slate-100">
+        <ul className="mt-3 divide-y divide-border">
           {documents.map((doc) => (
             <li key={doc.id} className="py-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-brand-navy">{doc.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="truncate text-sm font-medium text-ink">{doc.name}</p>
+                  <p className="text-xs text-muted-soft">
                     {CATEGORY_LABELS[doc.category]} · v{doc.currentVersion} · {formatFileSize(doc.latestSizeBytes)} ·{" "}
                     {doc.uploadedByName} · {new Date(doc.createdAt).toLocaleDateString("pt-BR")}
                   </p>
@@ -103,7 +103,7 @@ export function DocumentList({
                     href={`/documentos/${doc.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-brand-blue hover:underline"
+                    className="text-xs text-accent hover:underline"
                   >
                     Baixar
                   </a>
@@ -111,7 +111,7 @@ export function DocumentList({
                     <button
                       type="button"
                       onClick={() => setVersioningId(versioningId === doc.id ? null : doc.id)}
-                      className="text-xs text-slate-500 hover:underline"
+                      className="text-xs text-muted hover:underline"
                     >
                       Nova versão
                     </button>
@@ -121,7 +121,7 @@ export function DocumentList({
               {versioningId === doc.id && (
                 <form
                   action={(fd) => handleNewVersion(doc.id, fd)}
-                  className="mt-2 flex items-center gap-2 rounded-md bg-slate-50 p-2"
+                  className="mt-2 flex items-center gap-2 rounded-md bg-surface-alt p-2"
                 >
                   <input type="file" name="file" required className="text-xs" />
                   <Button type="submit" size="sm" disabled={busy}>
@@ -135,7 +135,7 @@ export function DocumentList({
       )}
 
       {showForm && (
-        <form action={handleUpload} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+        <form action={handleUpload} className="mt-4 space-y-3 border-t border-border pt-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="docName">Nome do documento</Label>
@@ -167,7 +167,7 @@ export function DocumentList({
             <div className="col-span-2 space-y-1">
               <Label htmlFor="docFile">Arquivo</Label>
               <input id="docFile" type="file" name="file" required className="block w-full text-sm" />
-              <p className="text-xs text-slate-400">PDF, imagem, Word ou Excel, até 20MB.</p>
+              <p className="text-xs text-muted-soft">PDF, imagem, Word ou Excel, até 20MB.</p>
             </div>
           </div>
 
@@ -177,7 +177,7 @@ export function DocumentList({
         </form>
       )}
 
-      {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-3 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
     </div>
   );
 }

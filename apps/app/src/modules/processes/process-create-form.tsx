@@ -145,7 +145,7 @@ export function ProcessCreateForm({
           </Select>
           {errors.serviceTypeId && <p className="text-xs text-red-600">{errors.serviceTypeId.message}</p>}
           {selectedServiceType && selectedServiceType.checklistCount > 0 && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-soft">
               {selectedServiceType.checklistCount} item(s) de checklist padrão serão adicionados automaticamente.
             </p>
           )}
@@ -185,7 +185,7 @@ export function ProcessCreateForm({
       </div>
 
       {serverError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {serverError}
         </p>
       )}

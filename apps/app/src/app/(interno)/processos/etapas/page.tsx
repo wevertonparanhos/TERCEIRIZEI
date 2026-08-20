@@ -18,11 +18,11 @@ export default async function EtapasPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <Link href="/processos" className="text-sm text-brand-blue hover:underline">
+      <Link href="/processos" className="text-sm text-accent hover:underline">
         ← Voltar para Processos
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-brand-navy">Etapas do Kanban</h1>
-      <p className="mt-1 text-sm text-slate-500">
+      <h1 className="mt-2 text-2xl font-bold text-ink">Etapas do Kanban</h1>
+      <p className="mt-1 text-sm text-muted">
         Crie, renomeie, reordene ou remova as colunas do quadro de processos. Uma etapa só pode ser removida quando
         não houver processos nela.
       </p>

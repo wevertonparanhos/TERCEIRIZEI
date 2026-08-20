@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             Terceirizei OS
           </span>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-xl">{children}</div>
+        <div className="rounded-xl border border-border bg-surface p-8 shadow-xl">{children}</div>
       </div>
     </div>
   );

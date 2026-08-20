@@ -58,8 +58,8 @@ export default async function ProcessosPage() {
     <div className="flex h-screen flex-col p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-navy">Processos</h1>
-          <p className="text-sm text-slate-500">{processes.length} processo(s)</p>
+          <h1 className="text-2xl font-bold text-ink">Processos</h1>
+          <p className="text-sm text-muted">{processes.length} processo(s)</p>
         </div>
         <div className="flex gap-2">
           {canManage && (

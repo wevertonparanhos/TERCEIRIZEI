@@ -38,33 +38,33 @@ export default async function FaturaDetalhePage({ params }: { params: { id: stri
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-8">
       <div>
-        <Link href="/financeiro" className="text-sm text-brand-blue hover:underline">
+        <Link href="/financeiro" className="text-sm text-accent hover:underline">
           ← Voltar para Financeiro
         </Link>
         <div className="mt-2 flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-brand-navy">
+          <h1 className="text-2xl font-bold text-ink">
             #{invoice.number} · {invoice.client.name}
           </h1>
           <Badge variant={STATUS_BADGE_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
         </div>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           {invoice.company ? `${invoice.company.razaoSocial} · ` : ""}
           emitida em {invoice.issueDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })} · vencimento{" "}
           {invoice.dueDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })} · criada por {invoice.createdBy.name}
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-brand-navy">Total</h2>
-          <span className="font-mono text-lg font-semibold text-brand-navy">
+          <h2 className="text-base font-semibold text-ink">Total</h2>
+          <span className="font-mono text-lg font-semibold text-ink">
             {currencyFormatter.format(Number(invoice.totalAmount))}
           </span>
         </div>
-        {invoice.notes && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{invoice.notes}</p>}
+        {invoice.notes && <p className="mt-3 whitespace-pre-wrap text-sm text-muted">{invoice.notes}</p>}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <InvoiceItems
           invoiceId={invoice.id}
           items={invoice.items.map((item) => ({
@@ -81,19 +81,19 @@ export default async function FaturaDetalhePage({ params }: { params: { id: stri
       </div>
 
       {invoice.status === "PENDENTE" && (
-        <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="text-base font-semibold text-brand-navy">Registrar pagamento</h2>
+        <div className="space-y-4 rounded-lg border border-border bg-surface p-6">
+          <h2 className="text-base font-semibold text-ink">Registrar pagamento</h2>
           <MarkPaidForm invoiceId={invoice.id} markPaid={markInvoicePaid} />
-          <div className="border-t border-slate-100 pt-4">
+          <div className="border-t border-border pt-4">
             <CancelInvoiceButton invoiceId={invoice.id} cancel={cancelInvoice} />
           </div>
         </div>
       )}
 
       {invoice.status === "PAGA" && invoice.paidAt && (
-        <div className="rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="text-base font-semibold text-brand-navy">Pagamento</h2>
-          <p className="mt-2 text-sm text-slate-600">
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="text-base font-semibold text-ink">Pagamento</h2>
+          <p className="mt-2 text-sm text-muted">
             Pago em {invoice.paidAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
             {invoice.paymentMethod ? ` via ${invoice.paymentMethod}` : ""}
           </p>
