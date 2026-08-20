@@ -55,6 +55,27 @@ enum TaskStatus {
   @@map("task_status")
 }
 
+enum DocumentCategory {
+  DOCUMENTACAO_CADASTRAL
+  CONTRATOS
+  CERTIDOES
+  DOCUMENTOS_SOCIETARIOS
+  DOCUMENTOS_FISCAIS
+  DOCUMENTOS_PESSOAIS
+  COMPROVANTES
+  OUTROS
+
+  @@map("document_category")
+}
+
+enum DocumentRequestStatus {
+  PENDENTE
+  RECEBIDO
+  CANCELADO
+
+  @@map("document_request_status")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -63,15 +84,17 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users        User[]
-  clients      Client[]
-  companies    Company[]
-  tags         Tag[]
-  serviceTypes ServiceType[]
-  demands      Demand[]
-  processes    Process[]
-  kanbanStages KanbanStage[]
-  counters     TenantCounter[]
+  users            User[]
+  clients          Client[]
+  companies        Company[]
+  tags             Tag[]
+  serviceTypes     ServiceType[]
+  demands          Demand[]
+  processes        Process[]
+  kanbanStages     KanbanStage[]
+  counters         TenantCounter[]
+  documents        Document[]
+  documentRequests DocumentRequest[]
 
   @@map("tenants")
 }
@@ -120,13 +143,16 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant          Tenant    @relation(fields: [tenantId], references: [id])
-  role            Role      @relation(fields: [roleId], references: [id])
-  client          Client?   @relation(fields: [clientId], references: [id])
-  ownedClients    Client[]  @relation("ClientOwner")
-  assignedDemands Demand[]  @relation("DemandAssignee")
-  assignedProcesses Process[] @relation("ProcessAssignee")
-  assignedTasks   Task[]    @relation("TaskAssignee")
+  tenant             Tenant            @relation(fields: [tenantId], references: [id])
+  role               Role              @relation(fields: [roleId], references: [id])
+  client             Client?           @relation(fields: [clientId], references: [id])
+  ownedClients       Client[]          @relation("ClientOwner")
+  assignedDemands    Demand[]          @relation("DemandAssignee")
+  assignedProcesses  Process[]         @relation("ProcessAssignee")
+  assignedTasks      Task[]            @relation("TaskAssignee")
+  uploadedDocuments  Document[]
+  uploadedVersions   DocumentVersion[]
+  requestedDocuments DocumentRequest[]
 
   @@index([tenantId])
   @@map("users")
@@ -152,14 +178,16 @@ model Client {
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  tenant    Tenant          @relation(fields: [tenantId], references: [id])
-  owner     User?           @relation("ClientOwner", fields: [ownerUserId], references: [id])
-  users     User[]
-  contacts  ClientContact[]
-  companies Company[]
-  tags      ClientTag[]
-  demands   Demand[]
-  processes Process[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  owner            User?             @relation("ClientOwner", fields: [ownerUserId], references: [id])
+  users            User[]
+  contacts         ClientContact[]
+  companies        Company[]
+  tags             ClientTag[]
+  demands          Demand[]
+  processes        Process[]
+  documents        Document[]
+  documentRequests DocumentRequest[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -342,6 +370,8 @@ model Process {
   tasks        Task[]
   checklist    ProcessChecklistItem[]
   tags         ProcessTag[]
+  documents    Document[]
+  documentRequests DocumentRequest[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -428,4 +458,73 @@ model ProcessTag {
 
   @@id([processId, tagId])
   @@map("process_tags")
+}
+
+model Document {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  clientId       String           @map("client_id") @db.Uuid
+  processId      String?          @map("process_id") @db.Uuid
+  category       DocumentCategory
+  name           String
+  currentVersion Int              @default(1) @map("current_version")
+  uploadedById   String           @map("uploaded_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  client     Client            @relation(fields: [clientId], references: [id])
+  process    Process?          @relation(fields: [processId], references: [id])
+  uploadedBy User              @relation(fields: [uploadedById], references: [id])
+  versions   DocumentVersion[]
+  requests   DocumentRequest[]
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([processId])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  documentId   String   @map("document_id") @db.Uuid
+  version      Int
+  storagePath  String   @map("storage_path")
+  fileName     String   @map("file_name")
+  sizeBytes    Int      @map("size_bytes")
+  mimeType     String   @map("mime_type")
+  uploadedById String   @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@unique([documentId, version])
+  @@map("document_versions")
+}
+
+model DocumentRequest {
+  id            String                 @id @default(uuid()) @db.Uuid
+  tenantId      String                 @map("tenant_id") @db.Uuid
+  clientId      String                 @map("client_id") @db.Uuid
+  processId     String?                @map("process_id") @db.Uuid
+  documentId    String?                @map("document_id") @db.Uuid
+  label         String
+  deadline      DateTime?
+  status        DocumentRequestStatus  @default(PENDENTE)
+  notes         String?
+  requestedById String                 @map("requested_by_id") @db.Uuid
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  client      Client    @relation(fields: [clientId], references: [id])
+  process     Process?  @relation(fields: [processId], references: [id])
+  document    Document? @relation(fields: [documentId], references: [id])
+  requestedBy User      @relation(fields: [requestedById], references: [id])
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([processId])
+  @@map("document_requests")
 }

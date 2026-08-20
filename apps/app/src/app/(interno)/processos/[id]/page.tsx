@@ -8,6 +8,8 @@ import { ProcessTabs } from "@/modules/processes/process-tabs";
 import { ProcessForm } from "@/modules/processes/process-form";
 import { TaskList } from "@/modules/processes/task-list";
 import { Checklist } from "@/modules/processes/checklist";
+import { DocumentList } from "@/modules/documents/document-list";
+import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
   updateProcess,
   createTask,
@@ -17,6 +19,13 @@ import {
   toggleChecklistItem,
   deleteChecklistItem,
 } from "@/modules/processes/actions";
+import {
+  uploadNewDocument,
+  uploadNewVersion,
+  requestDocument,
+  markRequestReceived,
+  cancelRequest,
+} from "@/modules/documents/actions";
 
 export default async function ProcessoDetalhePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -37,6 +46,11 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
         orderBy: { changedAt: "asc" },
         include: { fromStage: { select: { label: true } }, toStage: { select: { label: true } } },
       },
+      documents: {
+        orderBy: { createdAt: "desc" },
+        include: { uploadedBy: { select: { name: true } }, versions: true },
+      },
+      documentRequests: { orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -144,6 +158,55 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                 />
               ),
             },
+            ...(user.role !== "FINANCEIRO"
+              ? [
+            {
+              key: "documentos",
+              label: "Documentos",
+              content: (
+                <div className="space-y-8">
+                  <DocumentList
+                    clientId={process.clientId}
+                    processId={process.id}
+                    canWrite={canWrite}
+                    documents={process.documents.map((d) => {
+                      const latest = d.versions.find((v) => v.version === d.currentVersion) ?? d.versions[0];
+                      return {
+                        id: d.id,
+                        name: d.name,
+                        category: d.category,
+                        currentVersion: d.currentVersion,
+                        uploadedByName: d.uploadedBy.name,
+                        createdAt: d.createdAt.toISOString(),
+                        latestFileName: latest?.fileName ?? "",
+                        latestSizeBytes: latest?.sizeBytes ?? 0,
+                      };
+                    })}
+                    openRequests={process.documentRequests
+                      .filter((r) => r.status === "PENDENTE")
+                      .map((r) => ({ id: r.id, label: r.label }))}
+                    uploadNewDocument={uploadNewDocument}
+                    uploadNewVersion={uploadNewVersion}
+                  />
+                  <DocumentRequests
+                    clientId={process.clientId}
+                    processId={process.id}
+                    canWrite={canWrite}
+                    requests={process.documentRequests.map((r) => ({
+                      id: r.id,
+                      label: r.label,
+                      deadline: r.deadline ? r.deadline.toISOString() : null,
+                      status: r.status,
+                    }))}
+                    requestDocument={requestDocument}
+                    markRequestReceived={markRequestReceived}
+                    cancelRequest={cancelRequest}
+                  />
+                </div>
+              ),
+            },
+              ]
+              : []),
             {
               key: "historico",
               label: "Histórico",

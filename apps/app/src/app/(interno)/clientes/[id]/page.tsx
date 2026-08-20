@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { ClientForm } from "@/modules/clients/client-form";
 import { CompanyList } from "@/modules/clients/company-list";
 import { ContactList } from "@/modules/clients/contact-list";
+import { DocumentList } from "@/modules/documents/document-list";
+import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
   updateClient,
   addClientContact,
@@ -13,6 +15,13 @@ import {
   addCompany,
   deleteCompany,
 } from "@/modules/clients/actions";
+import {
+  uploadNewDocument,
+  uploadNewVersion,
+  requestDocument,
+  markRequestReceived,
+  cancelRequest,
+} from "@/modules/documents/actions";
 
 export default async function ClienteDetalhePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -30,12 +39,24 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
   if (!client) notFound();
 
   const canWrite = user.role === "ADMIN" || user.role === "GESTOR";
+  const canWriteDocs = canWrite || user.role === "OPERACIONAL";
 
-  const owners = await prisma.user.findMany({
-    where: { tenantId: user.tenantId, role: { name: { not: "CLIENTE" } }, active: true },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  const [owners, documents, documentRequests] = await Promise.all([
+    prisma.user.findMany({
+      where: { tenantId: user.tenantId, role: { name: { not: "CLIENTE" } }, active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.document.findMany({
+      where: { clientId: client.id, processId: null },
+      orderBy: { createdAt: "desc" },
+      include: { uploadedBy: { select: { name: true } }, versions: true },
+    }),
+    prisma.documentRequest.findMany({
+      where: { clientId: client.id, processId: null },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   const updateThisClient = updateClient.bind(null, client.id);
 
@@ -98,6 +119,53 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
         addContact={addClientContact}
         deleteContact={deleteClientContact}
       />
+
+      {user.role !== "FINANCEIRO" && (
+        <>
+          <div className="rounded-lg border border-slate-200 bg-white p-6">
+            <DocumentList
+              clientId={client.id}
+              processId={null}
+              canWrite={canWriteDocs}
+              documents={documents.map((d) => {
+                const latest = d.versions.find((v) => v.version === d.currentVersion) ?? d.versions[0];
+                return {
+                  id: d.id,
+                  name: d.name,
+                  category: d.category,
+                  currentVersion: d.currentVersion,
+                  uploadedByName: d.uploadedBy.name,
+                  createdAt: d.createdAt.toISOString(),
+                  latestFileName: latest?.fileName ?? "",
+                  latestSizeBytes: latest?.sizeBytes ?? 0,
+                };
+              })}
+              openRequests={documentRequests
+                .filter((r) => r.status === "PENDENTE")
+                .map((r) => ({ id: r.id, label: r.label }))}
+              uploadNewDocument={uploadNewDocument}
+              uploadNewVersion={uploadNewVersion}
+            />
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-6">
+            <DocumentRequests
+              clientId={client.id}
+              processId={null}
+              canWrite={canWriteDocs}
+              requests={documentRequests.map((r) => ({
+                id: r.id,
+                label: r.label,
+                deadline: r.deadline ? r.deadline.toISOString() : null,
+                status: r.status,
+              }))}
+              requestDocument={requestDocument}
+              markRequestReceived={markRequestReceived}
+              cancelRequest={cancelRequest}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
