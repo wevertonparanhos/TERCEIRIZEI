@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma, prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import {
   clientSchema,
   clientContactSchema,
@@ -59,6 +60,15 @@ export async function createClient(input: ClientInput) {
     rethrowFriendly(err, "Já existe um cliente cadastrado com este CPF/CNPJ ou e-mail.");
   }
 
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "client.create",
+    entityType: "client",
+    entityId: client.id,
+    description: `Cliente "${client.name}" cadastrado.`,
+  });
+
   revalidatePath("/clientes");
   return { id: client.id };
 }
@@ -93,6 +103,16 @@ export async function updateClient(clientId: string, input: ClientInput) {
   }
 
   if (result.count === 0) throw new Error("Cliente não encontrado.");
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "client.update",
+    entityType: "client",
+    entityId: clientId,
+    description: `Cliente "${data.name}" atualizado.`,
+    metadata: { status: data.status },
+  });
 
   revalidatePath(`/clientes/${clientId}`);
   revalidatePath("/clientes");

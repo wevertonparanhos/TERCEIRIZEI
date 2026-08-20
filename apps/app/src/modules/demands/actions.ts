@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import { demandSchema, clientDemandSchema, DEMAND_STATUSES, type DemandInput, type ClientDemandInput } from "@/lib/validations/demand";
 
 type DemandStatus = (typeof DEMAND_STATUSES)[number];
@@ -125,6 +126,16 @@ export async function updateDemandStatus(demandId: string, toStatus: DemandStatu
     }),
   ]);
 
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "demand.status_change",
+    entityType: "demand",
+    entityId: demandId,
+    description: `Demanda #${demand.number} mudou de ${demand.status} para ${toStatus}.`,
+    metadata: { fromStatus: demand.status, toStatus },
+  });
+
   revalidatePath(`/demandas/${demandId}`);
   revalidatePath("/demandas");
 }
@@ -137,6 +148,16 @@ export async function assignDemand(demandId: string, assignedUserId: string) {
     data: { assignedUserId: assignedUserId || null },
   });
   if (result.count === 0) throw new Error("Demanda não encontrada.");
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "demand.assign",
+    entityType: "demand",
+    entityId: demandId,
+    description: assignedUserId ? "Demanda atribuída a um responsável." : "Demanda desatribuída.",
+    metadata: { assignedUserId: assignedUserId || null },
+  });
 
   revalidatePath(`/demandas/${demandId}`);
   revalidatePath("/demandas");

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import {
   invoiceSchema,
   invoiceItemSchema,
@@ -57,6 +58,15 @@ export async function createInvoice(input: InvoiceInput) {
       notes: data.notes || null,
       createdById: user.id,
     },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "invoice.create",
+    entityType: "invoice",
+    entityId: invoice.id,
+    description: `Fatura #${invoice.number} criada.`,
   });
 
   revalidatePath("/financeiro");
@@ -129,6 +139,16 @@ export async function markInvoicePaid(invoiceId: string, input: MarkPaidInput) {
     },
   });
 
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "invoice.mark_paid",
+    entityType: "invoice",
+    entityId: invoiceId,
+    description: `Fatura #${invoice.number} marcada como paga (${data.paymentMethod}).`,
+    metadata: { paymentMethod: data.paymentMethod, totalAmount: invoice.totalAmount.toString() },
+  });
+
   revalidatePath(`/financeiro/${invoiceId}`);
   revalidatePath("/financeiro");
 }
@@ -141,6 +161,15 @@ export async function cancelInvoice(invoiceId: string) {
   if (invoice.status === "PAGA") throw new Error("Não é possível cancelar uma fatura já paga.");
 
   await prisma.invoice.update({ where: { id: invoiceId }, data: { status: "CANCELADA" } });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "invoice.cancel",
+    entityType: "invoice",
+    entityId: invoiceId,
+    description: `Fatura #${invoice.number} cancelada.`,
+  });
 
   revalidatePath(`/financeiro/${invoiceId}`);
   revalidatePath("/financeiro");

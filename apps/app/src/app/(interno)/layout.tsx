@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: "/demandas", label: "Demandas", roles: ["ADMIN", "GESTOR", "OPERACIONAL"] },
   { href: "/processos", label: "Processos", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
   { href: "/financeiro", label: "Financeiro", roles: ["ADMIN", "GESTOR", "FINANCEIRO"] },
+  { href: "/auditoria", label: "Auditoria", roles: ["ADMIN"] },
 ];
 
 export default async function InternoLayout({ children }: { children: React.ReactNode }) {

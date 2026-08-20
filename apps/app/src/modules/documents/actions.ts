@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   documentUploadSchema,
@@ -96,6 +97,15 @@ async function performUpload(params: {
     });
   }
 
+  await logAudit({
+    tenantId,
+    userId: uploaderId,
+    action: "document.upload",
+    entityType: "document",
+    entityId: document.id,
+    description: `Documento "${data.name}" enviado.`,
+  });
+
   if (processId) revalidatePath(`/processos/${processId}`);
   revalidatePath(`/clientes/${clientId}`);
   revalidatePath("/portal/processos");
@@ -129,6 +139,15 @@ async function performNewVersion(params: { document: NonNullable<Awaited<ReturnT
     }),
     prisma.document.update({ where: { id: document.id }, data: { currentVersion: nextVersion } }),
   ]);
+
+  await logAudit({
+    tenantId: document.tenantId,
+    userId: uploaderId,
+    action: "document.new_version",
+    entityType: "document",
+    entityId: document.id,
+    description: `Nova versão (v${nextVersion}) do documento "${document.name}" enviada.`,
+  });
 
   if (document.processId) revalidatePath(`/processos/${document.processId}`);
   revalidatePath(`/clientes/${document.clientId}`);
@@ -182,7 +201,7 @@ export async function requestDocument(clientId: string, processId: string | null
   await assertClientInTenant(clientId, user.tenantId);
   const data = documentRequestSchema.parse(input);
 
-  await prisma.documentRequest.create({
+  const request = await prisma.documentRequest.create({
     data: {
       tenantId: user.tenantId,
       clientId,
@@ -192,6 +211,15 @@ export async function requestDocument(clientId: string, processId: string | null
       notes: data.notes || null,
       requestedById: user.id,
     },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "document_request.create",
+    entityType: "document_request",
+    entityId: request.id,
+    description: `Documento "${data.label}" solicitado ao cliente.`,
   });
 
   if (processId) revalidatePath(`/processos/${processId}`);
@@ -205,6 +233,16 @@ export async function markRequestReceived(requestId: string) {
     data: { status: "RECEBIDO" },
   });
   if (result.count === 0) throw new Error("Solicitação não encontrada.");
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "document_request.mark_received",
+    entityType: "document_request",
+    entityId: requestId,
+    description: "Solicitação de documento marcada como recebida.",
+  });
+
   revalidatePath("/processos");
   revalidatePath("/clientes");
 }
@@ -216,6 +254,16 @@ export async function cancelRequest(requestId: string) {
     data: { status: "CANCELADO" },
   });
   if (result.count === 0) throw new Error("Solicitação não encontrada.");
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "document_request.cancel",
+    entityType: "document_request",
+    entityId: requestId,
+    description: "Solicitação de documento cancelada.",
+  });
+
   revalidatePath("/processos");
   revalidatePath("/clientes");
 }

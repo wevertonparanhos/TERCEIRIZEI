@@ -104,6 +104,7 @@ model Tenant {
   documents        Document[]
   documentRequests DocumentRequest[]
   invoices         Invoice[]
+  auditLogs        AuditLog[]
 
   @@map("tenants")
 }
@@ -163,6 +164,7 @@ model User {
   uploadedVersions   DocumentVersion[]
   requestedDocuments DocumentRequest[]
   createdInvoices    Invoice[]
+  auditLogs          AuditLog[]
 
   @@index([tenantId])
   @@map("users")
@@ -584,4 +586,25 @@ model InvoiceItem {
 
   @@index([invoiceId])
   @@map("invoice_items")
+}
+
+// Trilha de auditoria — quem fez o quê, quando. Escrita explícita a partir das
+// Server Actions mais sensíveis (não um interceptor genérico de todo o Prisma).
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id") @db.Uuid
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
 }

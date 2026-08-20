@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import { processSchema, taskSchema, TASK_STATUSES, type ProcessInput, type TaskInput } from "@/lib/validations/process";
 
 type TaskStatusValue = (typeof TASK_STATUSES)[number];
@@ -50,6 +51,16 @@ export async function updateProcessStage(processId: string, toStageId: string) {
       data: { processId, fromStageId: process.stageId, toStageId, userId: user.id },
     }),
   ]);
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.stage_change",
+    entityType: "process",
+    entityId: processId,
+    description: `Processo #${process.number} mudou de etapa.`,
+    metadata: { fromStageId: process.stageId, toStageId },
+  });
 
   revalidatePath("/processos");
   revalidatePath(`/processos/${processId}`);
