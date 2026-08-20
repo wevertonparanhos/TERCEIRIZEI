@@ -69,7 +69,7 @@ export function SignupForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} method="post" className="space-y-4" noValidate>
       <div className="space-y-1.5">
         <Label htmlFor="name">Nome completo ou razão social</Label>
         <Input id="name" autoComplete="name" {...register("name")} />

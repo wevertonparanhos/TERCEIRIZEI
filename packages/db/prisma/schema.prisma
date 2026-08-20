@@ -14,6 +14,15 @@ enum RoleName {
   OPERACIONAL
   FINANCEIRO
   CLIENTE
+
+  @@map("role_name")
+}
+
+enum ClientType {
+  PF
+  PJ
+
+  @@map("client_type")
 }
 
 model Tenant {
@@ -24,8 +33,10 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users   User[]
-  clients Client[]
+  users     User[]
+  clients   Client[]
+  companies Company[]
+  tags      Tag[]
 
   @@map("tenants")
 }
@@ -74,32 +85,113 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id])
-  role   Role    @relation(fields: [roleId], references: [id])
-  client Client? @relation(fields: [clientId], references: [id])
+  tenant       Tenant  @relation(fields: [tenantId], references: [id])
+  role         Role    @relation(fields: [roleId], references: [id])
+  client       Client? @relation(fields: [clientId], references: [id])
+  ownedClients Client[] @relation("ClientOwner")
 
   @@index([tenantId])
   @@map("users")
 }
 
-// Versão mínima do cadastro de clientes, só o necessário para o autocadastro do
-// portal (Etapa 2). O CRUD completo — empresas, contatos, tags — chega na Etapa 3.
 model Client {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  name      String
-  doc       String
-  email     String
-  phone     String?
-  status    String   @default("ativo")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String     @id @default(uuid()) @db.Uuid
+  tenantId    String     @map("tenant_id") @db.Uuid
+  ownerUserId String?    @map("owner_user_id") @db.Uuid
+  name        String
+  fantasyName String?    @map("fantasy_name")
+  type        ClientType @default(PJ)
+  doc         String
+  email       String
+  phone       String?
+  whatsapp    String?
+  address     String?
+  zipCode     String?    @map("zip_code")
+  city        String?
+  state       String?
+  notes       String?
+  status      String     @default("ativo")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  users  User[]
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  owner     User?           @relation("ClientOwner", fields: [ownerUserId], references: [id])
+  users     User[]
+  contacts  ClientContact[]
+  companies Company[]
+  tags      ClientTag[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("clients")
+}
+
+model ClientContact {
+  id        String   @id @default(uuid()) @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  name      String
+  role      String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_contacts")
+}
+
+model Company {
+  id                 String    @id @default(uuid()) @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  clientId           String    @map("client_id") @db.Uuid
+  cnpj               String
+  razaoSocial        String    @map("razao_social")
+  nomeFantasia       String?   @map("nome_fantasia")
+  inscricaoEstadual  String?   @map("inscricao_estadual")
+  inscricaoMunicipal String?   @map("inscricao_municipal")
+  cnae               String?
+  naturezaJuridica   String?   @map("natureza_juridica")
+  regimeTributario   String?   @map("regime_tributario")
+  address            String?
+  city               String?
+  state              String?
+  openedAt           DateTime? @map("opened_at")
+  status             String    @default("ativa")
+  notes              String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, cnpj])
+  @@index([clientId])
+  @@map("companies")
+}
+
+model Tag {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  label    String
+  color    String @default("#14528D")
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id])
+  clients ClientTag[]
+
+  @@unique([tenantId, label])
+  @@map("tags")
+}
+
+model ClientTag {
+  clientId String @map("client_id") @db.Uuid
+  tagId    String @map("tag_id") @db.Uuid
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, tagId])
+  @@map("client_tags")
 }
