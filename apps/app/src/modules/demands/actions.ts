@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
-import { demandSchema, DEMAND_STATUSES, type DemandInput } from "@/lib/validations/demand";
+import { demandSchema, clientDemandSchema, DEMAND_STATUSES, type DemandInput, type ClientDemandInput } from "@/lib/validations/demand";
 
 type DemandStatus = (typeof DEMAND_STATUSES)[number];
 
@@ -65,6 +65,43 @@ export async function createDemand(input: DemandInput) {
     data: { demandId: demand.id, fromStatus: null, toStatus: "NOVA", userId: user.id },
   });
 
+  revalidatePath("/demandas");
+  return { id: demand.id };
+}
+
+/** Cliente abrindo demanda pelo Portal — clientId vem da sessão, nunca do formulário. */
+export async function clientCreateDemand(input: ClientDemandInput) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "CLIENTE" || !user.clientId) throw new Error("Acesso negado.");
+
+  const data = clientDemandSchema.parse(input);
+
+  if (data.companyId) {
+    const company = await prisma.company.findFirst({ where: { id: data.companyId, clientId: user.clientId } });
+    if (!company) throw new Error("Empresa não encontrada.");
+  }
+
+  const number = await nextDemandNumber(user.tenantId);
+
+  const demand = await prisma.demand.create({
+    data: {
+      tenantId: user.tenantId,
+      number,
+      clientId: user.clientId,
+      companyId: data.companyId || null,
+      serviceTypeId: data.serviceTypeId,
+      description: data.description,
+      priority: data.priority,
+      requestedDeadline: data.requestedDeadline ? new Date(data.requestedDeadline) : null,
+      notes: data.notes || null,
+    },
+  });
+
+  await prisma.demandStatusHistory.create({
+    data: { demandId: demand.id, fromStatus: null, toStatus: "NOVA", userId: user.id },
+  });
+
+  revalidatePath("/portal");
   revalidatePath("/demandas");
   return { id: demand.id };
 }

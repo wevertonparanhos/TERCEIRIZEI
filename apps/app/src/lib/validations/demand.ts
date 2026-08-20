@@ -21,3 +21,14 @@ export const demandSchema = z.object({
   notes: z.string().optional(),
 });
 export type DemandInput = z.infer<typeof demandSchema>;
+
+// Usado no Portal do Cliente — sem campo de cliente (é sempre o próprio usuário).
+export const clientDemandSchema = z.object({
+  companyId: z.string().optional().or(z.literal("")),
+  serviceTypeId: z.string().min(1, "Selecione o tipo de serviço."),
+  description: z.string().min(5, "Descreva a demanda."),
+  priority: z.enum(DEMAND_PRIORITIES),
+  requestedDeadline: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type ClientDemandInput = z.infer<typeof clientDemandSchema>;

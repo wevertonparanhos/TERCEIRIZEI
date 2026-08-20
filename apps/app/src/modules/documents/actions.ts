@@ -25,6 +25,14 @@ async function requireStaff(): Promise<CurrentUser> {
   return user;
 }
 
+async function requireOwnClient(): Promise<CurrentUser & { clientId: string }> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "CLIENTE" || !user.clientId) {
+    throw new Error("Acesso negado.");
+  }
+  return { ...user, clientId: user.clientId };
+}
+
 async function assertClientInTenant(clientId: string, tenantId: string) {
   const client = await prisma.client.findFirst({ where: { id: clientId, tenantId }, select: { id: true } });
   if (!client) throw new Error("Cliente não encontrado.");
@@ -42,14 +50,15 @@ function validateFile(file: File) {
   }
 }
 
-export async function uploadNewDocument(
-  clientId: string,
-  processId: string | null,
-  requestId: string | null,
-  formData: FormData
-) {
-  const user = await requireStaff();
-  await assertClientInTenant(clientId, user.tenantId);
+async function performUpload(params: {
+  tenantId: string;
+  clientId: string;
+  processId: string | null;
+  requestId: string | null;
+  uploaderId: string;
+  formData: FormData;
+}) {
+  const { tenantId, clientId, processId, requestId, uploaderId, formData } = params;
 
   const data = documentUploadSchema.parse({
     name: formData.get("name"),
@@ -60,17 +69,10 @@ export async function uploadNewDocument(
   validateFile(file);
 
   const document = await prisma.document.create({
-    data: {
-      tenantId: user.tenantId,
-      clientId,
-      processId: processId || null,
-      category: data.category,
-      name: data.name,
-      uploadedById: user.id,
-    },
+    data: { tenantId, clientId, processId, category: data.category, name: data.name, uploadedById: uploaderId },
   });
 
-  const path = `${user.tenantId}/${clientId}/${document.id}/v1-${sanitizeFileName(file.name)}`;
+  const path = `${tenantId}/${clientId}/${document.id}/v1-${sanitizeFileName(file.name)}`;
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(BUCKET).upload(path, file, { contentType: file.type });
   if (error) throw new Error(`Falha ao enviar arquivo: ${error.message}`);
@@ -83,33 +85,32 @@ export async function uploadNewDocument(
       fileName: file.name,
       sizeBytes: file.size,
       mimeType: file.type,
-      uploadedById: user.id,
+      uploadedById: uploaderId,
     },
   });
 
   if (requestId) {
     await prisma.documentRequest.updateMany({
-      where: { id: requestId, tenantId: user.tenantId },
+      where: { id: requestId, tenantId, clientId },
       data: { status: "RECEBIDO", documentId: document.id },
     });
   }
 
   if (processId) revalidatePath(`/processos/${processId}`);
   revalidatePath(`/clientes/${clientId}`);
+  revalidatePath("/portal/processos");
+  revalidatePath("/portal/documentos");
 }
 
-export async function uploadNewVersion(documentId: string, formData: FormData) {
-  const user = await requireStaff();
-
-  const document = await prisma.document.findFirst({ where: { id: documentId, tenantId: user.tenantId } });
-  if (!document) throw new Error("Documento não encontrado.");
+async function performNewVersion(params: { document: NonNullable<Awaited<ReturnType<typeof prisma.document.findFirst>>>; uploaderId: string; formData: FormData }) {
+  const { document, uploaderId, formData } = params;
 
   const file = formData.get("file") as File | null;
   if (!file) throw new Error("Selecione um arquivo.");
   validateFile(file);
 
   const nextVersion = document.currentVersion + 1;
-  const path = `${user.tenantId}/${document.clientId}/${document.id}/v${nextVersion}-${sanitizeFileName(file.name)}`;
+  const path = `${document.tenantId}/${document.clientId}/${document.id}/v${nextVersion}-${sanitizeFileName(file.name)}`;
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(BUCKET).upload(path, file, { contentType: file.type });
   if (error) throw new Error(`Falha ao enviar arquivo: ${error.message}`);
@@ -123,7 +124,7 @@ export async function uploadNewVersion(documentId: string, formData: FormData) {
         fileName: file.name,
         sizeBytes: file.size,
         mimeType: file.type,
-        uploadedById: user.id,
+        uploadedById: uploaderId,
       },
     }),
     prisma.document.update({ where: { id: document.id }, data: { currentVersion: nextVersion } }),
@@ -131,6 +132,49 @@ export async function uploadNewVersion(documentId: string, formData: FormData) {
 
   if (document.processId) revalidatePath(`/processos/${document.processId}`);
   revalidatePath(`/clientes/${document.clientId}`);
+  revalidatePath("/portal/processos");
+  revalidatePath("/portal/documentos");
+}
+
+export async function uploadNewDocument(
+  clientId: string,
+  processId: string | null,
+  requestId: string | null,
+  formData: FormData
+) {
+  const user = await requireStaff();
+  await assertClientInTenant(clientId, user.tenantId);
+  await performUpload({ tenantId: user.tenantId, clientId, processId, requestId, uploaderId: user.id, formData });
+}
+
+export async function uploadNewVersion(documentId: string, formData: FormData) {
+  const user = await requireStaff();
+  const document = await prisma.document.findFirst({ where: { id: documentId, tenantId: user.tenantId } });
+  if (!document) throw new Error("Documento não encontrado.");
+  await performNewVersion({ document, uploaderId: user.id, formData });
+}
+
+/** Cliente enviando documento pelo Portal — só pode agir sobre os próprios dados. */
+export async function clientUploadDocument(
+  clientId: string,
+  processId: string | null,
+  requestId: string | null,
+  formData: FormData
+) {
+  const user = await requireOwnClient();
+  if (clientId !== user.clientId) throw new Error("Acesso negado.");
+  if (processId) {
+    const process = await prisma.process.findFirst({ where: { id: processId, clientId: user.clientId } });
+    if (!process) throw new Error("Processo não encontrado.");
+  }
+  await performUpload({ tenantId: user.tenantId, clientId, processId, requestId, uploaderId: user.id, formData });
+}
+
+export async function clientUploadNewVersion(documentId: string, formData: FormData) {
+  const user = await requireOwnClient();
+  const document = await prisma.document.findFirst({ where: { id: documentId, clientId: user.clientId } });
+  if (!document) throw new Error("Documento não encontrado.");
+  await performNewVersion({ document, uploaderId: user.id, formData });
 }
 
 export async function requestDocument(clientId: string, processId: string | null, input: DocumentRequestInput) {
