@@ -25,6 +25,10 @@ describe("createProcessSchema", () => {
     expect(createProcessSchema.safeParse(valid).success).toBe(true);
   });
 
+  it("aceita valor opcional", () => {
+    expect(createProcessSchema.safeParse({ ...valid, value: "1500.00" }).success).toBe(true);
+  });
+
   it("rejeita sem clientId", () => {
     expect(createProcessSchema.safeParse({ ...valid, clientId: "" }).success).toBe(false);
   });

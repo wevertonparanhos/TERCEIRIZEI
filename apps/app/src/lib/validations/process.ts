@@ -26,6 +26,7 @@ export const createProcessSchema = z.object({
   serviceTypeId: z.string().min(1, "Selecione o tipo de serviço."),
   description: z.string().min(5, "Descreva o processo."),
   priority: z.enum(DEMAND_PRIORITIES),
+  value: z.string().optional(),
   requestedDeadline: z.string().optional(),
   notes: z.string().optional(),
 });

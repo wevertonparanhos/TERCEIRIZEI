@@ -21,3 +21,10 @@ export const markPaidSchema = z.object({
   notes: z.string().optional(),
 });
 export type MarkPaidInput = z.infer<typeof markPaidSchema>;
+
+export const generateInvoiceSchema = z.object({
+  processIds: z.array(z.string().uuid()).min(1, "Selecione ao menos um processo."),
+  dueDate: z.string().min(1, "Informe o vencimento."),
+  grouped: z.boolean().default(true),
+});
+export type GenerateInvoiceInput = z.infer<typeof generateInvoiceSchema>;

@@ -8,9 +8,11 @@ import {
   invoiceSchema,
   invoiceItemSchema,
   markPaidSchema,
+  generateInvoiceSchema,
   type InvoiceInput,
   type InvoiceItemInput,
   type MarkPaidInput,
+  type GenerateInvoiceInput,
 } from "@/lib/validations/invoice";
 
 // A conexão do Prisma bypassa RLS (role postgres) — tenant_id explícito em todo
@@ -151,6 +153,102 @@ export async function markInvoicePaid(invoiceId: string, input: MarkPaidInput) {
 
   revalidatePath(`/financeiro/${invoiceId}`);
   revalidatePath("/financeiro");
+}
+
+/** Gera fatura(s) a partir do valor já definido em processos — uma fatura
+ * agrupando vários processos do mesmo cliente, ou uma fatura por processo. */
+export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) {
+  const user = await requireFinanceAccess();
+  const data = generateInvoiceSchema.parse(input);
+
+  const processes = await prisma.process.findMany({
+    where: { id: { in: data.processIds }, tenantId: user.tenantId },
+  });
+  if (processes.length !== data.processIds.length) {
+    throw new Error("Um ou mais processos não foram encontrados.");
+  }
+  if (processes.some((p) => p.value === null)) {
+    throw new Error("Todos os processos selecionados precisam ter um valor definido.");
+  }
+
+  const clientIds = new Set(processes.map((p) => p.clientId));
+  if (data.grouped && clientIds.size > 1) {
+    throw new Error("Só é possível agrupar em uma única fatura processos do mesmo cliente.");
+  }
+
+  const alreadyBilled = await prisma.invoiceItem.findMany({
+    where: { processId: { in: data.processIds }, invoice: { status: { not: "CANCELADA" } } },
+    select: { processId: true },
+  });
+  if (alreadyBilled.length > 0) {
+    throw new Error("Um ou mais processos selecionados já têm fatura vinculada.");
+  }
+
+  const dueDate = new Date(data.dueDate);
+  const invoiceIds: string[] = [];
+
+  if (data.grouped) {
+    const [{ clientId, companyId }] = processes;
+    const number = await nextInvoiceNumber(user.tenantId);
+    const invoice = await prisma.invoice.create({
+      data: {
+        tenantId: user.tenantId,
+        number,
+        clientId,
+        companyId: companyId ?? null,
+        dueDate,
+        totalAmount: 0,
+        createdById: user.id,
+      },
+    });
+    await prisma.invoiceItem.createMany({
+      data: processes.map((p) => ({
+        invoiceId: invoice.id,
+        processId: p.id,
+        description: `Processo #${p.number} — ${p.description.slice(0, 80)}`,
+        amount: p.value!,
+      })),
+    });
+    await recalculateTotal(invoice.id);
+    invoiceIds.push(invoice.id);
+  } else {
+    for (const p of processes) {
+      const number = await nextInvoiceNumber(user.tenantId);
+      const invoice = await prisma.invoice.create({
+        data: {
+          tenantId: user.tenantId,
+          number,
+          clientId: p.clientId,
+          companyId: p.companyId ?? null,
+          dueDate,
+          totalAmount: p.value!,
+          createdById: user.id,
+        },
+      });
+      await prisma.invoiceItem.create({
+        data: {
+          invoiceId: invoice.id,
+          processId: p.id,
+          description: `Processo #${p.number} — ${p.description.slice(0, 80)}`,
+          amount: p.value!,
+        },
+      });
+      invoiceIds.push(invoice.id);
+    }
+  }
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "invoice.generate_from_processes",
+    entityType: "invoice",
+    entityId: invoiceIds[0],
+    description: `${invoiceIds.length} fatura(s) gerada(s) a partir de ${processes.length} processo(s).`,
+    metadata: { processIds: data.processIds, grouped: data.grouped },
+  });
+
+  revalidatePath("/financeiro");
+  return { ids: invoiceIds };
 }
 
 export async function cancelInvoice(invoiceId: string) {

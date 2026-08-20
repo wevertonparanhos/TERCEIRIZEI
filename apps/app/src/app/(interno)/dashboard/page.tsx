@@ -154,9 +154,11 @@ export default async function DashboardPage() {
     ]);
 
   const pendingTotal = pendingInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
-  const overdueInvoicesCount = pendingInvoices.filter(
-    (i) => invoiceDisplayStatus(i.status, i.dueDate) === "ATRASADA"
-  ).length;
+  const overdueInvoices = pendingInvoices.filter((i) => invoiceDisplayStatus(i.status, i.dueDate) === "ATRASADA");
+  const overdueInvoicesCount = overdueInvoices.length;
+  const overdueTotal = overdueInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
+  const upcomingCount = pendingInvoices.length - overdueInvoicesCount;
+  const upcomingTotal = pendingTotal - overdueTotal;
   const maxStageCount = Math.max(1, ...stages.map((s) => s._count.processes));
   const staleProcessesCount = processesForStale.filter(
     (p) => p.stageHistory[0] && isProcessStale(p.stage.label, p.stageHistory[0].changedAt)
@@ -212,7 +214,7 @@ export default async function DashboardPage() {
               Ver faturas →
             </Link>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
             <div>
               <p className="text-xl font-bold text-brand-navy">{currencyFormatter.format(pendingTotal)}</p>
               <p className="text-sm text-slate-500">{pendingInvoices.length} fatura(s) pendente(s)</p>
@@ -220,6 +222,10 @@ export default async function DashboardPage() {
             <div>
               <p className="text-xl font-bold text-red-600">{overdueInvoicesCount}</p>
               <p className="text-sm text-slate-500">fatura(s) atrasada(s)</p>
+            </div>
+            <div>
+              <p className="text-xl font-bold text-brand-navy">{currencyFormatter.format(upcomingTotal)}</p>
+              <p className="text-sm text-slate-500">{upcomingCount} previsto(s) dentro do prazo</p>
             </div>
             <div>
               <p className="text-xl font-bold text-emerald-600">

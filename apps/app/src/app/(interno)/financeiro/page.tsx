@@ -30,9 +30,14 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: {
           <h1 className="text-2xl font-bold text-brand-navy">Financeiro</h1>
           <p className="text-sm text-slate-500">{invoices.length} fatura(s)</p>
         </div>
-        <Link href="/financeiro/nova">
-          <Button>+ Nova Fatura</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/financeiro/faturar">
+            <Button variant="outline">Faturar Processos</Button>
+          </Link>
+          <Link href="/financeiro/nova">
+            <Button>+ Nova Fatura</Button>
+          </Link>
+        </div>
       </div>
 
       <form className="mt-6 flex gap-3" method="get">

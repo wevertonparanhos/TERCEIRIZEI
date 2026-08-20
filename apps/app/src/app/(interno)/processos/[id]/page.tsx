@@ -105,8 +105,8 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {process.value ? ` · R$ ${Number(process.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
           </p>
         </div>
-        {["ADMIN", "GESTOR", "FINANCEIRO"].includes(user.role) && (
-          <Link href={`/financeiro/nova?processId=${process.id}`}>
+        {["ADMIN", "GESTOR", "FINANCEIRO"].includes(user.role) && process.value && (
+          <Link href={`/financeiro/faturar?clientId=${process.clientId}&processId=${process.id}`}>
             <Button variant="outline">Gerar Fatura</Button>
           </Link>
         )}

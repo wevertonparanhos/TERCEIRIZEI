@@ -20,6 +20,7 @@ export default async function PortalDashboardPage() {
 
   const overdueCount = openInvoices.filter((i) => displayStatus(i.status, i.dueDate) === "ATRASADA").length;
   const openTotal = openInvoices.reduce((sum, i) => sum + Number(i.totalAmount), 0);
+  const upcomingCount = openInvoices.length - overdueCount;
 
   const recentProcesses = await prisma.process.findMany({
     where: { clientId: user.clientId },
@@ -93,6 +94,7 @@ export default async function PortalDashboardPage() {
           <p className="mt-2 text-sm text-slate-600">
             {openInvoices.length} fatura(s) pendente(s) · {currencyFormatter.format(openTotal)}
             {overdueCount > 0 && <span className="ml-2 text-red-600">{overdueCount} atrasada(s)</span>}
+            {upcomingCount > 0 && <span className="ml-2 text-slate-400">{upcomingCount} dentro do prazo</span>}
           </p>
         )}
       </Link>

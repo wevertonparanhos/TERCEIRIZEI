@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { invoiceSchema, invoiceItemSchema, markPaidSchema } from "./invoice";
+import { invoiceSchema, invoiceItemSchema, markPaidSchema, generateInvoiceSchema } from "./invoice";
 
 describe("invoiceSchema", () => {
   it("aceita uma fatura válida", () => {
@@ -48,6 +48,35 @@ describe("markPaidSchema", () => {
 
   it("rejeita sem forma de pagamento", () => {
     const result = markPaidSchema.safeParse({ paidAt: "2026-08-20", paymentMethod: "" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("generateInvoiceSchema", () => {
+  const validId = "123e4567-e89b-12d3-a456-426614174000";
+
+  it("aceita uma geração válida", () => {
+    const result = generateInvoiceSchema.safeParse({ processIds: [validId], dueDate: "2026-09-15", grouped: true });
+    expect(result.success).toBe(true);
+  });
+
+  it("assume grouped=true quando omitido", () => {
+    const result = generateInvoiceSchema.safeParse({ processIds: [validId], dueDate: "2026-09-15" });
+    if (result.success) expect(result.data.grouped).toBe(true);
+  });
+
+  it("rejeita sem processos selecionados", () => {
+    const result = generateInvoiceSchema.safeParse({ processIds: [], dueDate: "2026-09-15" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejeita sem vencimento", () => {
+    const result = generateInvoiceSchema.safeParse({ processIds: [validId], dueDate: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejeita id de processo inválido", () => {
+    const result = generateInvoiceSchema.safeParse({ processIds: ["not-a-uuid"], dueDate: "2026-09-15" });
     expect(result.success).toBe(false);
   });
 });

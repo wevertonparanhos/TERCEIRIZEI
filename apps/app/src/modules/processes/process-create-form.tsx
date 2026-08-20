@@ -118,6 +118,11 @@ export function ProcessCreateForm({
           <Label htmlFor="requestedDeadline">Prazo desejado</Label>
           <Input id="requestedDeadline" type="date" {...register("requestedDeadline")} />
         </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="value">Valor (R$)</Label>
+          <Input id="value" type="number" step="0.01" min="0" {...register("value")} />
+        </div>
       </div>
 
       <div className="space-y-1.5">

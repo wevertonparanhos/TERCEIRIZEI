@@ -87,6 +87,7 @@ export async function createProcess(input: CreateProcessInput) {
       stageId: firstStage.id,
       description: data.description,
       priority: data.priority,
+      value: data.value ? Number(data.value) : null,
       requestedDeadline: data.requestedDeadline ? new Date(data.requestedDeadline) : null,
       notes: data.notes || null,
     },
