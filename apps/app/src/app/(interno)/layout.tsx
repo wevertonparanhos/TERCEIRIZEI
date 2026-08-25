@@ -14,6 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
   { href: "/clientes", label: "Clientes", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
+  { href: "/clientes/portal", label: "Portal de Clientes", roles: ["ADMIN", "GESTOR"] },
   { href: "/processos", label: "Processos", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
   { href: "/servicos", label: "Modelos de Processo", roles: ["ADMIN", "GESTOR"] },
   { href: "/financeiro", label: "Financeiro", roles: ["ADMIN", "GESTOR", "FINANCEIRO"] },

@@ -27,7 +27,10 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     include: { role: true },
   });
 
-  if (!profile) return null;
+  // active=false (equipe ou portal do cliente desativado) precisa bloquear a
+  // sessão de verdade — sem isso "Desativar" era só cosmético, o login
+  // continuava funcionando normalmente.
+  if (!profile || !profile.active) return null;
 
   return {
     id: profile.id,

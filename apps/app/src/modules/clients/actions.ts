@@ -245,5 +245,50 @@ export async function inviteClientToPortal(clientId: string, email: string) {
   });
 
   revalidatePath(`/clientes/${clientId}`);
+  revalidatePath("/clientes/portal");
   return { inviteLink };
+}
+
+/** Bloqueia o login de um usuário do Portal sem apagar o vínculo — pode ser
+ * reativado depois com a mesma senha. */
+export async function deactivateClientPortalAccess(userId: string) {
+  const user = await requireWriteAccess();
+
+  const result = await prisma.user.updateMany({
+    where: { id: userId, tenantId: user.tenantId, clientId: { not: null } },
+    data: { active: false },
+  });
+  if (result.count === 0) throw new Error("Usuário do Portal não encontrado.");
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "client.deactivate_portal",
+    entityType: "user",
+    entityId: userId,
+    description: "Acesso ao Portal desativado.",
+  });
+
+  revalidatePath("/clientes/portal");
+}
+
+export async function reactivateClientPortalAccess(userId: string) {
+  const user = await requireWriteAccess();
+
+  const result = await prisma.user.updateMany({
+    where: { id: userId, tenantId: user.tenantId, clientId: { not: null } },
+    data: { active: true },
+  });
+  if (result.count === 0) throw new Error("Usuário do Portal não encontrado.");
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "client.reactivate_portal",
+    entityType: "user",
+    entityId: userId,
+    description: "Acesso ao Portal reativado.",
+  });
+
+  revalidatePath("/clientes/portal");
 }
