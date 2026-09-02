@@ -12,6 +12,12 @@
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": ["apps/app/scripts/dev.cjs"],
       "port": 3002
+    },
+    {
+      "name": "terceirizei-legaliza-dev",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": ["apps/legaliza/scripts/dev.cjs"],
+      "port": 3003
     }
   ]
 }

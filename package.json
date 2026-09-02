@@ -9,9 +9,13 @@
   "scripts": {
     "dev:site": "npm run dev --workspace=@terceirizei/site",
     "dev:app": "npm run dev --workspace=@terceirizei/app",
+    "dev:legaliza": "npm run dev --workspace=@legaliza/app",
     "build:site": "npm run build --workspace=@terceirizei/site",
     "build:app": "npm run build --workspace=@terceirizei/app",
+    "build:legaliza": "npm run build --workspace=@legaliza/app",
     "db:generate": "npm run generate --workspace=@terceirizei/db",
-    "db:seed": "npm run seed --workspace=@terceirizei/db"
+    "db:seed": "npm run seed --workspace=@terceirizei/db",
+    "legaliza:db:generate": "npm run generate --workspace=@legaliza/db",
+    "legaliza:db:seed": "npm run seed --workspace=@legaliza/db"
   }
 }

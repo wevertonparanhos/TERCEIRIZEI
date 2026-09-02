@@ -1,0 +1,219 @@
+// output isolado (não o padrão hoisted node_modules/@prisma/client) para não
+// colidir com o generate de @terceirizei/db no mesmo node_modules do monorepo.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Os 4 perfis pedidos no briefing do LEGALIZA.AI. SUPER_ADMIN é o único sem
+// tenantId fixo (admin da plataforma, acesso cross-tenant) — os outros 3
+// são sempre escopados a um tenant.
+enum RoleName {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  OPERATOR
+  CLIENT
+
+  @@map("role_name")
+}
+
+enum ClientType {
+  PF
+  PJ
+
+  @@map("client_type")
+}
+
+// Classificação real de porte (Receita Federal/Simples Nacional) — não é uma
+// categorização inventada.
+enum CompanySize {
+  MEI
+  ME
+  EPP
+  DEMAIS
+
+  @@map("company_size")
+}
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  legalName String?  @map("legal_name")
+  document  String?
+  email     String?
+  phone     String?
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users     User[]
+  clients   Client[]
+  companies Company[]
+
+  @@map("tenants")
+}
+
+model Role {
+  id   String   @id @default(uuid()) @db.Uuid
+  name RoleName @unique
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id       String @id @default(uuid()) @db.Uuid
+  resource String
+  action   String
+
+  roles RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// id igual ao auth.users.id do Supabase — perfil de aplicação do usuário autenticado.
+// tenantId nulo só é válido quando role = SUPER_ADMIN.
+model User {
+  id        String   @id @db.Uuid
+  tenantId  String?  @map("tenant_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  name      String
+  email     String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  role   Role    @relation(fields: [roleId], references: [id])
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Client {
+  id           String     @id @default(uuid()) @db.Uuid
+  tenantId     String     @map("tenant_id") @db.Uuid
+  name         String
+  fantasyName  String?    @map("fantasy_name")
+  type         ClientType
+  doc          String
+  email        String
+  phone        String?
+  whatsapp     String?
+  status       String     @default("ativo")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  companies Company[]
+
+  @@unique([tenantId, doc])
+  @@index([tenantId])
+  @@map("clients")
+}
+
+model Company {
+  id                 String       @id @default(uuid()) @db.Uuid
+  tenantId           String       @map("tenant_id") @db.Uuid
+  clientId           String       @map("client_id") @db.Uuid
+  cnpj               String
+  legalName          String       @map("legal_name")
+  tradeName          String?      @map("trade_name")
+  // Texto livre — sem base oficial IBGE/CONCLA de Natureza Jurídica importada
+  // ainda (princípio 65 do briefing: não inventar dados oficiais).
+  legalNature        String?      @map("legal_nature")
+  companySize        CompanySize? @map("company_size")
+  capital            Decimal?     @db.Decimal(14, 2)
+  stateRegistration  String?      @map("state_registration")
+  municipalRegistration String?   @map("municipal_registration")
+  status             String       @default("ativa")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  client     Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  partners   Partner[]
+  activities CompanyActivity[]
+  addresses  CompanyAddress[]
+
+  @@unique([tenantId, cnpj])
+  @@index([tenantId])
+  @@index([clientId])
+  @@map("companies")
+}
+
+model Partner {
+  id                     String   @id @default(uuid()) @db.Uuid
+  companyId              String   @map("company_id") @db.Uuid
+  name                   String
+  cpf                    String
+  qualification          String
+  participationPercentage Decimal @map("participation_percentage") @db.Decimal(5, 2)
+  capitalContribution    Decimal? @map("capital_contribution") @db.Decimal(14, 2)
+  administrator          Boolean  @default(false)
+  email                  String?
+  phone                  String?
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("partners")
+}
+
+// Sem base oficial de CNAE importada ainda — cnae/description são texto
+// livre digitado pelo operador (princípio 65 do briefing).
+model CompanyActivity {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  cnae        String
+  description String
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("company_activities")
+}
+
+model CompanyAddress {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  cep          String
+  street       String
+  number       String
+  complement   String?
+  neighborhood String
+  city         String
+  state        String
+  // Sem base oficial de municípios (IBGE) integrada ainda — fica nulo até lá.
+  ibgeCode     String?  @map("ibge_code")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("company_addresses")
+}

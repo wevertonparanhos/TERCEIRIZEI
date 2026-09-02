@@ -1,0 +1,35 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: 248 250 252; /* slate-50 */
+  --color-surface: 255 255 255; /* white */
+  --color-surface-alt: 248 250 252; /* slate-50 */
+  --color-border: 226 232 240; /* slate-200 */
+  --color-border-strong: 203 213 225; /* slate-300 */
+  --color-ink: 15 42 67; /* brand-navy */
+  --color-muted: 100 116 139; /* slate-500 */
+  --color-muted-soft: 148 163 184; /* slate-400 */
+  --color-accent: 14 124 134; /* brand-teal */
+  --color-accent-soft: 204 235 236;
+}
+
+.dark {
+  --color-bg: 8 14 20;
+  --color-surface: 15 26 35;
+  --color-surface-alt: 20 33 44;
+  --color-border: 30 46 58;
+  --color-border-strong: 44 64 80;
+  --color-ink: 226 236 240;
+  --color-muted: 148 173 184;
+  --color-muted-soft: 100 128 140;
+  --color-accent: 45 189 200;
+  --color-accent-soft: 15 55 58;
+}
+
+body {
+  @apply bg-bg text-ink;
+}

@@ -27,3 +27,6 @@ next-env.d.ts
 
 # turbo
 .turbo/
+
+# prisma client gerado com output isolado (@legaliza/db)
+packages/legaliza-db/generated/
