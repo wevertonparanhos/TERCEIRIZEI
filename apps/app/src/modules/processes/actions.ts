@@ -58,7 +58,7 @@ async function seedChecklistFromTemplate(processId: string, serviceTypeId: strin
   if (templateItems.length === 0) return;
 
   await prisma.processChecklistItem.createMany({
-    data: templateItems.map((item) => ({ processId, label: item.label })),
+    data: templateItems.map((item) => ({ processId, label: item.label, category: item.category })),
   });
 }
 
@@ -319,12 +319,14 @@ export async function deleteTask(processId: string, taskId: string) {
   revalidatePath(`/processos/${processId}`);
 }
 
-export async function addChecklistItem(processId: string, label: string) {
+export async function addChecklistItem(processId: string, label: string, category?: string) {
   const user = await requireStaff();
   await loadProcessForWrite(processId, user);
   if (!label.trim()) throw new Error("Informe o item do checklist.");
 
-  await prisma.processChecklistItem.create({ data: { processId, label: label.trim() } });
+  await prisma.processChecklistItem.create({
+    data: { processId, label: label.trim(), category: category?.trim() || null },
+  });
   revalidatePath(`/processos/${processId}`);
 }
 

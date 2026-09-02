@@ -57,7 +57,7 @@ export default async function ServicoDetalhePage({ params }: { params: { id: str
       <div className="rounded-lg border border-border bg-surface p-6">
         <ChecklistTemplateManager
           serviceTypeId={serviceType.id}
-          items={serviceType.checklistTemplate.map((i) => ({ id: i.id, label: i.label }))}
+          items={serviceType.checklistTemplate.map((i) => ({ id: i.id, label: i.label, category: i.category }))}
           addItem={addChecklistTemplateItem}
           removeItem={removeChecklistTemplateItem}
           moveItem={moveChecklistTemplateItem}

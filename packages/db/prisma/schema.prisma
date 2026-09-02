@@ -331,6 +331,7 @@ model ServiceChecklistTemplateItem {
   id            String   @id @default(uuid()) @db.Uuid
   serviceTypeId String   @map("service_type_id") @db.Uuid
   label         String
+  category      String?
   position      Int
   createdAt     DateTime @default(now()) @map("created_at")
 
@@ -507,6 +508,7 @@ model ProcessChecklistItem {
   id        String   @id @default(uuid()) @db.Uuid
   processId String   @map("process_id") @db.Uuid
   label     String
+  category  String?
   done      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
 

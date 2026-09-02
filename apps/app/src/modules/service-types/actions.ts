@@ -91,7 +91,12 @@ export async function addChecklistTemplateItem(serviceTypeId: string, input: Che
   });
 
   await prisma.serviceChecklistTemplateItem.create({
-    data: { serviceTypeId, label: data.label, position: (last?.position ?? 0) + 1 },
+    data: {
+      serviceTypeId,
+      label: data.label,
+      category: data.category?.trim() || null,
+      position: (last?.position ?? 0) + 1,
+    },
   });
 
   revalidatePath(`/servicos/${serviceTypeId}`);
