@@ -16,6 +16,7 @@ type Doc = {
   category: string;
   currentVersion: number;
   uploadedByName: string;
+  uploadedByIsClient: boolean;
   createdAt: string;
   latestFileName: string;
   latestSizeBytes: number;
@@ -43,6 +44,11 @@ export function DocumentList({
   const [versioningId, setVersioningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [side, setSide] = useState<"time" | "cliente">("time");
+
+  const teamDocs = documents.filter((d) => !d.uploadedByIsClient);
+  const clientDocs = documents.filter((d) => d.uploadedByIsClient);
+  const visibleDocs = side === "time" ? teamDocs : clientDocs;
 
   async function handleUpload(formData: FormData) {
     setBusy(true);
@@ -84,11 +90,38 @@ export function DocumentList({
         )}
       </div>
 
-      {documents.length === 0 && !showForm && <p className="mt-3 text-sm text-muted-soft">Nenhum documento enviado.</p>}
+      <div className="mt-3 inline-flex rounded-md border border-border bg-surface-alt p-0.5 text-sm">
+        <button
+          type="button"
+          onClick={() => setSide("time")}
+          className={`flex items-center gap-1.5 rounded px-3 py-1 font-medium transition-colors ${
+            side === "time" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"
+          }`}
+        >
+          Do time
+          <span className="rounded-full bg-accent-soft px-1.5 text-xs text-accent">{teamDocs.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSide("cliente")}
+          className={`flex items-center gap-1.5 rounded px-3 py-1 font-medium transition-colors ${
+            side === "cliente" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"
+          }`}
+        >
+          Do cliente
+          <span className="rounded-full bg-accent-soft px-1.5 text-xs text-accent">{clientDocs.length}</span>
+        </button>
+      </div>
 
-      {documents.length > 0 && (
+      {visibleDocs.length === 0 && !showForm && (
+        <p className="mt-3 text-sm text-muted-soft">
+          {side === "time" ? "Nenhum documento enviado pela equipe." : "Nenhum documento enviado pelo cliente."}
+        </p>
+      )}
+
+      {visibleDocs.length > 0 && (
         <ul className="mt-3 divide-y divide-border">
-          {documents.map((doc) => (
+          {visibleDocs.map((doc) => (
             <li key={doc.id} className="py-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">

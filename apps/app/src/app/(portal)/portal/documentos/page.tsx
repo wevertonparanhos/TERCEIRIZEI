@@ -19,7 +19,7 @@ export default async function PortalDocumentosPage() {
     prisma.document.findMany({
       where: { clientId: user.clientId, processId: null },
       orderBy: { createdAt: "desc" },
-      include: { uploadedBy: { select: { name: true } }, versions: true },
+      include: { uploadedBy: { select: { name: true, role: { select: { name: true } } } }, versions: true },
     }),
     prisma.documentRequest.findMany({
       where: { clientId: user.clientId, processId: null },
@@ -48,6 +48,7 @@ export default async function PortalDocumentosPage() {
               category: d.category,
               currentVersion: d.currentVersion,
               uploadedByName: d.uploadedBy.name,
+              uploadedByIsClient: d.uploadedBy.role.name === "CLIENTE",
               createdAt: d.createdAt.toISOString(),
               latestFileName: latest?.fileName ?? "",
               latestSizeBytes: latest?.sizeBytes ?? 0,

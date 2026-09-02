@@ -64,7 +64,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
       },
       documents: {
         orderBy: { createdAt: "desc" },
-        include: { uploadedBy: { select: { name: true } }, versions: true },
+        include: { uploadedBy: { select: { name: true, role: { select: { name: true } } } }, versions: true },
       },
       documentRequests: { orderBy: { createdAt: "desc" } },
       comments: {
@@ -270,6 +270,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                         category: d.category,
                         currentVersion: d.currentVersion,
                         uploadedByName: d.uploadedBy.name,
+                        uploadedByIsClient: d.uploadedBy.role.name === "CLIENTE",
                         createdAt: d.createdAt.toISOString(),
                         latestFileName: latest?.fileName ?? "",
                         latestSizeBytes: latest?.sizeBytes ?? 0,

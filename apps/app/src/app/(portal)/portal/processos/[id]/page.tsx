@@ -28,7 +28,10 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
       company: { select: { razaoSocial: true } },
       stage: { select: { label: true, color: true } },
       checklist: { orderBy: { createdAt: "asc" } },
-      documents: { orderBy: { createdAt: "desc" }, include: { uploadedBy: { select: { name: true } }, versions: true } },
+      documents: {
+        orderBy: { createdAt: "desc" },
+        include: { uploadedBy: { select: { name: true, role: { select: { name: true } } } }, versions: true },
+      },
       documentRequests: { orderBy: { createdAt: "desc" } },
       comments: {
         orderBy: { createdAt: "asc" },
@@ -94,6 +97,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
               category: d.category,
               currentVersion: d.currentVersion,
               uploadedByName: d.uploadedBy.name,
+              uploadedByIsClient: d.uploadedBy.role.name === "CLIENTE",
               createdAt: d.createdAt.toISOString(),
               latestFileName: latest?.fileName ?? "",
               latestSizeBytes: latest?.sizeBytes ?? 0,
