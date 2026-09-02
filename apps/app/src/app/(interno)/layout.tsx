@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: "/servicos", label: "Modelos de Processo", roles: ["ADMIN", "GESTOR"] },
   { href: "/tarefas-recorrentes", label: "Tarefas Recorrentes", roles: ["ADMIN", "GESTOR", "OPERACIONAL"] },
   { href: "/financeiro", label: "Financeiro", roles: ["ADMIN", "GESTOR", "FINANCEIRO"] },
+  { href: "/atividades", label: "Atividades", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
   { href: "/auditoria", label: "Auditoria", roles: ["ADMIN"] },
   { href: "/equipe", label: "Equipe", roles: ["ADMIN"] },
   { href: "/perfil", label: "Meu Perfil", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
