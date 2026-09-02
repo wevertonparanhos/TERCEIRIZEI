@@ -468,3 +468,69 @@ export async function markCommentsRead(processId: string) {
     update: { lastReadAt: new Date() },
   });
 }
+
+// --- Impedimentos (bloqueio interno da equipe — não aparece no portal) ---
+
+async function requireImpedimentAccess(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
+    throw new Error("Você não tem acesso a este módulo.");
+  }
+  return user;
+}
+
+export async function addImpediment(processId: string, title: string) {
+  const user = await requireImpedimentAccess();
+  if (!title.trim()) throw new Error("Descreva o impedimento.");
+
+  const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
+  if (!process) throw new Error("Processo não encontrado.");
+
+  await prisma.processImpediment.create({ data: { processId, title: title.trim(), createdById: user.id } });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.impediment_add",
+    entityType: "process",
+    entityId: processId,
+    description: `Impedimento registrado no processo #${process.number}: "${title.trim()}".`,
+  });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+}
+
+async function loadImpedimentForWrite(processId: string, impedimentId: string, tenantId: string) {
+  const impediment = await prisma.processImpediment.findFirst({
+    where: { id: impedimentId, processId, process: { tenantId } },
+  });
+  if (!impediment) throw new Error("Impedimento não encontrado.");
+  return impediment;
+}
+
+export async function resolveImpediment(processId: string, impedimentId: string) {
+  const user = await requireImpedimentAccess();
+  await loadImpedimentForWrite(processId, impedimentId, user.tenantId);
+
+  await prisma.processImpediment.update({
+    where: { id: impedimentId },
+    data: { resolvedAt: new Date(), resolvedById: user.id },
+  });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+}
+
+export async function reopenImpediment(processId: string, impedimentId: string) {
+  const user = await requireImpedimentAccess();
+  await loadImpedimentForWrite(processId, impedimentId, user.tenantId);
+
+  await prisma.processImpediment.update({
+    where: { id: impedimentId },
+    data: { resolvedAt: null, resolvedById: null },
+  });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+}

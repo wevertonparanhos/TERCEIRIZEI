@@ -22,6 +22,7 @@ export type KanbanCard = {
   hasUnreadComment: boolean;
   value: number | null;
   paymentStatus: PaymentStatus;
+  hasOpenImpediment: boolean;
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -46,6 +47,14 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
           )}
         </span>
         <div className="flex items-center gap-1">
+          {card.hasOpenImpediment && (
+            <span
+              title="Processo com impedimento em aberto"
+              className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
+            >
+              !
+            </span>
+          )}
           {card.value !== null && (
             <span
               title={paymentOverdue ? "Pagamento atrasado" : "Demanda com pagamento"}

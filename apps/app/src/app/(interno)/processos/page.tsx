@@ -48,6 +48,7 @@ export default async function ProcessosPage() {
           select: { createdAt: true },
         },
         commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
+        impediments: { where: { resolvedAt: null }, select: { id: true }, take: 1 },
       },
       orderBy: { number: "desc" },
     }),
@@ -67,6 +68,7 @@ export default async function ProcessosPage() {
     hasUnreadComment: hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null),
     value: p.value ? Number(p.value) : null,
     paymentStatus: getPaymentStatus(p.value ? Number(p.value) : null, p.paymentDueDate, p.paidAt),
+    hasOpenImpediment: p.impediments.length > 0,
   }));
 
   const canDrag = user.role !== "FINANCEIRO";
@@ -77,6 +79,7 @@ export default async function ProcessosPage() {
     entregaHoje: cards.filter((c) => isDueToday(c.dueAt ? new Date(c.dueAt) : null)).length,
     pagamentoAtrasado: cards.filter((c) => c.paymentStatus === "ATRASADO").length,
     comentarioNaoLido: cards.filter((c) => c.hasUnreadComment).length,
+    impedimento: cards.filter((c) => c.hasOpenImpediment).length,
   };
 
   return (
@@ -100,11 +103,12 @@ export default async function ProcessosPage() {
         </div>
       </div>
 
-      <div className="mt-4 grid flex-none grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="mt-4 grid flex-none grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <KpiCard value={kpis.total} label="Total" />
         <KpiCard value={kpis.entregaHoje} label="Entrega hoje" />
         <KpiCard value={kpis.atrasadas} label="Atrasadas" tone="danger" />
         <KpiCard value={kpis.pagamentoAtrasado} label="Pgto. atrasado" tone="danger" />
+        <KpiCard value={kpis.impedimento} label="Impedimento" tone="danger" />
         <KpiCard value={kpis.comentarioNaoLido} label="Comentário não lido" tone="danger" />
       </div>
 

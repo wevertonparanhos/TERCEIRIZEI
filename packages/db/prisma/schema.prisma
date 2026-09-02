@@ -178,6 +178,8 @@ model User {
   auditLogs          AuditLog[]
   processComments    ProcessComment[]
   commentReads       ProcessCommentRead[]
+  createdImpediments  ProcessImpediment[] @relation("ImpedimentCreatedBy")
+  resolvedImpediments ProcessImpediment[] @relation("ImpedimentResolvedBy")
   assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
   recurringTaskCompletions RecurringTaskCompletion[]
   clientNotes              ClientNote[]
@@ -369,6 +371,25 @@ model ProcessCommentRead {
   @@map("process_comment_reads")
 }
 
+// Bloqueio interno da equipe num processo (ex.: "aguardando OK do cliente") —
+// só staff vê; não é exposto no portal do cliente nesta etapa.
+model ProcessImpediment {
+  id           String    @id @default(uuid()) @db.Uuid
+  processId    String    @map("process_id") @db.Uuid
+  title        String
+  createdById  String    @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  resolvedAt   DateTime? @map("resolved_at")
+  resolvedById String?   @map("resolved_by_id") @db.Uuid
+
+  process    Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  createdBy  User    @relation("ImpedimentCreatedBy", fields: [createdById], references: [id])
+  resolvedBy User?   @relation("ImpedimentResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([processId])
+  @@map("process_impediments")
+}
+
 // contador atômico por tenant — usado para numerar demandas (e, mais tarde, processos)
 model TenantCounter {
   tenantId String @map("tenant_id") @db.Uuid
@@ -416,6 +437,7 @@ model Process {
   invoiceItems InvoiceItem[]
   comments     ProcessComment[]
   commentReads ProcessCommentRead[]
+  impediments  ProcessImpediment[]
 
   @@unique([tenantId, number])
   @@index([tenantId])

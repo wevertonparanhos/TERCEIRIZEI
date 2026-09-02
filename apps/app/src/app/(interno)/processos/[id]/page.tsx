@@ -17,6 +17,7 @@ import { TaskList } from "@/modules/processes/task-list";
 import { Checklist } from "@/modules/processes/checklist";
 import { ProcessComments } from "@/modules/processes/process-comments";
 import { MarkCommentsRead } from "@/modules/processes/mark-comments-read";
+import { Impediments } from "@/modules/processes/impediments";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
@@ -30,6 +31,9 @@ import {
   addProcessComment,
   markCommentsRead,
   setProcessPaid,
+  addImpediment,
+  resolveImpediment,
+  reopenImpediment,
 } from "@/modules/processes/actions";
 import {
   uploadNewDocument,
@@ -68,6 +72,10 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
         include: { author: { select: { name: true, role: { select: { name: true } } } } },
       },
       commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
+      impediments: {
+        orderBy: { createdAt: "desc" },
+        include: { createdBy: { select: { name: true } }, resolvedBy: { select: { name: true } } },
+      },
     },
   });
 
@@ -83,6 +91,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
     lastClientCommentAt ?? null,
     process.commentReads[0]?.lastReadAt ?? null
   );
+  const hasOpenImpediment = process.impediments.some((i) => !i.resolvedAt);
 
   const [staff, stageUsers] = await Promise.all([
     prisma.user.findMany({
@@ -180,6 +189,28 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                     authorIsClient: c.author.role.name === "CLIENTE",
                   }))}
                   addComment={addProcessComment}
+                />
+              ),
+            },
+            {
+              key: "impedimentos",
+              label: "Impedimentos",
+              badge: hasOpenImpediment,
+              content: (
+                <Impediments
+                  processId={process.id}
+                  canWrite={canWrite}
+                  impediments={process.impediments.map((i) => ({
+                    id: i.id,
+                    title: i.title,
+                    createdAt: i.createdAt.toISOString(),
+                    createdByName: i.createdBy.name,
+                    resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
+                    resolvedByName: i.resolvedBy?.name ?? null,
+                  }))}
+                  addImpediment={addImpediment}
+                  resolveImpediment={resolveImpediment}
+                  reopenImpediment={reopenImpediment}
                 />
               ),
             },
