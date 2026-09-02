@@ -104,7 +104,10 @@ export function ProcessCreateForm({
           <Select
             id="clientId"
             {...register("clientId")}
-            onChange={(e) => setSelectedClientId(e.target.value)}
+            onChange={(e) => {
+              register("clientId").onChange(e);
+              setSelectedClientId(e.target.value);
+            }}
           >
             <option value="">Selecione...</option>
             {clients.map((client) => (
