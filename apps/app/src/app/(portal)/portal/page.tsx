@@ -11,11 +11,11 @@ export default async function PortalDashboardPage() {
 
   const [activeProcesses, pendingRequests, unpaidProcesses] = await Promise.all([
     prisma.process.count({
-      where: { clientId: user.clientId, stage: { label: { notIn: ["Concluído", "Cancelado"] } } },
+      where: { clientId: user.clientId, visibleInPortal: true, stage: { label: { notIn: ["Concluído", "Cancelado"] } } },
     }),
     prisma.documentRequest.count({ where: { clientId: user.clientId, status: "PENDENTE" } }),
     prisma.process.findMany({
-      where: { clientId: user.clientId, value: { not: null }, paidAt: null },
+      where: { clientId: user.clientId, visibleInPortal: true, value: { not: null }, paidAt: null },
       select: { value: true, paymentDueDate: true, paidAt: true },
     }),
   ]);
@@ -27,7 +27,7 @@ export default async function PortalDashboardPage() {
   const upcomingCount = unpaidProcesses.length - overdueCount;
 
   const recentProcesses = await prisma.process.findMany({
-    where: { clientId: user.clientId },
+    where: { clientId: user.clientId, visibleInPortal: true },
     orderBy: { createdAt: "desc" },
     take: 5,
     include: { serviceType: { select: { name: true } }, stage: { select: { label: true, color: true } } },

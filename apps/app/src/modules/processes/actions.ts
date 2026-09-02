@@ -242,6 +242,7 @@ export async function updateProcess(processId: string, input: ProcessInput) {
       paymentDueDate: hasPayment && data.paymentDueDate ? new Date(data.paymentDueDate) : null,
       paidAt: hasPayment ? undefined : null,
       dueAt: data.dueAt ? new Date(data.dueAt) : null,
+      visibleInPortal: data.visibleInPortal,
       notes: data.notes || null,
     },
   });
@@ -249,6 +250,9 @@ export async function updateProcess(processId: string, input: ProcessInput) {
   revalidatePath(`/processos/${processId}`);
   revalidatePath("/processos");
   revalidatePath("/financeiro");
+  revalidatePath("/portal");
+  revalidatePath("/portal/processos");
+  revalidatePath(`/portal/processos/${processId}`);
 }
 
 /** Marca/desmarca o pagamento do processo como recebido. */

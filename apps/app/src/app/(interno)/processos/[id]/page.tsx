@@ -166,6 +166,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                     value: process.value ? String(process.value) : "",
                     paymentDueDate: process.paymentDueDate ? process.paymentDueDate.toISOString().slice(0, 10) : "",
                     dueAt: process.dueAt ? process.dueAt.toISOString().slice(0, 10) : "",
+                    visibleInPortal: process.visibleInPortal,
                     notes: process.notes ?? "",
                     paidAt: process.paidAt ? process.paidAt.toISOString() : null,
                   }}

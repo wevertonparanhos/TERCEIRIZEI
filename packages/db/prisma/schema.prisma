@@ -418,6 +418,7 @@ model Process {
   paidAt            DateTime?      @map("paid_at")
   requestedDeadline DateTime?      @map("requested_deadline")
   dueAt             DateTime?      @map("due_at")
+  visibleInPortal   Boolean        @default(true) @map("visible_in_portal")
   notes             String?
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")

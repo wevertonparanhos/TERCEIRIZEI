@@ -11,7 +11,7 @@ export default async function PortalFaturasPage() {
   if (!user || !user.clientId) return null;
 
   const processes = await prisma.process.findMany({
-    where: { clientId: user.clientId, value: { not: null } },
+    where: { clientId: user.clientId, visibleInPortal: true, value: { not: null } },
     orderBy: { paymentDueDate: "asc" },
     select: { id: true, number: true, description: true, value: true, paymentDueDate: true, paidAt: true },
   });

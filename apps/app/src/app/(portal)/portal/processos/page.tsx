@@ -10,7 +10,7 @@ export default async function PortalProcessosPage() {
   if (!user || !user.clientId) return null;
 
   const processes = await prisma.process.findMany({
-    where: { clientId: user.clientId },
+    where: { clientId: user.clientId, visibleInPortal: true },
     include: { serviceType: { select: { name: true } }, stage: { select: { label: true, color: true } } },
     orderBy: { number: "desc" },
   });

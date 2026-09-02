@@ -2,13 +2,18 @@ import { describe, it, expect } from "vitest";
 import { processSchema, taskSchema, createProcessSchema, clientCreateProcessSchema } from "./process";
 
 describe("processSchema", () => {
-  it("aceita um processo válido só com prioridade (demais campos opcionais)", () => {
-    const result = processSchema.safeParse({ priority: "MEDIA" });
+  it("aceita um processo válido só com prioridade + visibleInPortal (demais campos opcionais)", () => {
+    const result = processSchema.safeParse({ priority: "MEDIA", visibleInPortal: true });
     expect(result.success).toBe(true);
   });
 
   it("rejeita prioridade fora do enum", () => {
-    const result = processSchema.safeParse({ priority: "SUPER_URGENTE" });
+    const result = processSchema.safeParse({ priority: "SUPER_URGENTE", visibleInPortal: true });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejeita quando visibleInPortal está ausente", () => {
+    const result = processSchema.safeParse({ priority: "MEDIA" });
     expect(result.success).toBe(false);
   });
 });

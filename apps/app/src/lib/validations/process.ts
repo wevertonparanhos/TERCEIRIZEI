@@ -15,6 +15,7 @@ export const processSchema = z.object({
   value: z.string().optional(),
   paymentDueDate: z.string().optional(),
   dueAt: z.string().optional(),
+  visibleInPortal: z.boolean(),
   notes: z.string().optional(),
 });
 export type ProcessInput = z.infer<typeof processSchema>;

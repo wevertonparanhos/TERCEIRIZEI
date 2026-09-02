@@ -28,6 +28,7 @@ export function ProcessForm({
     value: string;
     paymentDueDate: string;
     dueAt: string;
+    visibleInPortal: boolean;
     notes: string;
     paidAt: string | null;
   };
@@ -42,6 +43,7 @@ export function ProcessForm({
   const [saved, setSaved] = useState(false);
   const [hasPayment, setHasPayment] = useState(Boolean(defaultValues.value));
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [visibleInPortal, setVisibleInPortal] = useState(defaultValues.visibleInPortal);
 
   const paymentStatus = getPaymentStatus(
     defaultValues.value ? Number(defaultValues.value) : null,
@@ -60,6 +62,7 @@ export function ProcessForm({
         value: hasPayment ? ((formData.get("value") as string) ?? "") : "",
         paymentDueDate: hasPayment ? ((formData.get("paymentDueDate") as string) ?? "") : "",
         dueAt: (formData.get("dueAt") as string) ?? "",
+        visibleInPortal,
         notes: (formData.get("notes") as string) ?? "",
       });
       setSaved(true);
@@ -111,6 +114,25 @@ export function ProcessForm({
           <Label htmlFor="dueAt">Prazo previsto de conclusão</Label>
           <Input id="dueAt" name="dueAt" type="date" defaultValue={defaultValues.dueAt} />
         </div>
+      </fieldset>
+
+      <fieldset disabled={readOnly} className="rounded-lg border border-border bg-surface-alt p-4">
+        <label className="flex items-center justify-between gap-3">
+          <span>
+            <span className="block text-sm font-medium text-ink">Visível no portal do cliente</span>
+            <span className="block text-xs text-muted-soft">O cliente vê título, status e comentários desta demanda no portal.</span>
+          </span>
+          <span className="relative inline-flex h-6 w-11 flex-none items-center">
+            <input
+              type="checkbox"
+              checked={visibleInPortal}
+              onChange={(e) => setVisibleInPortal(e.target.checked)}
+              className="peer sr-only"
+            />
+            <span className="absolute inset-0 rounded-full bg-border-strong transition-colors peer-checked:bg-accent" />
+            <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+          </span>
+        </label>
       </fieldset>
 
       <fieldset disabled={readOnly} className="rounded-lg border border-border bg-surface-alt p-4">

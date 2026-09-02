@@ -22,7 +22,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
   if (!user || !user.clientId) return null;
 
   const process = await prisma.process.findFirst({
-    where: { id: params.id, clientId: user.clientId },
+    where: { id: params.id, clientId: user.clientId, visibleInPortal: true },
     include: {
       serviceType: { select: { name: true } },
       company: { select: { razaoSocial: true } },
