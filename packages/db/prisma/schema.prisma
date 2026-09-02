@@ -74,6 +74,16 @@ enum InvoiceStatus {
   @@map("invoice_status")
 }
 
+enum RecurrenceFrequency {
+  SEMANAL
+  MENSAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+
+  @@map("recurrence_frequency")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -94,6 +104,7 @@ model Tenant {
   documentRequests DocumentRequest[]
   invoices         Invoice[]
   auditLogs        AuditLog[]
+  recurringTasks   RecurringTask[]
 
   @@map("tenants")
 }
@@ -155,6 +166,8 @@ model User {
   auditLogs          AuditLog[]
   processComments    ProcessComment[]
   commentReads       ProcessCommentRead[]
+  assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
+  recurringTaskCompletions RecurringTaskCompletion[]
 
   @@index([tenantId])
   @@map("users")
@@ -190,6 +203,7 @@ model Client {
   documents        Document[]
   documentRequests DocumentRequest[]
   invoices         Invoice[]
+  recurringTasks   RecurringTask[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -602,4 +616,44 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// Obrigação recorrente com um cliente (ex.: envio mensal de relatório) — não
+// gera Process, é rastreada nela mesma. nextDueAt sempre avança em UTC pela
+// frequência a partir do próprio nextDueAt (não de "agora"), pra manter uma
+// cadência fixa mesmo se a conclusão atrasar.
+model RecurringTask {
+  id         String              @id @default(uuid()) @db.Uuid
+  tenantId   String              @map("tenant_id") @db.Uuid
+  clientId   String              @map("client_id") @db.Uuid
+  title      String
+  assigneeId String?             @map("assignee_id") @db.Uuid
+  frequency  RecurrenceFrequency
+  nextDueAt  DateTime            @map("next_due_at")
+  active     Boolean             @default(true)
+  notes      String?
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id])
+  client      Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignee    User?                     @relation("RecurringTaskAssignee", fields: [assigneeId], references: [id])
+  completions RecurringTaskCompletion[]
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@map("recurring_tasks")
+}
+
+model RecurringTaskCompletion {
+  id              String   @id @default(uuid()) @db.Uuid
+  recurringTaskId String   @map("recurring_task_id") @db.Uuid
+  completedAt     DateTime @default(now()) @map("completed_at")
+  completedById   String?  @map("completed_by_id") @db.Uuid
+
+  recurringTask RecurringTask @relation(fields: [recurringTaskId], references: [id], onDelete: Cascade)
+  completedBy   User?         @relation(fields: [completedById], references: [id])
+
+  @@index([recurringTaskId])
+  @@map("recurring_task_completions")
 }

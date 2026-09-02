@@ -4,6 +4,9 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { getPaymentStatus, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_BADGE_VARIANT } from "@/modules/processes/labels";
+import { FREQUENCY_LABELS, isRecurringTaskDue } from "@/modules/recurring-tasks/labels";
+import { completeRecurringTaskOccurrence } from "@/modules/recurring-tasks/actions";
+import { CompleteRecurringTaskButton } from "@/modules/recurring-tasks/complete-button";
 import { ClientForm } from "@/modules/clients/client-form";
 import { CompanyList } from "@/modules/clients/company-list";
 import { ContactList } from "@/modules/clients/contact-list";
@@ -47,7 +50,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
   const canWrite = user.role === "ADMIN" || user.role === "GESTOR";
   const canWriteDocs = canWrite || user.role === "OPERACIONAL";
 
-  const [owners, documents, documentRequests, payments] = await Promise.all([
+  const [owners, documents, documentRequests, payments, recurringTasks] = await Promise.all([
     prisma.user.findMany({
       where: { tenantId: user.tenantId, role: { name: { not: "CLIENTE" } }, active: true },
       select: { id: true, name: true },
@@ -69,6 +72,11 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
           select: { id: true, number: true, description: true, value: true, paymentDueDate: true, paidAt: true },
         })
       : Promise.resolve([]),
+    prisma.recurringTask.findMany({
+      where: { tenantId: user.tenantId, clientId: client.id },
+      orderBy: [{ active: "desc" }, { nextDueAt: "asc" }],
+      include: { assignee: { select: { name: true } } },
+    }),
   ]);
 
   const updateThisClient = updateClient.bind(null, client.id);
@@ -169,6 +177,47 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
                         {currencyFormatter.format(Number(p.value))}
                       </span>
                       <Badge variant={PAYMENT_STATUS_BADGE_VARIANT[status]}>{PAYMENT_STATUS_LABELS[status]}</Badge>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {user.role !== "FINANCEIRO" && (
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-ink">Tarefas Recorrentes</h2>
+            <Link href="/tarefas-recorrentes" className="text-sm text-accent hover:underline">
+              Gerenciar todas →
+            </Link>
+          </div>
+          {recurringTasks.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-soft">Nenhuma tarefa recorrente para este cliente.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border">
+              {recurringTasks.map((t) => {
+                const due = isRecurringTaskDue(t.nextDueAt, t.active);
+                return (
+                  <li key={t.id} className="flex items-center justify-between py-2.5 text-sm">
+                    <div>
+                      <span className="text-ink">{t.title}</span>
+                      <span className="ml-2 text-xs text-muted-soft">
+                        {FREQUENCY_LABELS[t.frequency]} · {t.assignee?.name ?? "Sem responsável"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted">
+                        {t.nextDueAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                      </span>
+                      <Badge variant={!t.active ? "neutral" : due ? "danger" : "success"}>
+                        {!t.active ? "Inativa" : due ? "Atrasada" : "Em dia"}
+                      </Badge>
+                      {t.active && (
+                        <CompleteRecurringTaskButton taskId={t.id} completeOccurrence={completeRecurringTaskOccurrence} />
+                      )}
                     </div>
                   </li>
                 );

@@ -54,8 +54,15 @@ export default async function DashboardPage() {
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   if (user.role === "OPERACIONAL") {
-    const [myOpenTasks, myActiveProcesses, myDeadlines, myOverdueProcesses, myProcessesForStale, myProcessesForUnread] =
-      await Promise.all([
+    const [
+      myOpenTasks,
+      myActiveProcesses,
+      myDeadlines,
+      myOverdueProcesses,
+      myProcessesForStale,
+      myProcessesForUnread,
+      myOverdueRecurringTasks,
+    ] = await Promise.all([
       prisma.task.count({
         where: { assigneeId: user.id, status: { not: "CONCLUIDA" }, process: { tenantId: user.tenantId } },
       }),
@@ -100,6 +107,9 @@ export default async function DashboardPage() {
           commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
         },
       }),
+      prisma.recurringTask.count({
+        where: { tenantId: user.tenantId, assigneeId: user.id, active: true, nextDueAt: { lte: now } },
+      }),
     ]);
 
     const myStaleProcesses = myProcessesForStale.filter(
@@ -120,10 +130,15 @@ export default async function DashboardPage() {
         </div>
 
         <h2 className="mt-6 text-base font-semibold text-ink">Atenção</h2>
-        <div className="mt-3 grid grid-cols-3 gap-4">
+        <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
           <AttentionCard href="/processos" value={myOverdueProcesses} label="Meus processos com prazo vencido" />
           <AttentionCard href="/processos" value={myStaleProcesses} label="Meus processos sem mudança de etapa há 5+ dias" />
           <AttentionCard href="/processos" value={myUnreadComments} label="Comentários do cliente não lidos" />
+          <AttentionCard
+            href="/tarefas-recorrentes"
+            value={myOverdueRecurringTasks}
+            label="Minhas tarefas recorrentes atrasadas"
+          />
         </div>
 
         <DeadlinesList title="Meus prazos nos próximos 7 dias" deadlines={myDeadlines} />
@@ -145,6 +160,7 @@ export default async function DashboardPage() {
     overdueProcesses,
     processesForStale,
     processesForUnread,
+    overdueRecurringTasks,
   ] = await Promise.all([
       prisma.process.count({ where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } } }),
       prisma.client.count({ where: { tenantId: user.tenantId, status: "ativo" } }),
@@ -188,6 +204,9 @@ export default async function DashboardPage() {
           commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
         },
       }),
+      prisma.recurringTask.count({
+        where: { tenantId: user.tenantId, active: true, nextDueAt: { lte: now } },
+      }),
     ]);
 
   const financeSummary = summarizePayments(
@@ -211,10 +230,15 @@ export default async function DashboardPage() {
       </div>
 
       <h2 className="mt-6 text-base font-semibold text-ink">Atenção</h2>
-      <div className="mt-3 grid grid-cols-3 gap-4">
+      <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
         <AttentionCard href="/processos" value={overdueProcesses} label="Processos com prazo vencido" />
         <AttentionCard href="/processos" value={staleProcessesCount} label="Processos sem mudança de etapa há 5+ dias" />
         <AttentionCard href="/processos" value={unreadCommentsCount} label="Comentários do cliente não lidos" />
+        <AttentionCard
+          href="/tarefas-recorrentes"
+          value={overdueRecurringTasks}
+          label="Tarefas recorrentes atrasadas"
+        />
       </div>
 
       {stages.length > 0 && (

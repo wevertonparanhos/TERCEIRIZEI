@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/clientes/portal", label: "Portal de Clientes", roles: ["ADMIN", "GESTOR"] },
   { href: "/processos", label: "Processos", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"] },
   { href: "/servicos", label: "Modelos de Processo", roles: ["ADMIN", "GESTOR"] },
+  { href: "/tarefas-recorrentes", label: "Tarefas Recorrentes", roles: ["ADMIN", "GESTOR", "OPERACIONAL"] },
   { href: "/financeiro", label: "Financeiro", roles: ["ADMIN", "GESTOR", "FINANCEIRO"] },
   { href: "/auditoria", label: "Auditoria", roles: ["ADMIN"] },
   { href: "/equipe", label: "Equipe", roles: ["ADMIN"] },
