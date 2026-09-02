@@ -13,6 +13,8 @@ import { ContactList } from "@/modules/clients/contact-list";
 import { PortalAccess } from "@/modules/clients/portal-access";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
+import { ClientNotes } from "@/modules/client-notes/client-notes";
+import { addClientNote, toggleClientNotePinned, deleteClientNote } from "@/modules/client-notes/actions";
 import {
   updateClient,
   addClientContact,
@@ -50,7 +52,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
   const canWrite = user.role === "ADMIN" || user.role === "GESTOR";
   const canWriteDocs = canWrite || user.role === "OPERACIONAL";
 
-  const [owners, documents, documentRequests, payments, recurringTasks] = await Promise.all([
+  const [owners, documents, documentRequests, payments, recurringTasks, clientNotes] = await Promise.all([
     prisma.user.findMany({
       where: { tenantId: user.tenantId, role: { name: { not: "CLIENTE" } }, active: true },
       select: { id: true, name: true },
@@ -77,6 +79,13 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
       orderBy: [{ active: "desc" }, { nextDueAt: "asc" }],
       include: { assignee: { select: { name: true } } },
     }),
+    canWriteDocs
+      ? prisma.clientNote.findMany({
+          where: { tenantId: user.tenantId, clientId: client.id },
+          orderBy: { createdAt: "desc" },
+          include: { author: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
   ]);
 
   const updateThisClient = updateClient.bind(null, client.id);
@@ -224,6 +233,27 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
               })}
             </ul>
           )}
+        </div>
+      )}
+
+      {canWriteDocs && (
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <ClientNotes
+            clientId={client.id}
+            notes={clientNotes.map((n) => ({
+              id: n.id,
+              body: n.body,
+              createdAt: n.createdAt.toISOString(),
+              authorId: n.authorId,
+              authorName: n.author.name,
+              pinned: n.pinned,
+            }))}
+            currentUserId={user.id}
+            canManageAll={canWrite}
+            addNote={addClientNote}
+            togglePinned={toggleClientNotePinned}
+            deleteNote={deleteClientNote}
+          />
         </div>
       )}
 

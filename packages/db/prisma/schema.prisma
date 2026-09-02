@@ -105,6 +105,7 @@ model Tenant {
   invoices         Invoice[]
   auditLogs        AuditLog[]
   recurringTasks   RecurringTask[]
+  clientNotes      ClientNote[]
 
   @@map("tenants")
 }
@@ -168,6 +169,7 @@ model User {
   commentReads       ProcessCommentRead[]
   assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
   recurringTaskCompletions RecurringTaskCompletion[]
+  clientNotes              ClientNote[]
 
   @@index([tenantId])
   @@map("users")
@@ -204,6 +206,7 @@ model Client {
   documentRequests DocumentRequest[]
   invoices         Invoice[]
   recurringTasks   RecurringTask[]
+  clientNotes      ClientNote[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -656,4 +659,25 @@ model RecurringTaskCompletion {
 
   @@index([recurringTaskId])
   @@map("recurring_task_completions")
+}
+
+// Anotação interna da equipe sobre um cliente — nunca visível no portal do
+// cliente, diferente de ProcessComment (que o cliente também pode ler/postar).
+model ClientNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@map("client_notes")
 }
