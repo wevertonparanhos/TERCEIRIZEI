@@ -58,7 +58,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
         <p className="text-sm text-muted">
           {process.company ? `${process.company.razaoSocial} · ` : ""}aberto em{" "}
           {process.createdAt.toLocaleDateString("pt-BR")}
-          {process.dueAt ? ` · prazo previsto ${process.dueAt.toLocaleDateString("pt-BR")}` : ""}
+          {process.dueAt ? ` · prazo previsto ${process.dueAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}` : ""}
         </p>
       </div>
 

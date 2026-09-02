@@ -38,7 +38,9 @@ export default async function PortalProcessosPage() {
                 #{p.number} — {p.serviceType.name}
               </p>
               {p.dueAt && (
-                <p className="text-xs text-muted-soft">prazo previsto {p.dueAt.toLocaleDateString("pt-BR")}</p>
+                <p className="text-xs text-muted-soft">
+                  prazo previsto {p.dueAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                </p>
               )}
             </div>
             <div className="flex items-center gap-2">

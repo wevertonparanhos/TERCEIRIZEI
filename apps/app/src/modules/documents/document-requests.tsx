@@ -82,7 +82,9 @@ export function DocumentRequests({
               <div>
                 <p className="text-sm font-medium text-ink">{r.label}</p>
                 {r.deadline && (
-                  <p className="text-xs text-muted-soft">prazo {new Date(r.deadline).toLocaleDateString("pt-BR")}</p>
+                  <p className="text-xs text-muted-soft">
+                    prazo {new Date(r.deadline).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-2">

@@ -97,7 +97,7 @@ export function TaskList({
                 <p className="text-xs text-muted-soft">
                   {PRIORITY_LABELS[task.priority]}
                   {task.assigneeName ? ` · ${task.assigneeName}` : ""}
-                  {task.dueAt ? ` · ${new Date(task.dueAt).toLocaleDateString("pt-BR")}` : ""}
+                  {task.dueAt ? ` · ${new Date(task.dueAt).toLocaleDateString("pt-BR", { timeZone: "UTC" })}` : ""}
                 </p>
               </div>
               <div className="flex flex-none items-center gap-2">
