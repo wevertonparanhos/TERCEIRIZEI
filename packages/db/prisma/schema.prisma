@@ -116,6 +116,7 @@ model Tenant {
   recurringTasks   RecurringTask[]
   clientNotes      ClientNote[]
   proposals        Proposal[]
+  clientMessages   ClientMessage[]
 
   @@map("tenants")
 }
@@ -181,6 +182,8 @@ model User {
   recurringTaskCompletions RecurringTaskCompletion[]
   clientNotes              ClientNote[]
   createdProposals         Proposal[]
+  clientMessages           ClientMessage[]
+  clientMessageReads       ClientMessageRead[]
 
   @@index([tenantId])
   @@map("users")
@@ -219,6 +222,8 @@ model Client {
   recurringTasks   RecurringTask[]
   clientNotes      ClientNote[]
   proposals        Proposal[]
+  messages         ClientMessage[]
+  messageReads     ClientMessageRead[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -735,4 +740,39 @@ model ProposalItem {
 
   @@index([proposalId])
   @@map("proposal_items")
+}
+
+// Chat direto com o cliente — geral, não vinculado a um processo específico
+// (diferente de ProcessComment). Sem tempo real: atualiza por reload, mesmo
+// padrão já usado nos comentários de processo (Realtime não confirmado
+// funcionando no navegador de teste deste ambiente, ver memória do projeto).
+model ClientMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@map("client_messages")
+}
+
+// Marca até quando cada membro da equipe já viu o chat de um cliente — mesmo
+// padrão de ProcessCommentRead, usado só pra calcular "não lido".
+model ClientMessageRead {
+  clientId   String   @map("client_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  lastReadAt DateTime @map("last_read_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, userId])
+  @@map("client_message_reads")
 }

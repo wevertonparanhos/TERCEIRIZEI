@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/portal", label: "Dashboard" },
   { href: "/portal/processos", label: "Meus Processos" },
   { href: "/portal/nova-demanda", label: "Nova Demanda" },
+  { href: "/portal/chat", label: "Chat" },
   { href: "/portal/propostas", label: "Propostas" },
   { href: "/portal/documentos", label: "Documentos" },
   { href: "/portal/faturas", label: "Faturas" },
