@@ -1,9 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { PwaRegister } from "@/components/pwa-register";
 
 export const metadata: Metadata = {
   title: "Terceirizei OS",
   description: "Plataforma de gestão de clientes, demandas, processos e financeiro da Terceirizei.",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon-512.png", apple: "/icon-192.png" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Terceirizei OS" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1B2558",
 };
 
 const THEME_INIT_SCRIPT = `
@@ -22,7 +30,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        <PwaRegister />
+        {children}
+      </body>
     </html>
   );
 }
