@@ -6,6 +6,8 @@ import {
   addDays,
   hasUnreadClientComment,
   getPaymentStatus,
+  initials,
+  isDueToday,
 } from "./labels";
 
 function daysFromNow(days: number): Date {
@@ -117,5 +119,41 @@ describe("getPaymentStatus", () => {
 
   it("é PENDENTE quando tem valor mas não tem data de pagamento definida", () => {
     expect(getPaymentStatus(100, null, null)).toBe("PENDENTE");
+  });
+});
+
+describe("initials", () => {
+  it("usa primeira e última palavra do nome", () => {
+    expect(initials("Weverton Paranhos")).toBe("WP");
+  });
+
+  it("usa nome do meio junto quando há mais de duas palavras", () => {
+    expect(initials("Ana Maria Souza")).toBe("AS");
+  });
+
+  it("usa as duas primeiras letras quando é uma palavra só", () => {
+    expect(initials("Weverton")).toBe("WE");
+  });
+
+  it("retorna '?' pra nome vazio", () => {
+    expect(initials("")).toBe("?");
+    expect(initials("   ")).toBe("?");
+  });
+});
+
+describe("isDueToday", () => {
+  const now = new Date(2026, 8, 2, 15, 30);
+
+  it("é false quando não há prazo", () => {
+    expect(isDueToday(null, now)).toBe(false);
+  });
+
+  it("é true quando o prazo é hoje (UTC)", () => {
+    expect(isDueToday(new Date(Date.UTC(2026, 8, 2)), now)).toBe(true);
+  });
+
+  it("é false quando o prazo é outro dia", () => {
+    expect(isDueToday(new Date(Date.UTC(2026, 8, 3)), now)).toBe(false);
+    expect(isDueToday(new Date(Date.UTC(2026, 8, 1)), now)).toBe(false);
   });
 });

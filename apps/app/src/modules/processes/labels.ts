@@ -83,3 +83,23 @@ export function getPaymentStatus(
   if (paymentDueDate && paymentDueDate.getTime() < Date.now()) return "ATRASADO";
   return "PENDENTE";
 }
+
+/** Iniciais pro avatar circular do responsável — primeira + última palavra do
+ * nome, ou as duas primeiras letras se for um nome de uma palavra só. */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** true quando a data (UTC, dia cheio) cai no dia de hoje — usado pro KPI
+ * "Entrega hoje" do Kanban. */
+export function isDueToday(dueAt: Date | null, now: Date = new Date()): boolean {
+  if (!dueAt) return false;
+  return (
+    dueAt.getUTCFullYear() === now.getUTCFullYear() &&
+    dueAt.getUTCMonth() === now.getUTCMonth() &&
+    dueAt.getUTCDate() === now.getUTCDate()
+  );
+}

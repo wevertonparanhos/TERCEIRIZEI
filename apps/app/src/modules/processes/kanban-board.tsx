@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DndContext, DragOverlay, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
-import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/processes/labels";
+import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, type PaymentStatus } from "@/modules/processes/labels";
 
 export type Stage = { id: string; label: string; color: string };
 
@@ -20,9 +20,15 @@ export type KanbanCard = {
   dueAt: string | null;
   isOverdue: boolean;
   hasUnreadComment: boolean;
+  value: number | null;
+  paymentStatus: PaymentStatus;
 };
 
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
 function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean }) {
+  const paymentOverdue = card.paymentStatus === "ATRASADO";
+
   return (
     <div
       className={`rounded-md border border-border bg-surface p-3 shadow-sm transition-shadow ${
@@ -39,18 +45,42 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
             />
           )}
         </span>
-        <Badge variant={PRIORITY_BADGE_VARIANT[card.priority]}>{PRIORITY_LABELS[card.priority]}</Badge>
+        <div className="flex items-center gap-1">
+          {card.value !== null && (
+            <span
+              title={paymentOverdue ? "Pagamento atrasado" : "Demanda com pagamento"}
+              className={`flex h-4 w-4 flex-none items-center justify-center rounded-full text-[10px] font-bold ${
+                paymentOverdue
+                  ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"
+                  : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
+              }`}
+            >
+              $
+            </span>
+          )}
+          <Badge variant={PRIORITY_BADGE_VARIANT[card.priority]}>{PRIORITY_LABELS[card.priority]}</Badge>
+        </div>
       </div>
-      <p className="mt-1 text-sm font-medium text-ink">{card.clientName}</p>
-      <p className="text-xs text-muted">{card.serviceTypeName}</p>
-      <div className="mt-2 flex items-center justify-between text-xs">
-        <span className="text-muted-soft">{card.assignedUserName ?? "Sem responsável"}</span>
-        {card.dueAt && (
-          <span className={card.isOverdue ? "font-medium text-red-600" : "text-muted-soft"}>
-            {new Date(card.dueAt).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
-            {card.isOverdue && " · atrasado"}
-          </span>
-        )}
+
+      <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-soft">{card.clientName}</p>
+      <p className="text-sm font-medium text-ink">{card.serviceTypeName}</p>
+
+      <div className="mt-2.5 flex items-center justify-between">
+        <div
+          title={card.assignedUserName ?? "Sem responsável"}
+          className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-accent-soft text-[10px] font-semibold text-accent"
+        >
+          {card.assignedUserName ? initials(card.assignedUserName) : "—"}
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          {card.value !== null && <span className="font-mono text-muted">{currencyFormatter.format(card.value)}</span>}
+          {card.dueAt && (
+            <span className={card.isOverdue ? "font-medium text-red-600" : "text-muted-soft"}>
+              {new Date(card.dueAt).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+              {card.isOverdue && " · atrasado"}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -90,12 +120,14 @@ function DroppableColumn({ stage, cards, canDrag }: { stage: Stage; cards: Kanba
         isOver ? "border-accent bg-accent-soft" : "border-border bg-surface-alt"
       }`}
     >
-      <div className="border-b border-border px-3 py-2">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
         <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color }} />
+          <span className="h-2 w-2 flex-none rounded-full" style={{ backgroundColor: stage.color }} />
           {stage.label}
         </p>
-        <p className="text-[11px] text-muted-soft">{cards.length} processo(s)</p>
+        <span className="flex h-5 min-w-[20px] flex-none items-center justify-center rounded-full bg-surface px-1.5 text-[11px] font-semibold text-muted-soft">
+          {cards.length}
+        </span>
       </div>
       <div className="flex-1 space-y-2 p-2">
         {cards.map((card) => (

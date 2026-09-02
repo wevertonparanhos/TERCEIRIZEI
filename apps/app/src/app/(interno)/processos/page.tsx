@@ -4,8 +4,23 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard, type KanbanCard, type Stage } from "@/modules/processes/kanban-board";
-import { isProcessOverdue, hasUnreadClientComment } from "@/modules/processes/labels";
+import { isProcessOverdue, hasUnreadClientComment, getPaymentStatus, isDueToday } from "@/modules/processes/labels";
 import { updateProcessStage } from "@/modules/processes/actions";
+
+function KpiCard({ value, label, tone = "neutral" }: { value: number; label: string; tone?: "neutral" | "danger" }) {
+  return (
+    <div
+      className={`rounded-lg border p-4 ${
+        tone === "danger" && value > 0
+          ? "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10"
+          : "border-border bg-surface"
+      }`}
+    >
+      <p className={`text-xl font-bold ${tone === "danger" && value > 0 ? "text-red-600" : "text-ink"}`}>{value}</p>
+      <p className="text-xs text-muted">{label}</p>
+    </div>
+  );
+}
 
 export default async function ProcessosPage() {
   const user = await getCurrentUser();
@@ -50,9 +65,19 @@ export default async function ProcessosPage() {
     dueAt: p.dueAt ? p.dueAt.toISOString() : null,
     isOverdue: isProcessOverdue(p.dueAt, p.stage.label),
     hasUnreadComment: hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null),
+    value: p.value ? Number(p.value) : null,
+    paymentStatus: getPaymentStatus(p.value ? Number(p.value) : null, p.paymentDueDate, p.paidAt),
   }));
 
   const canDrag = user.role !== "FINANCEIRO";
+
+  const kpis = {
+    total: cards.length,
+    atrasadas: cards.filter((c) => c.isOverdue).length,
+    entregaHoje: cards.filter((c) => isDueToday(c.dueAt ? new Date(c.dueAt) : null)).length,
+    pagamentoAtrasado: cards.filter((c) => c.paymentStatus === "ATRASADO").length,
+    comentarioNaoLido: cards.filter((c) => c.hasUnreadComment).length,
+  };
 
   return (
     <div className="flex h-screen flex-col p-8">
@@ -75,7 +100,15 @@ export default async function ProcessosPage() {
         </div>
       </div>
 
-      <div className="mt-6 flex-1 overflow-hidden">
+      <div className="mt-4 grid flex-none grid-cols-2 gap-3 md:grid-cols-5">
+        <KpiCard value={kpis.total} label="Total" />
+        <KpiCard value={kpis.entregaHoje} label="Entrega hoje" />
+        <KpiCard value={kpis.atrasadas} label="Atrasadas" tone="danger" />
+        <KpiCard value={kpis.pagamentoAtrasado} label="Pgto. atrasado" tone="danger" />
+        <KpiCard value={kpis.comentarioNaoLido} label="Comentário não lido" tone="danger" />
+      </div>
+
+      <div className="mt-4 flex-1 overflow-hidden">
         <KanbanBoard stages={stageList} cards={cards} canDrag={canDrag} updateStage={updateProcessStage} />
       </div>
     </div>
