@@ -413,9 +413,6 @@ model Process {
   stageId           String         @map("stage_id") @db.Uuid
   description       String
   priority          DemandPriority @default(MEDIA)
-  value             Decimal?       @db.Decimal(12, 2)
-  paymentDueDate    DateTime?      @map("payment_due_date")
-  paidAt            DateTime?      @map("paid_at")
   requestedDeadline DateTime?      @map("requested_deadline")
   dueAt             DateTime?      @map("due_at")
   visibleInPortal   Boolean        @default(true) @map("visible_in_portal")
@@ -439,6 +436,7 @@ model Process {
   commentReads ProcessCommentRead[]
   impediments  ProcessImpediment[]
   assignees    ProcessAssignee[]
+  installments ProcessInstallment[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -462,6 +460,26 @@ model ProcessAssignee {
   @@unique([processId, userId])
   @@index([userId])
   @@map("process_assignees")
+}
+
+// parcelas de pagamento do processo — substitui o antigo Process.value/
+// paymentDueDate/paidAt (valor único) pra permitir mais de um pagamento por
+// processo (ex.: entrada + parcela final), inspirado no modal "Nova Tarefa"
+// do FreelaPRO. Cada parcela tem seu próprio status (PAGO/ATRASADO/PENDENTE),
+// calculado do mesmo jeito que o processo único calculava antes.
+model ProcessInstallment {
+  id             String    @id @default(uuid()) @db.Uuid
+  processId      String    @map("process_id") @db.Uuid
+  position       Int
+  value          Decimal   @db.Decimal(12, 2)
+  paymentDueDate DateTime? @map("payment_due_date")
+  paidAt         DateTime? @map("paid_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@index([processId])
+  @@map("process_installments")
 }
 
 // colunas do Kanban de processos — configuráveis por tenant, não um enum fixo,

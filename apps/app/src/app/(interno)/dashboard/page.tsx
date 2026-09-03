@@ -177,8 +177,8 @@ export default async function DashboardPage() {
         include: { client: { select: { name: true } } },
       }),
       canSeeFinance
-        ? prisma.process.findMany({
-            where: { tenantId: user.tenantId, value: { not: null }, paymentDueDate: { gte: monthStart, lte: monthEnd } },
+        ? prisma.processInstallment.findMany({
+            where: { process: { tenantId: user.tenantId }, paymentDueDate: { gte: monthStart, lte: monthEnd } },
             select: { value: true, paymentDueDate: true, paidAt: true },
           })
         : Promise.resolve([]),

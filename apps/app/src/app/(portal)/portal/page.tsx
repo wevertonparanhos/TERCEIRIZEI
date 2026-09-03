@@ -14,8 +14,8 @@ export default async function PortalDashboardPage() {
       where: { clientId: user.clientId, visibleInPortal: true, stage: { label: { notIn: ["Concluído", "Cancelado"] } } },
     }),
     prisma.documentRequest.count({ where: { clientId: user.clientId, status: "PENDENTE" } }),
-    prisma.process.findMany({
-      where: { clientId: user.clientId, visibleInPortal: true, value: { not: null }, paidAt: null },
+    prisma.processInstallment.findMany({
+      where: { process: { clientId: user.clientId, visibleInPortal: true }, paidAt: null },
       select: { value: true, paymentDueDate: true, paidAt: true },
     }),
   ]);

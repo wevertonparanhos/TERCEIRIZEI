@@ -111,8 +111,6 @@ export async function createProcess(input: CreateProcessInput) {
       stageId: firstStage.id,
       description: data.description,
       priority: data.priority,
-      value: data.value ? Number(data.value) : serviceType.defaultPrice,
-      paymentDueDate: data.paymentDueDate ? new Date(data.paymentDueDate) : null,
       requestedDeadline: data.requestedDeadline
         ? new Date(data.requestedDeadline)
         : serviceType.defaultDeadlineDays
@@ -127,6 +125,18 @@ export async function createProcess(input: CreateProcessInput) {
   });
 
   await seedChecklistFromTemplate(process.id, data.serviceTypeId);
+
+  const initialValue = data.value ? Number(data.value) : serviceType.defaultPrice ? Number(serviceType.defaultPrice) : null;
+  if (initialValue) {
+    await prisma.processInstallment.create({
+      data: {
+        processId: process.id,
+        position: 1,
+        value: initialValue,
+        paymentDueDate: data.paymentDueDate ? new Date(data.paymentDueDate) : null,
+      },
+    });
+  }
 
   await logAudit({
     tenantId: user.tenantId,
@@ -176,7 +186,6 @@ export async function clientCreateProcess(input: ClientCreateProcessInput) {
       stageId: firstStage.id,
       description: data.description,
       priority: data.priority,
-      value: serviceType.defaultPrice,
       requestedDeadline: data.requestedDeadline
         ? new Date(data.requestedDeadline)
         : serviceType.defaultDeadlineDays
@@ -191,6 +200,12 @@ export async function clientCreateProcess(input: ClientCreateProcessInput) {
   });
 
   await seedChecklistFromTemplate(process.id, data.serviceTypeId);
+
+  if (serviceType.defaultPrice) {
+    await prisma.processInstallment.create({
+      data: { processId: process.id, position: 1, value: Number(serviceType.defaultPrice) },
+    });
+  }
 
   revalidatePath("/portal");
   revalidatePath("/portal/processos");
@@ -232,18 +247,11 @@ export async function updateProcess(processId: string, input: ProcessInput) {
   await loadProcessForWrite(processId, user);
   const data = processSchema.parse(input);
 
-  const hasPayment = Boolean(data.value);
-
   await prisma.$transaction([
     prisma.process.update({
       where: { id: processId },
       data: {
         priority: data.priority,
-        value: hasPayment ? Number(data.value) : null,
-        // Sem valor não faz sentido manter prazo/data de pagamento — evita um
-        // processo "sem pagamento" continuar aparecendo em relatórios financeiros.
-        paymentDueDate: hasPayment && data.paymentDueDate ? new Date(data.paymentDueDate) : null,
-        paidAt: hasPayment ? undefined : null,
         dueAt: data.dueAt ? new Date(data.dueAt) : null,
         visibleInPortal: data.visibleInPortal,
         notes: data.notes || null,
@@ -263,30 +271,79 @@ export async function updateProcess(processId: string, input: ProcessInput) {
   revalidatePath(`/portal/processos/${processId}`);
 }
 
-/** Marca/desmarca o pagamento do processo como recebido. */
-export async function setProcessPaid(processId: string, paid: boolean) {
+/** Adiciona uma parcela de pagamento ao processo — posição sequencial
+ * (Parcela 1, 2, 3...) na ordem de criação. */
+export async function addInstallment(processId: string, value: string, paymentDueDate: string) {
+  const user = await requireStaff();
+  await loadProcessForWrite(processId, user);
+
+  const numericValue = Number(value);
+  if (!value || Number.isNaN(numericValue) || numericValue <= 0) {
+    throw new Error("Informe um valor maior que zero.");
+  }
+
+  const last = await prisma.processInstallment.findFirst({
+    where: { processId },
+    orderBy: { position: "desc" },
+  });
+
+  await prisma.processInstallment.create({
+    data: {
+      processId,
+      position: (last?.position ?? 0) + 1,
+      value: numericValue,
+      paymentDueDate: paymentDueDate ? new Date(paymentDueDate) : null,
+    },
+  });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+  revalidatePath("/financeiro");
+  revalidatePath("/portal");
+  revalidatePath("/portal/processos");
+  revalidatePath(`/portal/processos/${processId}`);
+}
+
+/** Marca/desmarca uma parcela como paga. */
+export async function markInstallmentPaid(processId: string, installmentId: string, paid: boolean) {
   const user = await requireStaff();
   const process = await loadProcessForWrite(processId, user);
-  if (!process.value) throw new Error("Este processo não tem valor definido.");
 
-  await prisma.process.update({
-    where: { id: processId },
+  await prisma.processInstallment.update({
+    where: { id: installmentId, processId },
     data: { paidAt: paid ? new Date() : null },
   });
 
   await logAudit({
     tenantId: user.tenantId,
     userId: user.id,
-    action: paid ? "process.mark_paid" : "process.unmark_paid",
+    action: paid ? "process.installment_paid" : "process.installment_unpaid",
     entityType: "process",
     entityId: processId,
-    description: `Processo #${process.number} marcado como ${paid ? "pago" : "pendente"}.`,
+    description: `Parcela do processo #${process.number} marcada como ${paid ? "paga" : "pendente"}.`,
   });
 
   revalidatePath(`/processos/${processId}`);
   revalidatePath("/processos");
   revalidatePath("/financeiro");
   revalidatePath("/clientes");
+  revalidatePath("/portal");
+  revalidatePath("/portal/processos");
+  revalidatePath(`/portal/processos/${processId}`);
+}
+
+export async function deleteInstallment(processId: string, installmentId: string) {
+  const user = await requireStaff();
+  await loadProcessForWrite(processId, user);
+
+  await prisma.processInstallment.delete({ where: { id: installmentId, processId } });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+  revalidatePath("/financeiro");
+  revalidatePath("/portal");
+  revalidatePath("/portal/processos");
+  revalidatePath(`/portal/processos/${processId}`);
 }
 
 export async function createTask(processId: string, input: TaskInput) {

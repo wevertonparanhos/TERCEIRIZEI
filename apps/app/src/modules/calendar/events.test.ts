@@ -7,7 +7,7 @@ describe("buildCalendarEvents", () => {
       recurringTasks: [{ id: "r1", title: "Enviar relatório", nextDueAt: new Date(Date.UTC(2026, 8, 20)), clientName: "Cliente A" }],
       processDeadlines: [{ id: "p1", number: 10, description: "Abertura", requestedDeadline: new Date(Date.UTC(2026, 8, 5)), clientName: "Cliente B" }],
       tasks: [{ id: "t1", title: "Revisar", dueAt: new Date(Date.UTC(2026, 8, 10)), processId: "p1", processNumber: 10, clientName: "Cliente B" }],
-      payments: [{ id: "pay1", number: 11, description: "Consultoria", paymentDueDate: new Date(Date.UTC(2026, 8, 15)), clientName: "Cliente C" }],
+      payments: [{ id: "pay1", processId: "p2", number: 11, description: "Consultoria", paymentDueDate: new Date(Date.UTC(2026, 8, 15)), clientName: "Cliente C" }],
       documentRequests: [{ id: "d1", label: "Contrato social", deadline: new Date(Date.UTC(2026, 8, 1)), clientName: "Cliente A", processId: null }],
     });
 

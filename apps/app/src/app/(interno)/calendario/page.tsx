@@ -52,14 +52,13 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
         }),
     isOperacional
       ? Promise.resolve([])
-      : prisma.process.findMany({
+      : prisma.processInstallment.findMany({
           where: {
-            tenantId: user.tenantId,
-            value: { not: null },
+            process: { tenantId: user.tenantId },
             paidAt: null,
             paymentDueDate: { gte: start, lte: end },
           },
-          include: { client: { select: { name: true } } },
+          include: { process: { select: { number: true, description: true, client: { select: { name: true } } } } },
         }),
     isFinanceiro
       ? Promise.resolve([])
@@ -92,10 +91,11 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
     })),
     payments: payments.map((p) => ({
       id: p.id,
-      number: p.number,
-      description: p.description,
+      processId: p.processId,
+      number: p.process.number,
+      description: p.process.description,
       paymentDueDate: p.paymentDueDate!,
-      clientName: p.client.name,
+      clientName: p.process.client.name,
     })),
     documentRequests: documentRequests.map((d) => ({
       id: d.id,

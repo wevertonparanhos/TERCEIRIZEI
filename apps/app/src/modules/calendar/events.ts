@@ -35,7 +35,7 @@ export function buildCalendarEvents(
     recurringTasks: { id: string; title: string; nextDueAt: Date; clientName: string }[];
     processDeadlines: { id: string; number: number; description: string; requestedDeadline: Date; clientName: string }[];
     tasks: { id: string; title: string; dueAt: Date; processId: string; processNumber: number; clientName: string }[];
-    payments: { id: string; number: number; description: string; paymentDueDate: Date; clientName: string }[];
+    payments: { id: string; processId: string; number: number; description: string; paymentDueDate: Date; clientName: string }[];
     documentRequests: { id: string; label: string; deadline: Date; clientName: string; processId: string | null }[];
   },
   now: Date = new Date()
@@ -85,7 +85,7 @@ export function buildCalendarEvents(
       date: p.paymentDueDate,
       title: `#${p.number} — ${p.description.slice(0, 40)}`,
       clientName: p.clientName,
-      href: `/processos/${p.id}`,
+      href: `/processos/${p.processId}`,
       overdue: p.paymentDueDate.getTime() < now.getTime(),
     });
   }

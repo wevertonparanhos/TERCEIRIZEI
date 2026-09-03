@@ -161,15 +161,21 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
   const user = await requireFinanceAccess();
   const data = generateInvoiceSchema.parse(input);
 
-  const processes = await prisma.process.findMany({
+  const processesRaw = await prisma.process.findMany({
     where: { id: { in: data.processIds }, tenantId: user.tenantId },
+    include: { installments: true },
   });
-  if (processes.length !== data.processIds.length) {
+  if (processesRaw.length !== data.processIds.length) {
     throw new Error("Um ou mais processos não foram encontrados.");
   }
-  if (processes.some((p) => p.value === null)) {
-    throw new Error("Todos os processos selecionados precisam ter um valor definido.");
+  if (processesRaw.some((p) => p.installments.length === 0)) {
+    throw new Error("Todos os processos selecionados precisam ter ao menos uma parcela definida.");
   }
+
+  const processes = processesRaw.map((p) => ({
+    ...p,
+    value: p.installments.reduce((sum, i) => sum + Number(i.value), 0),
+  }));
 
   const clientIds = new Set(processes.map((p) => p.clientId));
   if (data.grouped && clientIds.size > 1) {
@@ -206,7 +212,7 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
         invoiceId: invoice.id,
         processId: p.id,
         description: `Processo #${p.number} — ${p.description.slice(0, 80)}`,
-        amount: p.value!,
+        amount: p.value,
       })),
     });
     await recalculateTotal(invoice.id);
@@ -221,7 +227,7 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
           clientId: p.clientId,
           companyId: p.companyId ?? null,
           dueDate,
-          totalAmount: p.value!,
+          totalAmount: p.value,
           createdById: user.id,
         },
       });
@@ -230,7 +236,7 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
           invoiceId: invoice.id,
           processId: p.id,
           description: `Processo #${p.number} — ${p.description.slice(0, 80)}`,
-          amount: p.value!,
+          amount: p.value,
         },
       });
       invoiceIds.push(invoice.id);

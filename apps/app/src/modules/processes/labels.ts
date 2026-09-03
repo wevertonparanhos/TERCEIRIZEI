@@ -71,7 +71,7 @@ export const PAYMENT_STATUS_BADGE_VARIANT: Record<PaymentStatus, "neutral" | "su
   PENDENTE: "warning",
 };
 
-/** Deriva o status de pagamento de um processo a partir de value/paymentDueDate/paidAt —
+/** Deriva o status de pagamento de uma parcela a partir de value/paymentDueDate/paidAt —
  * não é persistido, sempre calculado. */
 export function getPaymentStatus(
   value: number | null,
@@ -82,6 +82,28 @@ export function getPaymentStatus(
   if (paidAt) return "PAGO";
   if (paymentDueDate && paymentDueDate.getTime() < Date.now()) return "ATRASADO";
   return "PENDENTE";
+}
+
+/** Resume o status de pagamento do processo a partir de todas as suas parcelas —
+ * pior caso primeiro (1 parcela atrasada já marca o processo inteiro como
+ * atrasado), igual à prioridade visual que o badge único tinha antes das
+ * parcelas existirem. */
+export function getProcessPaymentSummary(
+  installments: { value: number; paymentDueDate: Date | null; paidAt: Date | null }[]
+): { status: PaymentStatus; totalValue: number; paidCount: number; totalCount: number } {
+  if (installments.length === 0) return { status: "SEM_PAGAMENTO", totalValue: 0, paidCount: 0, totalCount: 0 };
+
+  const statuses = installments.map((i) => getPaymentStatus(i.value, i.paymentDueDate, i.paidAt));
+  const totalValue = installments.reduce((sum, i) => sum + i.value, 0);
+  const paidCount = statuses.filter((s) => s === "PAGO").length;
+
+  const status: PaymentStatus = statuses.includes("ATRASADO")
+    ? "ATRASADO"
+    : statuses.every((s) => s === "PAGO")
+      ? "PAGO"
+      : "PENDENTE";
+
+  return { status, totalValue, paidCount, totalCount: installments.length };
 }
 
 /** Iniciais pro avatar circular do responsável — primeira + última palavra do

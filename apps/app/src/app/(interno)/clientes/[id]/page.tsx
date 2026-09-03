@@ -68,10 +68,10 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
       orderBy: { createdAt: "desc" },
     }),
     user.role !== "OPERACIONAL"
-      ? prisma.process.findMany({
-          where: { tenantId: user.tenantId, clientId: client.id, value: { not: null } },
+      ? prisma.processInstallment.findMany({
+          where: { process: { tenantId: user.tenantId, clientId: client.id } },
           orderBy: { paymentDueDate: "asc" },
-          select: { id: true, number: true, description: true, value: true, paymentDueDate: true, paidAt: true },
+          include: { process: { select: { number: true, description: true } } },
         })
       : Promise.resolve([]),
     prisma.recurringTask.findMany({
@@ -172,11 +172,14 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
           ) : (
             <ul className="mt-3 divide-y divide-border">
               {payments.map((p) => {
-                const status = getPaymentStatus(p.value ? Number(p.value) : null, p.paymentDueDate, p.paidAt);
+                const status = getPaymentStatus(Number(p.value), p.paymentDueDate, p.paidAt);
+                const installmentLabel =
+                  payments.filter((other) => other.processId === p.processId).length > 1 ? ` · Parcela ${p.position}` : "";
                 return (
                   <li key={p.id} className="flex items-center justify-between py-2.5 text-sm">
-                    <Link href={`/processos/${p.id}`} className="text-ink hover:underline">
-                      #{p.number} — {p.description.slice(0, 50)}
+                    <Link href={`/processos/${p.processId}`} className="text-ink hover:underline">
+                      #{p.process.number} — {p.process.description.slice(0, 50)}
+                      {installmentLabel}
                     </Link>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted">

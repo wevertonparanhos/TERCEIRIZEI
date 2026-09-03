@@ -23,24 +23,28 @@ export default async function FinanceiroPage({
     : "mes";
   const { start, end } = resolvePeriod(periodKey, searchParams.inicio, searchParams.fim);
 
-  const processes = await prisma.process.findMany({
+  const installments = await prisma.processInstallment.findMany({
     where: {
-      tenantId: user.tenantId,
-      value: { not: null },
+      process: { tenantId: user.tenantId },
       paymentDueDate: { gte: start, lte: end },
     },
-    include: { client: { select: { name: true } } },
+    include: { process: { select: { number: true, description: true, client: { select: { name: true } } } } },
     orderBy: { paymentDueDate: "asc" },
   });
 
-  const rows = processes.map((p) => ({
-    id: p.id,
-    number: p.number,
-    clientName: p.client.name,
-    description: p.description,
-    value: Number(p.value),
-    paymentDueDate: p.paymentDueDate,
-    paidAt: p.paidAt,
+  const countByProcess = new Map<string, number>();
+  for (const i of installments) countByProcess.set(i.processId, (countByProcess.get(i.processId) ?? 0) + 1);
+
+  const rows = installments.map((i) => ({
+    id: i.id,
+    processId: i.processId,
+    number: i.process.number,
+    clientName: i.process.client.name,
+    description: i.process.description,
+    installmentLabel: (countByProcess.get(i.processId) ?? 0) > 1 ? `Parcela ${i.position}` : null,
+    value: Number(i.value),
+    paymentDueDate: i.paymentDueDate,
+    paidAt: i.paidAt,
   }));
 
   const summary = summarizePayments(rows);
@@ -99,8 +103,9 @@ export default async function FinanceiroPage({
               return (
                 <tr key={row.id} className="border-b border-border last:border-0 hover:bg-surface-alt">
                   <td className="px-4 py-3">
-                    <Link href={`/processos/${row.id}`} className="font-medium text-ink hover:underline">
+                    <Link href={`/processos/${row.processId}`} className="font-medium text-ink hover:underline">
                       #{row.number} — {row.description.slice(0, 40)}
+                      {row.installmentLabel && <span className="text-muted-soft"> · {row.installmentLabel}</span>}
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-muted">{row.clientName}</td>

@@ -4,7 +4,7 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard, type KanbanCard, type Stage } from "@/modules/processes/kanban-board";
-import { isProcessOverdue, hasUnreadClientComment, getPaymentStatus, isDueToday } from "@/modules/processes/labels";
+import { isProcessOverdue, hasUnreadClientComment, getProcessPaymentSummary, isDueToday } from "@/modules/processes/labels";
 import { updateProcessStage } from "@/modules/processes/actions";
 
 function KpiCard({ value, label, tone = "neutral" }: { value: number; label: string; tone?: "neutral" | "danger" }) {
@@ -49,27 +49,33 @@ export default async function ProcessosPage() {
         },
         commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
         impediments: { where: { resolvedAt: null }, select: { id: true }, take: 1 },
+        installments: { select: { value: true, paymentDueDate: true, paidAt: true } },
       },
       orderBy: { number: "desc" },
     }),
   ]);
 
   const stageList: Stage[] = stages.map((s) => ({ id: s.id, label: s.label, color: s.color }));
-  const cards: KanbanCard[] = processes.map((p) => ({
-    id: p.id,
-    number: p.number,
-    clientName: p.client.name,
-    serviceTypeName: p.serviceType.name,
-    priority: p.priority,
-    stageId: p.stageId,
-    assigneeNames: p.assignees.map((a) => a.user.name),
-    dueAt: p.dueAt ? p.dueAt.toISOString() : null,
-    isOverdue: isProcessOverdue(p.dueAt, p.stage.label),
-    hasUnreadComment: hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null),
-    value: p.value ? Number(p.value) : null,
-    paymentStatus: getPaymentStatus(p.value ? Number(p.value) : null, p.paymentDueDate, p.paidAt),
-    hasOpenImpediment: p.impediments.length > 0,
-  }));
+  const cards: KanbanCard[] = processes.map((p) => {
+    const paymentSummary = getProcessPaymentSummary(
+      p.installments.map((i) => ({ value: Number(i.value), paymentDueDate: i.paymentDueDate, paidAt: i.paidAt }))
+    );
+    return {
+      id: p.id,
+      number: p.number,
+      clientName: p.client.name,
+      serviceTypeName: p.serviceType.name,
+      priority: p.priority,
+      stageId: p.stageId,
+      assigneeNames: p.assignees.map((a) => a.user.name),
+      dueAt: p.dueAt ? p.dueAt.toISOString() : null,
+      isOverdue: isProcessOverdue(p.dueAt, p.stage.label),
+      hasUnreadComment: hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null),
+      value: paymentSummary.totalValue > 0 ? paymentSummary.totalValue : null,
+      paymentStatus: paymentSummary.status,
+      hasOpenImpediment: p.impediments.length > 0,
+    };
+  });
 
   const canDrag = user.role !== "FINANCEIRO";
 

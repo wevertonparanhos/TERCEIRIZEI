@@ -6,6 +6,7 @@ import {
   addDays,
   hasUnreadClientComment,
   getPaymentStatus,
+  getProcessPaymentSummary,
   initials,
   isDueToday,
 } from "./labels";
@@ -119,6 +120,41 @@ describe("getPaymentStatus", () => {
 
   it("é PENDENTE quando tem valor mas não tem data de pagamento definida", () => {
     expect(getPaymentStatus(100, null, null)).toBe("PENDENTE");
+  });
+});
+
+describe("getProcessPaymentSummary", () => {
+  it("é SEM_PAGAMENTO quando não há parcelas", () => {
+    expect(getProcessPaymentSummary([])).toEqual({ status: "SEM_PAGAMENTO", totalValue: 0, paidCount: 0, totalCount: 0 });
+  });
+
+  it("é ATRASADO se qualquer parcela estiver atrasada, mesmo com outras pagas", () => {
+    const result = getProcessPaymentSummary([
+      { value: 100, paymentDueDate: new Date("2020-01-01"), paidAt: null },
+      { value: 100, paymentDueDate: new Date("2020-01-01"), paidAt: new Date() },
+    ]);
+    expect(result.status).toBe("ATRASADO");
+    expect(result.totalValue).toBe(200);
+    expect(result.paidCount).toBe(1);
+    expect(result.totalCount).toBe(2);
+  });
+
+  it("é PAGO só quando todas as parcelas estão pagas", () => {
+    const result = getProcessPaymentSummary([
+      { value: 100, paymentDueDate: null, paidAt: new Date() },
+      { value: 50, paymentDueDate: null, paidAt: new Date() },
+    ]);
+    expect(result.status).toBe("PAGO");
+    expect(result.paidCount).toBe(2);
+  });
+
+  it("é PENDENTE quando nenhuma está atrasada nem todas pagas", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const result = getProcessPaymentSummary([
+      { value: 100, paymentDueDate: future, paidAt: null },
+      { value: 50, paymentDueDate: null, paidAt: new Date() },
+    ]);
+    expect(result.status).toBe("PENDENTE");
   });
 });
 

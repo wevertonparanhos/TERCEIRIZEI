@@ -12,8 +12,6 @@ export type StageInput = z.infer<typeof stageSchema>;
 export const processSchema = z.object({
   assigneeIds: z.array(z.string()).default([]),
   priority: z.enum(DEMAND_PRIORITIES),
-  value: z.string().optional(),
-  paymentDueDate: z.string().optional(),
   dueAt: z.string().optional(),
   visibleInPortal: z.boolean(),
   notes: z.string().optional(),

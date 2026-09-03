@@ -34,14 +34,19 @@ export default async function FaturarProcessosPage({
     const billedIds = new Set(billed.map((b) => b.processId));
 
     const rows = await prisma.process.findMany({
-      where: { tenantId: user.tenantId, clientId: searchParams.clientId, value: { not: null } },
-      select: { id: true, number: true, description: true, value: true },
+      where: { tenantId: user.tenantId, clientId: searchParams.clientId, installments: { some: {} } },
+      select: { id: true, number: true, description: true, installments: { select: { value: true } } },
       orderBy: { number: "desc" },
     });
 
     processes = rows
       .filter((p) => !billedIds.has(p.id))
-      .map((p) => ({ id: p.id, number: p.number, description: p.description, value: p.value!.toString() }));
+      .map((p) => ({
+        id: p.id,
+        number: p.number,
+        description: p.description,
+        value: p.installments.reduce((sum, i) => sum + Number(i.value), 0).toString(),
+      }));
   }
 
   return (

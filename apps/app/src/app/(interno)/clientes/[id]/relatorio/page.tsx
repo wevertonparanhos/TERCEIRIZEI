@@ -32,23 +32,26 @@ export default async function ClienteRelatorioPage({
     : "mes";
   const { start, end } = resolvePeriod(periodKey, searchParams.inicio, searchParams.fim);
 
-  const processes = await prisma.process.findMany({
+  const installments = await prisma.processInstallment.findMany({
     where: {
-      tenantId: user.tenantId,
-      clientId: client.id,
-      value: { not: null },
+      process: { tenantId: user.tenantId, clientId: client.id },
       paymentDueDate: { gte: start, lte: end },
     },
+    include: { process: { select: { number: true, description: true } } },
     orderBy: { paymentDueDate: "asc" },
   });
 
-  const rows = processes.map((p) => ({
-    id: p.id,
-    number: p.number,
-    description: p.description,
-    value: Number(p.value),
-    paymentDueDate: p.paymentDueDate,
-    paidAt: p.paidAt,
+  const countByProcess = new Map<string, number>();
+  for (const i of installments) countByProcess.set(i.processId, (countByProcess.get(i.processId) ?? 0) + 1);
+
+  const rows = installments.map((i) => ({
+    id: i.id,
+    number: i.process.number,
+    description: i.process.description,
+    installmentLabel: (countByProcess.get(i.processId) ?? 0) > 1 ? `Parcela ${i.position}` : null,
+    value: Number(i.value),
+    paymentDueDate: i.paymentDueDate,
+    paidAt: i.paidAt,
   }));
 
   const summary = summarizePayments(rows);
@@ -123,6 +126,7 @@ export default async function ClienteRelatorioPage({
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">
                     #{row.number} — {row.description.slice(0, 60)}
+                    {row.installmentLabel && <span className="text-muted-soft"> · {row.installmentLabel}</span>}
                   </td>
                   <td className="px-4 py-3 text-muted">
                     {row.paymentDueDate?.toLocaleDateString("pt-BR", { timeZone: "UTC" }) ?? "—"}
