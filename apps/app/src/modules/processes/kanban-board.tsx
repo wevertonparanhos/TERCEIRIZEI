@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DndContext, DragOverlay, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
+import { Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, type PaymentStatus } from "@/modules/processes/labels";
 
@@ -23,6 +24,7 @@ export type KanbanCard = {
   value: number | null;
   paymentStatus: PaymentStatus;
   hasOpenImpediment: boolean;
+  activePresenceNames: string[];
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -47,6 +49,14 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
           )}
         </span>
         <div className="flex items-center gap-1">
+          {card.activePresenceNames.length > 0 && (
+            <span
+              title={`Trabalhando agora: ${card.activePresenceNames.join(", ")}`}
+              className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
+            >
+              <Radio className="h-2.5 w-2.5" />
+            </span>
+          )}
           {card.hasOpenImpediment && (
             <span
               title="Processo com impedimento em aberto"

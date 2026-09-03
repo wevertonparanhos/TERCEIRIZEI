@@ -190,6 +190,7 @@ model User {
   processComments    ProcessComment[]
   commentReads       ProcessCommentRead[]
   commentMentions    ProcessCommentMention[]
+  processPresence    ProcessPresence[]
   createdImpediments  ProcessImpediment[] @relation("ImpedimentCreatedBy")
   resolvedImpediments ProcessImpediment[] @relation("ImpedimentResolvedBy")
   assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
@@ -389,6 +390,23 @@ model ProcessCommentMention {
   @@map("process_comment_mentions")
 }
 
+// "Estou aqui" — marca manual de presença no processo, pra evitar duas
+// pessoas trabalhando na mesma coisa sem necessidade. Só staff (nunca
+// exposto no portal). Sem job/cron: "ativo" é calculado a cada leitura como
+// lastSeenAt dentro dos últimos PRESENCE_EXPIRY_MINUTES (labels.ts) — a marca
+// unica "expira sozinha" se a pessoa esquecer de sair ou fechar a aba.
+model ProcessPresence {
+  processId  String   @map("process_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  lastSeenAt DateTime @map("last_seen_at")
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([processId, userId])
+  @@map("process_presence")
+}
+
 // Marca até quando cada membro da equipe já viu os comentários de um processo —
 // usado só pra calcular "comentário do cliente não lido", não guarda o comentário em si.
 model ProcessCommentRead {
@@ -468,6 +486,7 @@ model Process {
   impediments  ProcessImpediment[]
   assignees    ProcessAssignee[]
   installments ProcessInstallment[]
+  presence     ProcessPresence[]
 
   @@unique([tenantId, number])
   @@index([tenantId])

@@ -4,7 +4,13 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard, type KanbanCard, type Stage } from "@/modules/processes/kanban-board";
-import { isProcessOverdue, hasUnreadClientComment, getProcessPaymentSummary, isDueToday } from "@/modules/processes/labels";
+import {
+  isProcessOverdue,
+  hasUnreadClientComment,
+  getProcessPaymentSummary,
+  isPresenceActive,
+  isDueToday,
+} from "@/modules/processes/labels";
 import { updateProcessStage } from "@/modules/processes/actions";
 
 function KpiCard({ value, label, tone = "neutral" }: { value: number; label: string; tone?: "neutral" | "danger" }) {
@@ -50,6 +56,7 @@ export default async function ProcessosPage() {
         commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
         impediments: { where: { resolvedAt: null }, select: { id: true }, take: 1 },
         installments: { select: { value: true, paymentDueDate: true, paidAt: true } },
+        presence: { include: { user: { select: { name: true } } } },
       },
       orderBy: { number: "desc" },
     }),
@@ -74,6 +81,7 @@ export default async function ProcessosPage() {
       value: paymentSummary.totalValue > 0 ? paymentSummary.totalValue : null,
       paymentStatus: paymentSummary.status,
       hasOpenImpediment: p.impediments.length > 0,
+      activePresenceNames: p.presence.filter((pr) => isPresenceActive(pr.lastSeenAt)).map((pr) => pr.user.name),
     };
   });
 

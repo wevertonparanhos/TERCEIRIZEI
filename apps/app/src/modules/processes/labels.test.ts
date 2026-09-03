@@ -7,6 +7,8 @@ import {
   hasUnreadClientComment,
   getPaymentStatus,
   getProcessPaymentSummary,
+  isPresenceActive,
+  PRESENCE_EXPIRY_MINUTES,
   initials,
   isDueToday,
 } from "./labels";
@@ -155,6 +157,22 @@ describe("getProcessPaymentSummary", () => {
       { value: 50, paymentDueDate: null, paidAt: new Date() },
     ]);
     expect(result.status).toBe("PENDENTE");
+  });
+});
+
+describe("isPresenceActive", () => {
+  it("é true logo após o heartbeat", () => {
+    expect(isPresenceActive(new Date())).toBe(true);
+  });
+
+  it("é true um minuto antes de expirar", () => {
+    const lastSeenAt = new Date(Date.now() - (PRESENCE_EXPIRY_MINUTES - 1) * 60 * 1000);
+    expect(isPresenceActive(lastSeenAt)).toBe(true);
+  });
+
+  it("é false depois da janela de expiração", () => {
+    const lastSeenAt = new Date(Date.now() - (PRESENCE_EXPIRY_MINUTES + 1) * 60 * 1000);
+    expect(isPresenceActive(lastSeenAt)).toBe(false);
   });
 });
 

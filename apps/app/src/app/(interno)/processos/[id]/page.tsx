@@ -4,10 +4,21 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import {
+  FileText,
+  MessageSquare,
+  Wallet,
+  AlertTriangle,
+  ListTodo,
+  ListChecks,
+  Paperclip,
+  History,
+} from "lucide-react";
+import {
   PRIORITY_LABELS,
   PRIORITY_BADGE_VARIANT,
   hasUnreadClientComment,
   getProcessPaymentSummary,
+  isPresenceActive,
   PAYMENT_STATUS_LABELS,
   PAYMENT_STATUS_BADGE_VARIANT,
 } from "@/modules/processes/labels";
@@ -19,6 +30,7 @@ import { ProcessComments } from "@/modules/processes/process-comments";
 import { MarkCommentsRead } from "@/modules/processes/mark-comments-read";
 import { Impediments } from "@/modules/processes/impediments";
 import { Installments } from "@/modules/processes/installments";
+import { ProcessPresence } from "@/modules/processes/process-presence";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
@@ -37,6 +49,8 @@ import {
   addImpediment,
   resolveImpediment,
   reopenImpediment,
+  markPresence,
+  clearPresence,
 } from "@/modules/processes/actions";
 import {
   uploadNewDocument,
@@ -84,6 +98,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
         include: { createdBy: { select: { name: true } }, resolvedBy: { select: { name: true } } },
       },
       installments: { orderBy: { position: "asc" } },
+      presence: { include: { user: { select: { id: true, name: true } } } },
     },
   });
 
@@ -125,6 +140,10 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
     process.installments.map((i) => ({ value: Number(i.value), paymentDueDate: i.paymentDueDate, paidAt: i.paidAt }))
   );
 
+  const activePresenceUsers = process.presence
+    .filter((p) => isPresenceActive(p.lastSeenAt))
+    .map((p) => ({ id: p.user.id, name: p.user.name }));
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-8">
       <MarkCommentsRead processId={process.id} markCommentsRead={markCommentsRead} />
@@ -157,6 +176,15 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
               : ""}
           </p>
         </div>
+        {user.role !== "FINANCEIRO" && (
+          <ProcessPresence
+            processId={process.id}
+            currentUserId={user.id}
+            activeUsers={activePresenceUsers}
+            markPresence={markPresence}
+            clearPresence={clearPresence}
+          />
+        )}
       </div>
 
       <div className="rounded-lg border border-border bg-surface p-6">
@@ -170,6 +198,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "geral",
               label: "Visão geral",
+              icon: <FileText className="h-4 w-4" />,
               content: (
                 <ProcessForm
                   processId={process.id}
@@ -189,6 +218,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "comentarios",
               label: "Comentários",
+              icon: <MessageSquare className="h-4 w-4" />,
               badge: hasUnreadComment || hasUnreadMention,
               content: (
                 <ProcessComments
@@ -209,6 +239,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "pagamentos",
               label: "Pagamentos",
+              icon: <Wallet className="h-4 w-4" />,
               badge: paymentSummary.status === "ATRASADO",
               content: (
                 <Installments
@@ -230,6 +261,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "impedimentos",
               label: "Impedimentos",
+              icon: <AlertTriangle className="h-4 w-4" />,
               badge: hasOpenImpediment,
               content: (
                 <Impediments
@@ -252,6 +284,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "tarefas",
               label: "Tarefas",
+              icon: <ListTodo className="h-4 w-4" />,
               content: (
                 <TaskList
                   processId={process.id}
@@ -274,6 +307,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "checklist",
               label: "Checklist",
+              icon: <ListChecks className="h-4 w-4" />,
               content: (
                 <Checklist
                   processId={process.id}
@@ -290,6 +324,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "documentos",
               label: "Documentos",
+              icon: <Paperclip className="h-4 w-4" />,
               content: (
                 <div className="space-y-8">
                   <DocumentList
@@ -341,6 +376,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "historico",
               label: "Histórico",
+              icon: <History className="h-4 w-4" />,
               content: (
                 <ul className="space-y-2">
                   {process.stageHistory.map((entry) => (

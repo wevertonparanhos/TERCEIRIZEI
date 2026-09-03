@@ -567,6 +567,44 @@ export async function markCommentsRead(processId: string) {
   ]);
 }
 
+// --- "Estou aqui" (presença manual, evita duplicar trabalho na equipe) ---
+
+async function requirePresenceAccess(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
+    throw new Error("Você não tem acesso a este módulo.");
+  }
+  return user;
+}
+
+/** Marca (ou renova) que o usuário está trabalhando neste processo agora —
+ * chamado ao clicar "Estou aqui" e, enquanto ativo, a cada heartbeat. */
+export async function markPresence(processId: string) {
+  const user = await requirePresenceAccess();
+  const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
+  if (!process) throw new Error("Processo não encontrado.");
+
+  await prisma.processPresence.upsert({
+    where: { processId_userId: { processId, userId: user.id } },
+    create: { processId, userId: user.id, lastSeenAt: new Date() },
+    update: { lastSeenAt: new Date() },
+  });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+}
+
+/** Sai explicitamente ("Não estou mais aqui") — sem isso, a marca só some
+ * sozinha depois de PRESENCE_EXPIRY_MINUTES sem heartbeat. */
+export async function clearPresence(processId: string) {
+  const user = await requirePresenceAccess();
+
+  await prisma.processPresence.deleteMany({ where: { processId, userId: user.id } });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+}
+
 // --- Impedimentos (bloqueio interno da equipe — não aparece no portal) ---
 
 async function requireImpedimentAccess(): Promise<CurrentUser> {

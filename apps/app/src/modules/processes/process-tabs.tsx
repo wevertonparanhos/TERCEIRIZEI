@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 export function ProcessTabs({
   tabs,
 }: {
-  tabs: { key: string; label: string; content: ReactNode; badge?: boolean }[];
+  tabs: { key: string; label: string; content: ReactNode; badge?: boolean; icon?: ReactNode }[];
 }) {
   const [active, setActive] = useState(tabs[0].key);
   const activeTab = tabs.find((t) => t.key === active) ?? tabs[0];
@@ -26,6 +26,7 @@ export function ProcessTabs({
                 : "border-transparent text-muted hover:text-ink"
             )}
           >
+            {tab.icon}
             {tab.label}
             {tab.badge && <span className="h-1.5 w-1.5 flex-none rounded-full bg-accent" />}
           </button>

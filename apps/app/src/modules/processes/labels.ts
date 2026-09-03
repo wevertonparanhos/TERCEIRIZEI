@@ -106,6 +106,16 @@ export function getProcessPaymentSummary(
   return { status, totalValue, paidCount, totalCount: installments.length };
 }
 
+/** Minutos sem heartbeat até uma marca de "Estou aqui" ser considerada
+ * expirada — sem job/cron, calculado a cada leitura. */
+export const PRESENCE_EXPIRY_MINUTES = 15;
+
+/** true quando lastSeenAt ainda está dentro da janela de expiração. */
+export function isPresenceActive(lastSeenAt: Date, now: Date = new Date()): boolean {
+  const minutesSince = (now.getTime() - lastSeenAt.getTime()) / (1000 * 60);
+  return minutesSince <= PRESENCE_EXPIRY_MINUTES;
+}
+
 /** Iniciais pro avatar circular do responsável — primeira + última palavra do
  * nome, ou as duas primeiras letras se for um nome de uma palavra só. */
 export function initials(name: string): string {
