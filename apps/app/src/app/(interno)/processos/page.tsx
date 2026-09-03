@@ -34,12 +34,12 @@ export default async function ProcessosPage() {
     prisma.process.findMany({
       where: {
         tenantId: user.tenantId,
-        ...(user.role === "OPERACIONAL" ? { assignedUserId: user.id } : {}),
+        ...(user.role === "OPERACIONAL" ? { assignees: { some: { userId: user.id } } } : {}),
       },
       include: {
         client: { select: { name: true } },
         serviceType: { select: { name: true } },
-        assignedUser: { select: { name: true } },
+        assignees: { include: { user: { select: { name: true } } } },
         stage: { select: { label: true } },
         comments: {
           where: { author: { role: { name: "CLIENTE" } } },
@@ -62,7 +62,7 @@ export default async function ProcessosPage() {
     serviceTypeName: p.serviceType.name,
     priority: p.priority,
     stageId: p.stageId,
-    assignedUserName: p.assignedUser?.name ?? null,
+    assigneeNames: p.assignees.map((a) => a.user.name),
     dueAt: p.dueAt ? p.dueAt.toISOString() : null,
     isOverdue: isProcessOverdue(p.dueAt, p.stage.label),
     hasUnreadComment: hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null),

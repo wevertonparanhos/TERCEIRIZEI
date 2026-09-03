@@ -10,7 +10,7 @@ export const stageSchema = z.object({
 export type StageInput = z.infer<typeof stageSchema>;
 
 export const processSchema = z.object({
-  assignedUserId: z.string().optional().or(z.literal("")),
+  assigneeIds: z.array(z.string()).default([]),
   priority: z.enum(DEMAND_PRIORITIES),
   value: z.string().optional(),
   paymentDueDate: z.string().optional(),

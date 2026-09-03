@@ -16,7 +16,7 @@ export type KanbanCard = {
   serviceTypeName: string;
   priority: string;
   stageId: string;
-  assignedUserName: string | null;
+  assigneeNames: string[];
   dueAt: string | null;
   isOverdue: boolean;
   hasUnreadComment: boolean;
@@ -75,11 +75,26 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
       <p className="text-sm font-medium text-ink">{card.serviceTypeName}</p>
 
       <div className="mt-2.5 flex items-center justify-between">
-        <div
-          title={card.assignedUserName ?? "Sem responsável"}
-          className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-accent-soft text-[10px] font-semibold text-accent"
-        >
-          {card.assignedUserName ? initials(card.assignedUserName) : "—"}
+        <div className="flex -space-x-1.5" title={card.assigneeNames.length > 0 ? card.assigneeNames.join(", ") : "Sem responsável"}>
+          {card.assigneeNames.length === 0 ? (
+            <div className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-accent-soft text-[10px] font-semibold text-accent">
+              —
+            </div>
+          ) : (
+            card.assigneeNames.slice(0, 3).map((name, i) => (
+              <div
+                key={i}
+                className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 border-surface bg-accent-soft text-[10px] font-semibold text-accent"
+              >
+                {initials(name)}
+              </div>
+            ))
+          )}
+          {card.assigneeNames.length > 3 && (
+            <div className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 border-surface bg-surface-alt text-[10px] font-semibold text-muted">
+              +{card.assigneeNames.length - 3}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 text-xs">
           {card.value !== null && <span className="font-mono text-muted">{currencyFormatter.format(card.value)}</span>}

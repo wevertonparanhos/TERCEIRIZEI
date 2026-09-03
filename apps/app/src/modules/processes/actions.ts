@@ -38,9 +38,12 @@ async function requireManageAccess(): Promise<CurrentUser> {
 }
 
 async function loadProcessForWrite(processId: string, user: CurrentUser) {
-  const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
+  const process = await prisma.process.findFirst({
+    where: { id: processId, tenantId: user.tenantId },
+    include: { assignees: { select: { userId: true } } },
+  });
   if (!process) throw new Error("Processo não encontrado.");
-  if (user.role === "OPERACIONAL" && process.assignedUserId !== user.id) {
+  if (user.role === "OPERACIONAL" && !process.assignees.some((a) => a.userId === user.id)) {
     throw new Error("Você só pode alterar processos atribuídos a você.");
   }
   if (user.role === "FINANCEIRO") throw new Error("Financeiro tem acesso somente leitura a processos.");
@@ -231,21 +234,26 @@ export async function updateProcess(processId: string, input: ProcessInput) {
 
   const hasPayment = Boolean(data.value);
 
-  await prisma.process.update({
-    where: { id: processId },
-    data: {
-      assignedUserId: data.assignedUserId || null,
-      priority: data.priority,
-      value: hasPayment ? Number(data.value) : null,
-      // Sem valor não faz sentido manter prazo/data de pagamento — evita um
-      // processo "sem pagamento" continuar aparecendo em relatórios financeiros.
-      paymentDueDate: hasPayment && data.paymentDueDate ? new Date(data.paymentDueDate) : null,
-      paidAt: hasPayment ? undefined : null,
-      dueAt: data.dueAt ? new Date(data.dueAt) : null,
-      visibleInPortal: data.visibleInPortal,
-      notes: data.notes || null,
-    },
-  });
+  await prisma.$transaction([
+    prisma.process.update({
+      where: { id: processId },
+      data: {
+        priority: data.priority,
+        value: hasPayment ? Number(data.value) : null,
+        // Sem valor não faz sentido manter prazo/data de pagamento — evita um
+        // processo "sem pagamento" continuar aparecendo em relatórios financeiros.
+        paymentDueDate: hasPayment && data.paymentDueDate ? new Date(data.paymentDueDate) : null,
+        paidAt: hasPayment ? undefined : null,
+        dueAt: data.dueAt ? new Date(data.dueAt) : null,
+        visibleInPortal: data.visibleInPortal,
+        notes: data.notes || null,
+      },
+    }),
+    prisma.processAssignee.deleteMany({ where: { processId } }),
+    prisma.processAssignee.createMany({
+      data: data.assigneeIds.map((userId) => ({ processId, userId })),
+    }),
+  ]);
 
   revalidatePath(`/processos/${processId}`);
   revalidatePath("/processos");

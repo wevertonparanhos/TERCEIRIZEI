@@ -54,7 +54,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
       client: { select: { name: true } },
       company: { select: { razaoSocial: true } },
       serviceType: { select: { name: true } },
-      assignedUser: { select: { name: true } },
+      assignees: { select: { userId: true } },
       stage: { select: { label: true, color: true } },
       tasks: { orderBy: { createdAt: "asc" }, include: { assignee: { select: { name: true } } } },
       checklist: { orderBy: { createdAt: "asc" } },
@@ -80,9 +80,10 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
   });
 
   if (!process) notFound();
-  if (user.role === "OPERACIONAL" && process.assignedUserId !== user.id) redirect("/processos");
+  const isAssignedToMe = process.assignees.some((a) => a.userId === user.id);
+  if (user.role === "OPERACIONAL" && !isAssignedToMe) redirect("/processos");
 
-  const canWrite = user.role === "ADMIN" || user.role === "GESTOR" || (user.role === "OPERACIONAL" && process.assignedUserId === user.id);
+  const canWrite = user.role === "ADMIN" || user.role === "GESTOR" || (user.role === "OPERACIONAL" && isAssignedToMe);
 
   const lastClientCommentAt = [...process.comments]
     .reverse()
@@ -161,7 +162,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                   readOnly={user.role === "FINANCEIRO"}
                   staff={staff}
                   defaultValues={{
-                    assignedUserId: process.assignedUserId ?? "",
+                    assigneeIds: process.assignees.map((a) => a.userId),
                     priority: process.priority,
                     value: process.value ? String(process.value) : "",
                     paymentDueDate: process.paymentDueDate ? process.paymentDueDate.toISOString().slice(0, 10) : "",

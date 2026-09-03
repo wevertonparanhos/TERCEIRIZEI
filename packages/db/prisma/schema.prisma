@@ -169,7 +169,7 @@ model User {
   role               Role              @relation(fields: [roleId], references: [id])
   client             Client?           @relation(fields: [clientId], references: [id])
   ownedClients       Client[]          @relation("ClientOwner")
-  assignedProcesses  Process[]         @relation("ProcessAssignee")
+  processAssignments ProcessAssignee[]
   assignedTasks      Task[]            @relation("TaskAssignee")
   uploadedDocuments  Document[]
   uploadedVersions   DocumentVersion[]
@@ -410,7 +410,6 @@ model Process {
   clientId          String         @map("client_id") @db.Uuid
   companyId         String?        @map("company_id") @db.Uuid
   serviceTypeId     String         @map("service_type_id") @db.Uuid
-  assignedUserId    String?        @map("assigned_user_id") @db.Uuid
   stageId           String         @map("stage_id") @db.Uuid
   description       String
   priority          DemandPriority @default(MEDIA)
@@ -428,7 +427,6 @@ model Process {
   client       Client                 @relation(fields: [clientId], references: [id])
   company      Company?               @relation(fields: [companyId], references: [id])
   serviceType  ServiceType            @relation(fields: [serviceTypeId], references: [id])
-  assignedUser User?                  @relation("ProcessAssignee", fields: [assignedUserId], references: [id])
   stage        KanbanStage            @relation(fields: [stageId], references: [id])
   stageHistory ProcessStage[]
   tasks        Task[]
@@ -440,13 +438,30 @@ model Process {
   comments     ProcessComment[]
   commentReads ProcessCommentRead[]
   impediments  ProcessImpediment[]
+  assignees    ProcessAssignee[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
   @@index([clientId])
-  @@index([assignedUserId])
   @@index([stageId])
   @@map("processes")
+}
+
+// múltiplos responsáveis por processo — substitui o antigo Process.assignedUserId
+// (FK única) para refletir que mais de uma pessoa pode ser responsável ao
+// mesmo tempo (inspirado no seletor multi-responsável do FreelaPRO).
+model ProcessAssignee {
+  id         String   @id @default(uuid()) @db.Uuid
+  processId  String   @map("process_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([processId, userId])
+  @@index([userId])
+  @@map("process_assignees")
 }
 
 // colunas do Kanban de processos — configuráveis por tenant, não um enum fixo,

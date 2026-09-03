@@ -23,7 +23,7 @@ export function ProcessForm({
 }: {
   processId: string;
   defaultValues: {
-    assignedUserId: string;
+    assigneeIds: string[];
     priority: string;
     value: string;
     paymentDueDate: string;
@@ -57,7 +57,7 @@ export function ProcessForm({
     setSaved(false);
     try {
       await updateProcess(processId, {
-        assignedUserId: (formData.get("assignedUserId") as string) ?? "",
+        assigneeIds: formData.getAll("assigneeIds") as string[],
         priority: formData.get("priority") as ProcessInput["priority"],
         value: hasPayment ? ((formData.get("value") as string) ?? "") : "",
         paymentDueDate: hasPayment ? ((formData.get("paymentDueDate") as string) ?? "") : "",
@@ -88,18 +88,32 @@ export function ProcessForm({
 
   return (
     <form action={action} className="space-y-4">
-      <fieldset disabled={readOnly} className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="assignedUserId">Responsável</Label>
-          <Select id="assignedUserId" name="assignedUserId" defaultValue={defaultValues.assignedUserId}>
-            <option value="">Sem responsável</option>
+      <fieldset disabled={readOnly} className="space-y-1.5">
+        <Label>Responsáveis</Label>
+        {staff.length === 0 ? (
+          <p className="text-sm text-muted-soft">Nenhum membro da equipe disponível.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
             {staff.map((member) => (
-              <option key={member.id} value={member.id}>
+              <label
+                key={member.id}
+                className="flex cursor-pointer items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 py-1.5 text-sm text-ink has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:text-accent"
+              >
+                <input
+                  type="checkbox"
+                  name="assigneeIds"
+                  value={member.id}
+                  defaultChecked={defaultValues.assigneeIds.includes(member.id)}
+                  className="h-3.5 w-3.5 rounded border-border-strong text-accent focus:ring-accent"
+                />
                 {member.name}
-              </option>
+              </label>
             ))}
-          </Select>
-        </div>
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset disabled={readOnly} className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="priority">Prioridade</Label>
           <Select id="priority" name="priority" defaultValue={defaultValues.priority}>

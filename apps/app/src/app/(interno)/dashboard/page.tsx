@@ -67,12 +67,12 @@ export default async function DashboardPage() {
         where: { assigneeId: user.id, status: { not: "CONCLUIDA" }, process: { tenantId: user.tenantId } },
       }),
       prisma.process.count({
-        where: { tenantId: user.tenantId, assignedUserId: user.id, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
       }),
       prisma.process.findMany({
         where: {
           tenantId: user.tenantId,
-          assignedUserId: user.id,
+          assignees: { some: { userId: user.id } },
           dueAt: { gte: now, lte: in7Days },
           stage: { label: ACTIVE_STAGE_FILTER },
         },
@@ -83,20 +83,20 @@ export default async function DashboardPage() {
       prisma.process.count({
         where: {
           tenantId: user.tenantId,
-          assignedUserId: user.id,
+          assignees: { some: { userId: user.id } },
           dueAt: { lt: now },
           stage: { label: ACTIVE_STAGE_FILTER },
         },
       }),
       prisma.process.findMany({
-        where: { tenantId: user.tenantId, assignedUserId: user.id, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
         select: {
           stage: { select: { label: true } },
           stageHistory: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
         },
       }),
       prisma.process.findMany({
-        where: { tenantId: user.tenantId, assignedUserId: user.id, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
         select: {
           comments: {
             where: { author: { role: { name: "CLIENTE" } } },

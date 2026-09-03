@@ -35,7 +35,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
           where: {
             tenantId: user.tenantId,
             requestedDeadline: { gte: start, lte: end },
-            ...(isOperacional ? { assignedUserId: user.id } : {}),
+            ...(isOperacional ? { assignees: { some: { userId: user.id } } } : {}),
           },
           include: { client: { select: { name: true } } },
         }),
