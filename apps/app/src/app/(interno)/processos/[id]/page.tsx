@@ -73,7 +73,10 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
       documentRequests: { orderBy: { createdAt: "desc" } },
       comments: {
         orderBy: { createdAt: "asc" },
-        include: { author: { select: { name: true, role: { select: { name: true } } } } },
+        include: {
+          author: { select: { name: true, role: { select: { name: true } } } },
+          mentions: { include: { mentionedUser: { select: { name: true } } } },
+        },
       },
       commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
       impediments: {
@@ -86,7 +89,10 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
 
   if (!process) notFound();
   const isAssignedToMe = process.assignees.some((a) => a.userId === user.id);
-  if (user.role === "OPERACIONAL" && !isAssignedToMe) redirect("/processos");
+  // Ser mencionado num comentário dá acesso de leitura ao processo mesmo sem
+  // ser responsável — senão a notificação de menção levaria a um redirect.
+  const isMentionedHere = process.comments.some((c) => c.mentions.some((m) => m.mentionedUserId === user.id));
+  if (user.role === "OPERACIONAL" && !isAssignedToMe && !isMentionedHere) redirect("/processos");
 
   const canWrite = user.role === "ADMIN" || user.role === "GESTOR" || (user.role === "OPERACIONAL" && isAssignedToMe);
 
@@ -96,6 +102,9 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
   const hasUnreadComment = hasUnreadClientComment(
     lastClientCommentAt ?? null,
     process.commentReads[0]?.lastReadAt ?? null
+  );
+  const hasUnreadMention = process.comments.some((c) =>
+    c.mentions.some((m) => m.mentionedUserId === user.id && !m.readAt)
   );
   const hasOpenImpediment = process.impediments.some((i) => !i.resolvedAt);
 
@@ -164,7 +173,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
               content: (
                 <ProcessForm
                   processId={process.id}
-                  readOnly={user.role === "FINANCEIRO"}
+                  readOnly={!canWrite}
                   staff={staff}
                   defaultValues={{
                     assigneeIds: process.assignees.map((a) => a.userId),
@@ -180,7 +189,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {
               key: "comentarios",
               label: "Comentários",
-              badge: hasUnreadComment,
+              badge: hasUnreadComment || hasUnreadMention,
               content: (
                 <ProcessComments
                   processId={process.id}
@@ -190,7 +199,9 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                     createdAt: c.createdAt.toISOString(),
                     authorName: c.author.name,
                     authorIsClient: c.author.role.name === "CLIENTE",
+                    mentionedNames: c.mentions.map((m) => m.mentionedUser.name),
                   }))}
+                  mentionable={staff}
                   addComment={addProcessComment}
                 />
               ),

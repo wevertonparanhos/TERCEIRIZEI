@@ -493,7 +493,24 @@ export async function moveStage(stageId: string, direction: "up" | "down") {
 
 // --- Comentários (equipe + cliente, integrado ao Portal) ---
 
-export async function addProcessComment(processId: string, body: string) {
+/** Cria as menções de um comentário recém-criado — só membros da equipe do
+ * mesmo tenant podem ser mencionados; o próprio autor nunca se auto-menciona. */
+async function createCommentMentions(commentId: string, authorId: string, mentionedUserIds: string[], tenantId: string) {
+  const candidateIds = Array.from(new Set(mentionedUserIds)).filter((id) => id !== authorId);
+  if (candidateIds.length === 0) return;
+
+  const staffInTenant = await prisma.user.findMany({
+    where: { id: { in: candidateIds }, tenantId, role: { name: { in: ["ADMIN", "GESTOR", "OPERACIONAL"] } } },
+    select: { id: true },
+  });
+  if (staffInTenant.length === 0) return;
+
+  await prisma.processCommentMention.createMany({
+    data: staffInTenant.map((u) => ({ commentId, mentionedUserId: u.id })),
+  });
+}
+
+export async function addProcessComment(processId: string, body: string, mentionedUserIds: string[] = []) {
   const user = await getCurrentUser();
   if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
     throw new Error("Você não tem acesso a este módulo.");
@@ -503,14 +520,17 @@ export async function addProcessComment(processId: string, body: string) {
   const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
   if (!process) throw new Error("Processo não encontrado.");
 
-  await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim() } });
+  const comment = await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim() } });
+  await createCommentMentions(comment.id, user.id, mentionedUserIds, user.tenantId);
 
   revalidatePath(`/processos/${processId}`);
   revalidatePath(`/portal/processos/${processId}`);
 }
 
-/** Cliente comentando no próprio processo, pelo Portal. */
-export async function clientAddProcessComment(processId: string, body: string) {
+/** Cliente comentando no próprio processo, pelo Portal — cliente não pode
+ * mencionar ninguém (fora de escopo), mas o parâmetro existe pra manter a
+ * mesma assinatura do componente compartilhado com o lado staff. */
+export async function clientAddProcessComment(processId: string, body: string, _mentionedUserIds: string[] = []) {
   const user = await getCurrentUser();
   if (!user || user.role !== "CLIENTE" || !user.clientId) throw new Error("Acesso negado.");
   if (!body.trim()) throw new Error("Escreva um comentário.");
@@ -524,8 +544,9 @@ export async function clientAddProcessComment(processId: string, body: string) {
   revalidatePath(`/processos/${processId}`);
 }
 
-/** Chamado ao abrir a tela do processo — marca os comentários como vistos por
- * esse membro da equipe, pra não continuar aparecendo como "não lido". */
+/** Chamado ao abrir a tela do processo — marca os comentários e as menções
+ * como vistos por esse membro da equipe, pra não continuar aparecendo como
+ * "não lido". */
 export async function markCommentsRead(processId: string) {
   const user = await getCurrentUser();
   if (!user || user.role === "CLIENTE") return;
@@ -533,11 +554,17 @@ export async function markCommentsRead(processId: string) {
   const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
   if (!process) return;
 
-  await prisma.processCommentRead.upsert({
-    where: { processId_userId: { processId, userId: user.id } },
-    create: { processId, userId: user.id, lastReadAt: new Date() },
-    update: { lastReadAt: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.processCommentRead.upsert({
+      where: { processId_userId: { processId, userId: user.id } },
+      create: { processId, userId: user.id, lastReadAt: new Date() },
+      update: { lastReadAt: new Date() },
+    }),
+    prisma.processCommentMention.updateMany({
+      where: { mentionedUserId: user.id, readAt: null, comment: { processId } },
+      data: { readAt: new Date() },
+    }),
+  ]);
 }
 
 // --- Impedimentos (bloqueio interno da equipe — não aparece no portal) ---

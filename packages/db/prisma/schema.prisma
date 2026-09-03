@@ -189,6 +189,7 @@ model User {
   auditLogs          AuditLog[]
   processComments    ProcessComment[]
   commentReads       ProcessCommentRead[]
+  commentMentions    ProcessCommentMention[]
   createdImpediments  ProcessImpediment[] @relation("ImpedimentCreatedBy")
   resolvedImpediments ProcessImpediment[] @relation("ImpedimentResolvedBy")
   assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
@@ -364,9 +365,28 @@ model ProcessComment {
 
   process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
   author  User    @relation(fields: [authorId], references: [id])
+  mentions ProcessCommentMention[]
 
   @@index([processId])
   @@map("process_comments")
+}
+
+// @menções num comentário — só membros da equipe podem ser mencionados (não o
+// cliente). Gera notificação in-app (readAt), sem e-mail (mesma limitação já
+// documentada em Automações — nenhum provedor configurado).
+model ProcessCommentMention {
+  id              String    @id @default(uuid()) @db.Uuid
+  commentId       String    @map("comment_id") @db.Uuid
+  mentionedUserId String    @map("mentioned_user_id") @db.Uuid
+  readAt          DateTime? @map("read_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  comment       ProcessComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  mentionedUser User           @relation(fields: [mentionedUserId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+  @@index([mentionedUserId])
+  @@map("process_comment_mentions")
 }
 
 // Marca até quando cada membro da equipe já viu os comentários de um processo —

@@ -36,7 +36,10 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
       documentRequests: { orderBy: { createdAt: "desc" } },
       comments: {
         orderBy: { createdAt: "asc" },
-        include: { author: { select: { name: true, role: { select: { name: true } } } } },
+        include: {
+          author: { select: { name: true, role: { select: { name: true } } } },
+          mentions: { include: { mentionedUser: { select: { name: true } } } },
+        },
       },
     },
   });
@@ -143,6 +146,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
             createdAt: c.createdAt.toISOString(),
             authorName: c.author.name,
             authorIsClient: c.author.role.name === "CLIENTE",
+            mentionedNames: c.mentions.map((m) => m.mentionedUser.name),
           }))}
           addComment={clientAddProcessComment}
         />

@@ -62,6 +62,7 @@ export default async function DashboardPage() {
       myProcessesForStale,
       myProcessesForUnread,
       myOverdueRecurringTasks,
+      myUnreadMentions,
     ] = await Promise.all([
       prisma.task.count({
         where: { assigneeId: user.id, status: { not: "CONCLUIDA" }, process: { tenantId: user.tenantId } },
@@ -110,6 +111,9 @@ export default async function DashboardPage() {
       prisma.recurringTask.count({
         where: { tenantId: user.tenantId, assigneeId: user.id, active: true, nextDueAt: { lte: now } },
       }),
+      prisma.processCommentMention.count({
+        where: { mentionedUserId: user.id, readAt: null, comment: { process: { tenantId: user.tenantId } } },
+      }),
     ]);
 
     const myStaleProcesses = myProcessesForStale.filter(
@@ -134,6 +138,7 @@ export default async function DashboardPage() {
           <AttentionCard href="/processos" value={myOverdueProcesses} label="Meus processos com prazo vencido" />
           <AttentionCard href="/processos" value={myStaleProcesses} label="Meus processos sem mudança de etapa há 5+ dias" />
           <AttentionCard href="/processos" value={myUnreadComments} label="Comentários do cliente não lidos" />
+          <AttentionCard href="/processos" value={myUnreadMentions} label="Menções não lidas" />
           <AttentionCard
             href="/tarefas-recorrentes"
             value={myOverdueRecurringTasks}
@@ -161,6 +166,7 @@ export default async function DashboardPage() {
     processesForStale,
     processesForUnread,
     overdueRecurringTasks,
+    unreadMentions,
   ] = await Promise.all([
       prisma.process.count({ where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } } }),
       prisma.client.count({ where: { tenantId: user.tenantId, status: "ativo" } }),
@@ -207,6 +213,9 @@ export default async function DashboardPage() {
       prisma.recurringTask.count({
         where: { tenantId: user.tenantId, active: true, nextDueAt: { lte: now } },
       }),
+      prisma.processCommentMention.count({
+        where: { mentionedUserId: user.id, readAt: null, comment: { process: { tenantId: user.tenantId } } },
+      }),
     ]);
 
   const financeSummary = summarizePayments(
@@ -234,6 +243,7 @@ export default async function DashboardPage() {
         <AttentionCard href="/processos" value={overdueProcesses} label="Processos com prazo vencido" />
         <AttentionCard href="/processos" value={staleProcessesCount} label="Processos sem mudança de etapa há 5+ dias" />
         <AttentionCard href="/processos" value={unreadCommentsCount} label="Comentários do cliente não lidos" />
+        <AttentionCard href="/processos" value={unreadMentions} label="Menções não lidas" />
         <AttentionCard
           href="/tarefas-recorrentes"
           value={overdueRecurringTasks}
