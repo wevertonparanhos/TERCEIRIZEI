@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@legaliza/db";
 import { requireRole, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import { workflowSchema, workflowStepSchema, type WorkflowInput, type WorkflowStepInput } from "@/lib/validations/workflow";
 import { ruleSchema, type RuleInput } from "@/lib/validations/rule";
 
@@ -31,6 +32,15 @@ export async function createWorkflow(input: WorkflowInput) {
     },
   });
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "workflow.create",
+    entityType: "workflow",
+    entityId: workflow.id,
+    description: `Workflow "${workflow.name}" criado.`,
+  });
+
   revalidatePath("/workflows");
   return { id: workflow.id };
 }
@@ -57,6 +67,15 @@ export async function addWorkflowStep(workflowId: string, input: WorkflowStepInp
     },
   });
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "workflow_step.add",
+    entityType: "workflow",
+    entityId: workflowId,
+    description: `Etapa "${data.name}" adicionada ao workflow.`,
+  });
+
   revalidatePath(`/workflows/${workflowId}`);
 }
 
@@ -65,6 +84,16 @@ export async function deleteWorkflowStep(workflowId: string, stepId: string) {
   await requireOwnWorkflow(user.tenantId!, workflowId);
 
   await prisma.workflowStep.delete({ where: { id: stepId, workflowId } });
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "workflow_step.remove",
+    entityType: "workflow",
+    entityId: workflowId,
+    description: "Etapa removida do workflow.",
+  });
+
   revalidatePath(`/workflows/${workflowId}`);
 }
 
@@ -85,6 +114,14 @@ export async function createRule(input: RuleInput) {
     },
   });
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "rule.create",
+    entityType: "rule",
+    description: `Regra "${data.name}" criada.`,
+  });
+
   revalidatePath("/workflows/regras");
 }
 
@@ -92,5 +129,15 @@ export async function deleteRule(ruleId: string) {
   const user = await requireAdmin();
 
   await prisma.rule.deleteMany({ where: { id: ruleId, tenantId: user.tenantId! } });
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "rule.remove",
+    entityType: "rule",
+    entityId: ruleId,
+    description: "Regra removida.",
+  });
+
   revalidatePath("/workflows/regras");
 }

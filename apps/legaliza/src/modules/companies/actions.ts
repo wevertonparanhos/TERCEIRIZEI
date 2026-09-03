@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma, prisma } from "@legaliza/db";
 import { requireRole, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import { companySchema, type CompanyInput } from "@/lib/validations/company";
 import { partnerSchema, type PartnerInput } from "@/lib/validations/partner";
 import { activitySchema, type ActivityInput } from "@/lib/validations/activity";
@@ -73,6 +74,15 @@ export async function createCompany(clientId: string, input: CompanyInput) {
     rethrowFriendly(err, "Já existe uma empresa cadastrada com este CNPJ.");
   }
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "company.create",
+    entityType: "company",
+    entityId: company.id,
+    description: `Empresa "${company.legalName}" cadastrada.`,
+  });
+
   revalidatePath(`/clientes/${clientId}`);
   revalidatePath("/empresas");
   return { id: company.id };
@@ -104,6 +114,15 @@ export async function updateCompany(companyId: string, input: CompanyInput) {
 
   if (result.count === 0) throw new Error("Empresa não encontrada.");
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "company.update",
+    entityType: "company",
+    entityId: companyId,
+    description: `Empresa "${data.legalName}" atualizada.`,
+  });
+
   revalidatePath(`/empresas/${companyId}`);
   revalidatePath("/empresas");
 }
@@ -131,7 +150,7 @@ export async function addPartner(companyId: string, input: PartnerInput) {
 
   await assertParticipationFits(companyId, data.participationPercentage);
 
-  await prisma.partner.create({
+  const partner = await prisma.partner.create({
     data: {
       companyId,
       name: data.name,
@@ -145,6 +164,15 @@ export async function addPartner(companyId: string, input: PartnerInput) {
     },
   });
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "partner.add",
+    entityType: "company",
+    entityId: companyId,
+    description: `Sócio "${partner.name}" (${data.participationPercentage}%) adicionado.`,
+  });
+
   revalidatePath(`/empresas/${companyId}`);
 }
 
@@ -153,6 +181,16 @@ export async function deletePartner(companyId: string, partnerId: string) {
   await requireOwnCompany(user, companyId);
 
   await prisma.partner.delete({ where: { id: partnerId, companyId } });
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "partner.remove",
+    entityType: "company",
+    entityId: companyId,
+    description: "Sócio removido.",
+  });
+
   revalidatePath(`/empresas/${companyId}`);
 }
 
@@ -175,6 +213,15 @@ export async function addActivity(companyId: string, input: ActivityInput) {
     });
   });
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "activity.add",
+    entityType: "company",
+    entityId: companyId,
+    description: `CNAE "${data.cnae}" adicionado.`,
+  });
+
   revalidatePath(`/empresas/${companyId}`);
 }
 
@@ -187,6 +234,15 @@ export async function setPrimaryActivity(companyId: string, activityId: string) 
     prisma.companyActivity.update({ where: { id: activityId }, data: { isPrimary: true } }),
   ]);
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "activity.set_primary",
+    entityType: "company",
+    entityId: companyId,
+    description: "CNAE principal alterado.",
+  });
+
   revalidatePath(`/empresas/${companyId}`);
 }
 
@@ -195,6 +251,16 @@ export async function deleteActivity(companyId: string, activityId: string) {
   await requireOwnCompany(user, companyId);
 
   await prisma.companyActivity.delete({ where: { id: activityId, companyId } });
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "activity.remove",
+    entityType: "company",
+    entityId: companyId,
+    description: "CNAE removido.",
+  });
+
   revalidatePath(`/empresas/${companyId}`);
 }
 
@@ -222,6 +288,15 @@ export async function saveAddress(companyId: string, input: AddressInput) {
   } else {
     await prisma.companyAddress.create({ data: { companyId, ...values } });
   }
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "address.save",
+    entityType: "company",
+    entityId: companyId,
+    description: `Endereço salvo (${values.city}/${values.state}).`,
+  });
 
   revalidatePath(`/empresas/${companyId}`);
 }

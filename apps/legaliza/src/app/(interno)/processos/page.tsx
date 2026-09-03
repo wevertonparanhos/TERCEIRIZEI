@@ -24,9 +24,14 @@ export default async function ProcessesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink">Processos</h1>
-        <Link href="/processos/novo">
-          <Button>+ Novo Processo</Button>
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/processos/kanban" className="text-sm text-accent hover:underline">
+            Ver Kanban →
+          </Link>
+          <Link href="/processos/novo">
+            <Button>+ Novo Processo</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-surface">

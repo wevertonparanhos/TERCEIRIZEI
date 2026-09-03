@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma, type ProcessStatus, type ProcessStepStatus } from "@legaliza/db";
 import { requireRole, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import { processSchema, type ProcessInput } from "@/lib/validations/process";
 import { resolveWorkflow, generateProcessSteps, generateChecklist } from "./workflow-engine";
 
@@ -49,6 +50,15 @@ export async function createProcess(input: ProcessInput) {
   const stepsGenerated = workflowId ? await generateProcessSteps(process.id, workflowId, startedAt) : 0;
   if (workflowId) await generateChecklist(process.id, workflowId);
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "process.create",
+    entityType: "process",
+    entityId: process.id,
+    description: `Processo de ${data.type} criado (${stepsGenerated} etapa(s)).`,
+  });
+
   revalidatePath("/processos");
   return { id: process.id, stepsGenerated };
 }
@@ -61,6 +71,15 @@ export async function updateProcessStatus(processId: string, status: ProcessStat
     data: { status, completedAt: status === "COMPLETED" ? new Date() : null },
   });
   if (result.count === 0) throw new Error("Processo não encontrado.");
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "process.status_change",
+    entityType: "process",
+    entityId: processId,
+    description: `Status do processo alterado para ${status}.`,
+  });
 
   revalidatePath(`/processos/${processId}`);
   revalidatePath("/processos");
@@ -79,6 +98,15 @@ export async function updateProcessStepStatus(processId: string, stepId: string,
       startedAt: status === "IN_PROGRESS" ? new Date() : undefined,
       completedAt: status === "COMPLETED" ? new Date() : null,
     },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "process_step.status_change",
+    entityType: "process",
+    entityId: processId,
+    description: `Status de etapa alterado para ${status}.`,
   });
 
   revalidatePath(`/processos/${processId}`);

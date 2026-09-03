@@ -147,6 +147,7 @@ model Tenant {
   documents         Document[]
   documentRequests  DocumentRequest[]
   protocols         Protocol[]
+  auditLogs         AuditLog[]
 
   @@map("tenants")
 }
@@ -203,6 +204,7 @@ model User {
   uploadedDocuments        Document[]
   uploadedVersions         DocumentVersion[]
   requestedDocuments       DocumentRequest[]
+  auditLogs                AuditLog[]
 
   @@index([tenantId])
   @@map("users")
@@ -589,4 +591,25 @@ model Protocol {
   @@index([tenantId])
   @@index([processId])
   @@map("protocols")
+}
+
+// Trilha de auditoria. logAudit() nunca derruba a ação que chamou — falha de
+// log fica só no console, não propaga (mesmo padrão do Terceirizei OS).
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id") @db.Uuid
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([entityType])
+  @@map("audit_logs")
 }

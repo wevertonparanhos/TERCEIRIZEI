@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma, prisma } from "@legaliza/db";
 import { requireRole, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import { clientSchema, type ClientInput } from "@/lib/validations/client";
 
 // A conexão do Prisma usa a role postgres do Supabase (bypassa RLS) — tenant_id
@@ -42,6 +43,15 @@ export async function createClient(input: ClientInput) {
     rethrowFriendly(err, "Já existe um cliente cadastrado com este CPF/CNPJ.");
   }
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "client.create",
+    entityType: "client",
+    entityId: client.id,
+    description: `Cliente "${client.name}" cadastrado.`,
+  });
+
   revalidatePath("/clientes");
   return { id: client.id };
 }
@@ -70,6 +80,15 @@ export async function updateClient(clientId: string, input: ClientInput) {
   }
 
   if (result.count === 0) throw new Error("Cliente não encontrado.");
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "client.update",
+    entityType: "client",
+    entityId: clientId,
+    description: `Cliente "${data.name}" atualizado.`,
+  });
 
   revalidatePath(`/clientes/${clientId}`);
   revalidatePath("/clientes");

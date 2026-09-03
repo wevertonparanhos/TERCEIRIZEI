@@ -17,6 +17,7 @@ const NAV_LINKS = [
   { href: "/empresas", label: "Empresas", roles: ["TENANT_ADMIN", "OPERATOR"] },
   { href: "/processos", label: "Processos", roles: ["TENANT_ADMIN", "OPERATOR"] },
   { href: "/workflows", label: "Workflows", roles: ["TENANT_ADMIN"] },
+  { href: "/auditoria", label: "Auditoria", roles: ["TENANT_ADMIN"] },
 ];
 
 export default async function InternoLayout({ children }: { children: React.ReactNode }) {

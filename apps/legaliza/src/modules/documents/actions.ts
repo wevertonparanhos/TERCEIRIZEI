@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma, type DocumentCategory } from "@legaliza/db";
 import { requireRole, type CurrentUser } from "@/lib/rbac";
+import { logAudit } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { DOCUMENT_CATEGORIES, validateUploadedFile, sanitizeFileName } from "@/lib/validations/document-upload";
 
@@ -62,6 +63,15 @@ export async function uploadDocument(processId: string, formData: FormData) {
     },
   });
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "document.upload",
+    entityType: "process",
+    entityId: processId,
+    description: `Documento "${document.name}" enviado.`,
+  });
+
   revalidatePath(`/processos/${processId}`);
 }
 
@@ -96,11 +106,31 @@ export async function uploadNewVersion(processId: string, documentId: string, fo
     prisma.document.update({ where: { id: document.id }, data: { currentVersion: nextVersion } }),
   ]);
 
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "document.new_version",
+    entityType: "process",
+    entityId: processId,
+    description: `Nova versão (v${nextVersion}) enviada para "${document.name}".`,
+  });
+
   revalidatePath(`/processos/${processId}`);
 }
 
 export async function deleteDocument(processId: string, documentId: string) {
   const user = await requireWriteAccess();
+  const document = await prisma.document.findFirst({ where: { id: documentId, processId, tenantId: user.tenantId! } });
   await prisma.document.deleteMany({ where: { id: documentId, processId, tenantId: user.tenantId! } });
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "document.delete",
+    entityType: "process",
+    entityId: processId,
+    description: `Documento "${document?.name ?? documentId}" removido.`,
+  });
+
   revalidatePath(`/processos/${processId}`);
 }
