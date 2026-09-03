@@ -86,6 +86,47 @@ enum ProcessPriority {
   @@map("process_priority")
 }
 
+// Mesmas 8 categorias já validadas em produção no Terceirizei OS.
+enum DocumentCategory {
+  DOCUMENTACAO_CADASTRAL
+  CONTRATOS
+  CERTIDOES
+  DOCUMENTOS_SOCIETARIOS
+  DOCUMENTOS_FISCAIS
+  DOCUMENTOS_PESSOAIS
+  COMPROVANTES
+  OUTROS
+
+  @@map("document_category")
+}
+
+enum DocumentRequestStatus {
+  PENDENTE
+  RECEBIDO
+  CANCELADO
+
+  @@map("document_request_status")
+}
+
+enum GovernmentSphere {
+  FEDERAL
+  ESTADUAL
+  MUNICIPAL
+
+  @@map("government_sphere")
+}
+
+enum ProtocolStatus {
+  SUBMITTED
+  UNDER_ANALYSIS
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+
+  @@map("protocol_status")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -97,12 +138,15 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users     User[]
-  clients   Client[]
-  companies Company[]
-  workflows Workflow[]
-  rules     Rule[]
-  processes Process[]
+  users             User[]
+  clients           Client[]
+  companies         Company[]
+  workflows         Workflow[]
+  rules             Rule[]
+  processes         Process[]
+  documents         Document[]
+  documentRequests  DocumentRequest[]
+  protocols         Protocol[]
 
   @@map("tenants")
 }
@@ -156,6 +200,9 @@ model User {
 
   responsibleProcesses     Process[]     @relation("ProcessResponsible")
   responsibleProcessSteps  ProcessStep[] @relation("ProcessStepResponsible")
+  uploadedDocuments        Document[]
+  uploadedVersions         DocumentVersion[]
+  requestedDocuments       DocumentRequest[]
 
   @@index([tenantId])
   @@map("users")
@@ -175,9 +222,11 @@ model Client {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id])
-  companies Company[]
-  processes Process[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  companies        Company[]
+  processes        Process[]
+  documents        Document[]
+  documentRequests DocumentRequest[]
 
   @@unique([tenantId, doc])
   @@index([tenantId])
@@ -362,12 +411,16 @@ model Process {
   createdAt             DateTime        @default(now()) @map("created_at")
   updatedAt             DateTime        @updatedAt @map("updated_at")
 
-  tenant          Tenant        @relation(fields: [tenantId], references: [id])
-  client          Client        @relation(fields: [clientId], references: [id])
-  company         Company?      @relation(fields: [companyId], references: [id])
-  workflow        Workflow?     @relation(fields: [workflowId], references: [id])
-  responsibleUser User?         @relation("ProcessResponsible", fields: [responsibleUserId], references: [id])
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  client          Client            @relation(fields: [clientId], references: [id])
+  company         Company?          @relation(fields: [companyId], references: [id])
+  workflow        Workflow?         @relation(fields: [workflowId], references: [id])
+  responsibleUser User?             @relation("ProcessResponsible", fields: [responsibleUserId], references: [id])
   steps           ProcessStep[]
+  checklistItems  ChecklistItem[]
+  documents       Document[]
+  documentRequests DocumentRequest[]
+  protocols       Protocol[]
 
   @@index([tenantId])
   @@index([clientId])
@@ -394,7 +447,146 @@ model ProcessStep {
   process        Process       @relation(fields: [processId], references: [id], onDelete: Cascade)
   workflowStep   WorkflowStep? @relation(fields: [workflowStepId], references: [id])
   responsibleUser User?        @relation("ProcessStepResponsible", fields: [responsibleUserId], references: [id])
+  protocols      Protocol[]
 
   @@index([processId])
   @@map("process_steps")
+}
+
+// Sem tabela Checklist separada — liga direto no Process (sempre 1:1, sem
+// conceito de checklist reutilizável fora de um processo ainda). Sem
+// "condicional" ainda (só obrigatório/opcional) — precisaria do mesmo tipo
+// de motor já deliberadamente simplificado na Rule (Fase 3).
+model ChecklistItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  processId   String   @map("process_id") @db.Uuid
+  label       String
+  required    Boolean  @default(true)
+  done        Boolean  @default(false)
+  documentId  String?  @map("document_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  process  Process   @relation(fields: [processId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id])
+
+  @@index([processId])
+  @@map("checklist_items")
+}
+
+model Document {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @map("tenant_id") @db.Uuid
+  clientId       String           @map("client_id") @db.Uuid
+  processId      String           @map("process_id") @db.Uuid
+  category       DocumentCategory
+  name           String
+  currentVersion Int              @default(1) @map("current_version")
+  uploadedById   String           @map("uploaded_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  client         Client            @relation(fields: [clientId], references: [id])
+  process        Process           @relation(fields: [processId], references: [id], onDelete: Cascade)
+  uploadedBy     User              @relation(fields: [uploadedById], references: [id])
+  versions       DocumentVersion[]
+  requests       DocumentRequest[]
+  checklistItems ChecklistItem[]
+  protocols      Protocol[]
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([processId])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  documentId   String   @map("document_id") @db.Uuid
+  version      Int
+  storagePath  String   @map("storage_path")
+  fileName     String   @map("file_name")
+  sizeBytes    Int      @map("size_bytes")
+  mimeType     String   @map("mime_type")
+  uploadedById String   @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@unique([documentId, version])
+  @@map("document_versions")
+}
+
+model DocumentRequest {
+  id            String                 @id @default(uuid()) @db.Uuid
+  tenantId      String                 @map("tenant_id") @db.Uuid
+  clientId      String                 @map("client_id") @db.Uuid
+  processId     String                 @map("process_id") @db.Uuid
+  documentId    String?                @map("document_id") @db.Uuid
+  label         String
+  deadline      DateTime?
+  status        DocumentRequestStatus  @default(PENDENTE)
+  notes         String?
+  requestedById String                 @map("requested_by_id") @db.Uuid
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id])
+  process     Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
+  document    Document? @relation(fields: [documentId], references: [id])
+  requestedBy User     @relation(fields: [requestedById], references: [id])
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([processId])
+  @@map("document_requests")
+}
+
+// Catálogo global (sem tenantId) — órgãos públicos são os mesmos pra
+// qualquer tenant. Seedado só com os 6 nomes genéricos da seção 30 do
+// briefing (Receita Federal, REDESIM, JUCEMG, SEF/MG, Prefeitura,
+// Licenciamento) — sem inventar nenhum órgão além desses.
+model GovernmentAgency {
+  id     String           @id @default(uuid()) @db.Uuid
+  name   String
+  sphere GovernmentSphere
+  state  String?
+  active Boolean          @default(true)
+
+  protocols Protocol[]
+
+  @@map("government_agencies")
+}
+
+// Registro 100% manual (modo "Manual Assistido", seção 26) — sem
+// GovernmentConnector real ainda.
+model Protocol {
+  id                 String         @id @default(uuid()) @db.Uuid
+  tenantId           String         @map("tenant_id") @db.Uuid
+  processId          String         @map("process_id") @db.Uuid
+  processStepId      String?        @map("process_step_id") @db.Uuid
+  governmentAgencyId String         @map("government_agency_id") @db.Uuid
+  protocolNumber     String         @map("protocol_number")
+  submittedAt        DateTime       @default(now()) @map("submitted_at")
+  status             ProtocolStatus @default(SUBMITTED)
+  url                String?
+  // Liga a um Document já enviado (em vez de um path solto) — mais
+  // consistente já que o GED existe nesta mesma fase.
+  documentId         String?        @map("document_id") @db.Uuid
+  notes              String?
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  process          Process          @relation(fields: [processId], references: [id], onDelete: Cascade)
+  processStep      ProcessStep?     @relation(fields: [processStepId], references: [id])
+  governmentAgency GovernmentAgency @relation(fields: [governmentAgencyId], references: [id])
+  document         Document?        @relation(fields: [documentId], references: [id])
+
+  @@index([tenantId])
+  @@index([processId])
+  @@map("protocols")
 }

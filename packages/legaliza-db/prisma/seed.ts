@@ -68,10 +68,19 @@ const DEMO_TENANTS = [
 
 const DEMO_WORKFLOW_STEPS = [
   { name: "Triagem", estimatedDays: 1 },
-  { name: "Documentos", estimatedDays: 2 },
+  { name: "Documentos", estimatedDays: 2, requiresDocument: true },
   { name: "Viabilidade", estimatedDays: 3 },
-  { name: "Registro", estimatedDays: 5 },
+  { name: "Registro", estimatedDays: 5, requiresProtocol: true },
   { name: "Conclusão", estimatedDays: 1 },
+];
+
+const DEMO_AGENCIES = [
+  { name: "Receita Federal", sphere: "FEDERAL" as const },
+  { name: "REDESIM", sphere: "FEDERAL" as const },
+  { name: "JUCEMG", sphere: "ESTADUAL" as const, state: "MG" },
+  { name: "SEF/MG", sphere: "ESTADUAL" as const, state: "MG" },
+  { name: "Prefeitura", sphere: "MUNICIPAL" as const },
+  { name: "Licenciamento", sphere: "MUNICIPAL" as const },
 ];
 
 const INSTANCE_ID = "00000000-0000-0000-0000-000000000000";
@@ -212,6 +221,8 @@ async function main() {
           name: s.name,
           order: index + 1,
           estimatedDays: s.estimatedDays,
+          requiresDocument: s.requiresDocument ?? false,
+          requiresProtocol: s.requiresProtocol ?? false,
         })),
       });
     }
@@ -229,10 +240,10 @@ async function main() {
       });
     }
 
-    const existingProcess = await prisma.process.findFirst({ where: { tenantId: tenant.id, clientId: client.id, type: "OPENING" } });
-    if (!existingProcess) {
+    let process = await prisma.process.findFirst({ where: { tenantId: tenant.id, clientId: client.id, type: "OPENING" } });
+    if (!process) {
       const startedAt = new Date();
-      const process = await prisma.process.create({
+      process = await prisma.process.create({
         data: {
           tenantId: tenant.id,
           clientId: client.id,
@@ -245,19 +256,44 @@ async function main() {
       });
 
       const steps = await prisma.workflowStep.findMany({ where: { workflowId: workflow.id }, orderBy: { order: "asc" } });
+      let cursor = startedAt;
       await prisma.processStep.createMany({
-        data: steps.map((step, index) => ({
-          processId: process.id,
-          workflowStepId: step.id,
-          name: step.name,
-          order: step.order,
-          status: index === 0 ? "READY" : "PENDING",
-          dueDate: step.estimatedDays ? new Date(startedAt.getTime() + step.estimatedDays * 24 * 60 * 60 * 1000) : null,
-        })),
+        data: steps.map((step, index) => {
+          if (step.estimatedDays) cursor = new Date(cursor.getTime() + step.estimatedDays * 24 * 60 * 60 * 1000);
+          return {
+            processId: process!.id,
+            workflowStepId: step.id,
+            name: step.name,
+            order: step.order,
+            status: index === 0 ? "READY" : "PENDING",
+            dueDate: step.estimatedDays ? cursor : null,
+          };
+        }),
       });
     }
 
+    // Backfill de checklist pra processos criados antes da Fase 4 existir.
+    const existingChecklist = await prisma.checklistItem.findFirst({ where: { processId: process.id } });
+    if (!existingChecklist) {
+      const stepsNeedingChecklist = await prisma.workflowStep.findMany({
+        where: { workflowId: workflow.id, OR: [{ requiresDocument: true }, { requiresProtocol: true }] },
+        orderBy: { order: "asc" },
+      });
+      const items: { processId: string; label: string; required: boolean }[] = [];
+      for (const step of stepsNeedingChecklist) {
+        if (step.requiresDocument) items.push({ processId: process.id, label: `Documento: ${step.name}`, required: true });
+        if (step.requiresProtocol) items.push({ processId: process.id, label: `Protocolo: ${step.name}`, required: true });
+      }
+      if (items.length > 0) await prisma.checklistItem.createMany({ data: items });
+    }
+
     console.log(`Tenant demo: ${tenant.name} (${tenant.id}) — admin: ${demo.adminEmail}`);
+  }
+
+  const existingAgencies = await prisma.governmentAgency.count();
+  if (existingAgencies === 0) {
+    await prisma.governmentAgency.createMany({ data: DEMO_AGENCIES });
+    console.log(`Catálogo de órgãos seedado: ${DEMO_AGENCIES.map((a) => a.name).join(", ")}`);
   }
 
   console.log(`\nLogin de demonstração (todos): senha "${DEMO_PASSWORD}"`);

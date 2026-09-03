@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma, type ProcessStatus, type ProcessStepStatus } from "@legaliza/db";
 import { requireRole, type CurrentUser } from "@/lib/rbac";
 import { processSchema, type ProcessInput } from "@/lib/validations/process";
-import { resolveWorkflow, generateProcessSteps } from "./workflow-engine";
+import { resolveWorkflow, generateProcessSteps, generateChecklist } from "./workflow-engine";
 
 // A conexão do Prisma usa a role postgres do Supabase (bypassa RLS) — tenant_id
 // explícito em todo where/data abaixo é a real fronteira de isolamento nesta
@@ -47,6 +47,7 @@ export async function createProcess(input: ProcessInput) {
   });
 
   const stepsGenerated = workflowId ? await generateProcessSteps(process.id, workflowId, startedAt) : 0;
+  if (workflowId) await generateChecklist(process.id, workflowId);
 
   revalidatePath("/processos");
   return { id: process.id, stepsGenerated };
