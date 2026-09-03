@@ -40,6 +40,52 @@ enum CompanySize {
   @@map("company_size")
 }
 
+enum ProcessType {
+  OPENING
+  AMENDMENT
+  TRANSFORMATION
+  CLOSURE
+
+  @@map("process_type")
+}
+
+enum ProcessStatus {
+  DRAFT
+  NEW
+  TRIAGE
+  WAITING_DOCUMENTS
+  READY
+  IN_PROGRESS
+  WAITING_CLIENT
+  WAITING_GOVERNMENT
+  PENDING
+  COMPLETED
+  CANCELLED
+
+  @@map("process_status")
+}
+
+enum ProcessStepStatus {
+  PENDING
+  READY
+  IN_PROGRESS
+  WAITING
+  COMPLETED
+  BLOCKED
+  CANCELLED
+
+  @@map("process_step_status")
+}
+
+enum ProcessPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+
+  @@map("process_priority")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -54,6 +100,9 @@ model Tenant {
   users     User[]
   clients   Client[]
   companies Company[]
+  workflows Workflow[]
+  rules     Rule[]
+  processes Process[]
 
   @@map("tenants")
 }
@@ -105,6 +154,9 @@ model User {
   tenant Tenant? @relation(fields: [tenantId], references: [id])
   role   Role    @relation(fields: [roleId], references: [id])
 
+  responsibleProcesses     Process[]     @relation("ProcessResponsible")
+  responsibleProcessSteps  ProcessStep[] @relation("ProcessStepResponsible")
+
   @@index([tenantId])
   @@map("users")
 }
@@ -125,6 +177,7 @@ model Client {
 
   tenant    Tenant    @relation(fields: [tenantId], references: [id])
   companies Company[]
+  processes Process[]
 
   @@unique([tenantId, doc])
   @@index([tenantId])
@@ -154,6 +207,7 @@ model Company {
   partners   Partner[]
   activities CompanyActivity[]
   addresses  CompanyAddress[]
+  processes  Process[]
 
   @@unique([tenantId, cnpj])
   @@index([tenantId])
@@ -216,4 +270,131 @@ model CompanyAddress {
 
   @@index([companyId])
   @@map("company_addresses")
+}
+
+// Template reutilizável de workflow. Escopado por tenant (sem catálogo global
+// cross-tenant nesta fase) — cada escritório configura o próprio.
+model Workflow {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  name        String
+  processType ProcessType @map("process_type")
+  state       String?
+  // Texto livre — sem base oficial de Natureza Jurídica importada ainda.
+  legalNature String?     @map("legal_nature")
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  steps     WorkflowStep[]
+  rules     Rule[]
+  processes Process[]
+
+  @@index([tenantId])
+  @@map("workflows")
+}
+
+model WorkflowStep {
+  id                String   @id @default(uuid()) @db.Uuid
+  workflowId        String   @map("workflow_id") @db.Uuid
+  name              String
+  description       String?
+  order             Int
+  estimatedDays     Int?     @map("estimated_days")
+  responsibleRole   String?  @map("responsible_role")
+  // Texto livre — sem tabela GovernmentAgency ainda (fase de integrações).
+  agencyName        String?  @map("agency_name")
+  requiresDocument  Boolean  @default(false) @map("requires_document")
+  requiresProtocol  Boolean  @default(false) @map("requires_protocol")
+  // Reservado pra fase do GovernmentConnector — sem consumidor funcional ainda.
+  isAutomated       Boolean  @default(false) @map("is_automated")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  workflow     Workflow      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  processSteps ProcessStep[]
+
+  @@index([workflowId])
+  @@map("workflow_steps")
+}
+
+// Motor de regras simplificado (seção 22 do briefing): escolhe qual Workflow
+// usar por tipo de processo + UF + natureza jurídica (campos estruturados,
+// sem DSL de condição livre nem injeção dinâmica de etapa nesta fase).
+model Rule {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  name        String
+  processType ProcessType @map("process_type")
+  state       String?
+  legalNature String?     @map("legal_nature")
+  workflowId  String      @map("workflow_id") @db.Uuid
+  priority    Int         @default(0)
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  workflow Workflow @relation(fields: [workflowId], references: [id])
+
+  @@index([tenantId])
+  @@map("rules")
+}
+
+model Process {
+  id                    String          @id @default(uuid()) @db.Uuid
+  tenantId              String          @map("tenant_id") @db.Uuid
+  clientId              String          @map("client_id") @db.Uuid
+  // Nulo só quando type=OPENING (a empresa ainda não existe) — obrigatório
+  // nos outros 3 tipos.
+  companyId             String?         @map("company_id") @db.Uuid
+  workflowId            String?         @map("workflow_id") @db.Uuid
+  type                  ProcessType
+  status                ProcessStatus   @default(NEW)
+  priority              ProcessPriority @default(MEDIA)
+  responsibleUserId     String?         @map("responsible_user_id") @db.Uuid
+  state                 String
+  municipality           String
+  startedAt             DateTime        @default(now()) @map("started_at")
+  expectedCompletionAt  DateTime?       @map("expected_completion_at")
+  completedAt           DateTime?       @map("completed_at")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  client          Client        @relation(fields: [clientId], references: [id])
+  company         Company?      @relation(fields: [companyId], references: [id])
+  workflow        Workflow?     @relation(fields: [workflowId], references: [id])
+  responsibleUser User?         @relation("ProcessResponsible", fields: [responsibleUserId], references: [id])
+  steps           ProcessStep[]
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@map("processes")
+}
+
+model ProcessStep {
+  id             String            @id @default(uuid()) @db.Uuid
+  processId      String            @map("process_id") @db.Uuid
+  // Rastreia a origem no Workflow — nulável pra permitir etapa avulsa no futuro.
+  workflowStepId String?           @map("workflow_step_id") @db.Uuid
+  name           String
+  description    String?
+  status         ProcessStepStatus @default(PENDING)
+  order          Int
+  responsibleUserId String?        @map("responsible_user_id") @db.Uuid
+  startedAt      DateTime?         @map("started_at")
+  completedAt    DateTime?         @map("completed_at")
+  dueDate        DateTime?         @map("due_date")
+  notes          String?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  process        Process       @relation(fields: [processId], references: [id], onDelete: Cascade)
+  workflowStep   WorkflowStep? @relation(fields: [workflowStepId], references: [id])
+  responsibleUser User?        @relation("ProcessStepResponsible", fields: [responsibleUserId], references: [id])
+
+  @@index([processId])
+  @@map("process_steps")
 }

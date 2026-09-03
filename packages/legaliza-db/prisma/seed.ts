@@ -35,6 +35,7 @@ const DEMO_TENANTS = [
       ],
       address: { cep: "30130010", street: "Avenida Afonso Pena", number: "1000", neighborhood: "Centro", city: "Belo Horizonte", state: "MG" },
     },
+    process: { state: "MG", municipality: "Belo Horizonte" },
   },
   {
     name: "[DEMO] Legaliza Escritório B",
@@ -61,7 +62,16 @@ const DEMO_TENANTS = [
       ],
       address: { cep: "01310100", street: "Avenida Paulista", number: "500", neighborhood: "Bela Vista", city: "São Paulo", state: "SP" },
     },
+    process: { state: "SP", municipality: "São Paulo" },
   },
+];
+
+const DEMO_WORKFLOW_STEPS = [
+  { name: "Triagem", estimatedDays: 1 },
+  { name: "Documentos", estimatedDays: 2 },
+  { name: "Viabilidade", estimatedDays: 3 },
+  { name: "Registro", estimatedDays: 5 },
+  { name: "Conclusão", estimatedDays: 1 },
 ];
 
 const INSTANCE_ID = "00000000-0000-0000-0000-000000000000";
@@ -187,6 +197,63 @@ async function main() {
 
       await prisma.companyAddress.create({
         data: { companyId: company.id, ...demo.company.address },
+      });
+    }
+
+    const workflowName = "[DEMO] Abertura de Empresa — Padrão";
+    let workflow = await prisma.workflow.findFirst({ where: { tenantId: tenant.id, name: workflowName } });
+    if (!workflow) {
+      workflow = await prisma.workflow.create({
+        data: { tenantId: tenant.id, name: workflowName, processType: "OPENING" },
+      });
+      await prisma.workflowStep.createMany({
+        data: DEMO_WORKFLOW_STEPS.map((s, index) => ({
+          workflowId: workflow!.id,
+          name: s.name,
+          order: index + 1,
+          estimatedDays: s.estimatedDays,
+        })),
+      });
+    }
+
+    const existingRule = await prisma.rule.findFirst({ where: { tenantId: tenant.id, workflowId: workflow.id } });
+    if (!existingRule) {
+      await prisma.rule.create({
+        data: {
+          tenantId: tenant.id,
+          name: "[DEMO] Abertura — regra padrão",
+          processType: "OPENING",
+          workflowId: workflow.id,
+          priority: 0,
+        },
+      });
+    }
+
+    const existingProcess = await prisma.process.findFirst({ where: { tenantId: tenant.id, clientId: client.id, type: "OPENING" } });
+    if (!existingProcess) {
+      const startedAt = new Date();
+      const process = await prisma.process.create({
+        data: {
+          tenantId: tenant.id,
+          clientId: client.id,
+          workflowId: workflow.id,
+          type: "OPENING",
+          state: demo.process.state,
+          municipality: demo.process.municipality,
+          startedAt,
+        },
+      });
+
+      const steps = await prisma.workflowStep.findMany({ where: { workflowId: workflow.id }, orderBy: { order: "asc" } });
+      await prisma.processStep.createMany({
+        data: steps.map((step, index) => ({
+          processId: process.id,
+          workflowStepId: step.id,
+          name: step.name,
+          order: step.order,
+          status: index === 0 ? "READY" : "PENDING",
+          dueDate: step.estimatedDays ? new Date(startedAt.getTime() + step.estimatedDays * 24 * 60 * 60 * 1000) : null,
+        })),
       });
     }
 
