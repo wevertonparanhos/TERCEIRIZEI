@@ -52,6 +52,8 @@ export default async function PortalDocumentosPage() {
               createdAt: d.createdAt.toISOString(),
               latestFileName: latest?.fileName ?? "",
               latestSizeBytes: latest?.sizeBytes ?? 0,
+              approvalStatus: d.approvalStatus,
+              approvalNote: d.approvalNote,
             };
           })}
           openRequests={requests.filter((r) => r.status === "PENDENTE").map((r) => ({ id: r.id, label: r.label }))}

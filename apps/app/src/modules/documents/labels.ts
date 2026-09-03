@@ -21,6 +21,18 @@ export const REQUEST_STATUS_VARIANT: Record<string, "neutral" | "success" | "war
   CANCELADO: "neutral",
 };
 
+export const APPROVAL_STATUS_LABELS: Record<string, string> = {
+  PENDENTE: "Aguardando aprovação",
+  APROVADO: "Aprovado",
+  RECUSADO: "Recusado",
+};
+
+export const APPROVAL_STATUS_VARIANT: Record<string, "warning" | "success" | "danger"> = {
+  PENDENTE: "warning",
+  APROVADO: "success",
+  RECUSADO: "danger",
+};
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;

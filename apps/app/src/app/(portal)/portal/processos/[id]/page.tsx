@@ -14,6 +14,7 @@ import {
   requestDocument,
   markRequestReceived,
   cancelRequest,
+  respondDocumentApproval,
 } from "@/modules/documents/actions";
 import { clientAddProcessComment } from "@/modules/processes/actions";
 
@@ -101,6 +102,8 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
               createdAt: d.createdAt.toISOString(),
               latestFileName: latest?.fileName ?? "",
               latestSizeBytes: latest?.sizeBytes ?? 0,
+              approvalStatus: d.approvalStatus,
+              approvalNote: d.approvalNote,
             };
           })}
           openRequests={process.documentRequests
@@ -108,6 +111,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
             .map((r) => ({ id: r.id, label: r.label }))}
           uploadNewDocument={clientUploadDocument}
           uploadNewVersion={clientUploadNewVersion}
+          respondApproval={respondDocumentApproval}
         />
       </div>
 

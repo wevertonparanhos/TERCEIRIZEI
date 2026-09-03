@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { CATEGORY_LABELS, formatFileSize } from "@/modules/documents/labels";
+import { Textarea } from "@/components/ui/textarea";
+import { CATEGORY_LABELS, APPROVAL_STATUS_LABELS, APPROVAL_STATUS_VARIANT, formatFileSize } from "@/modules/documents/labels";
 import { DOCUMENT_CATEGORIES } from "@/lib/validations/document-upload";
 
+type ApprovalStatus = "PENDENTE" | "APROVADO" | "RECUSADO" | null;
 type DocRequest = { id: string; label: string };
 type Doc = {
   id: string;
@@ -20,6 +23,8 @@ type Doc = {
   createdAt: string;
   latestFileName: string;
   latestSizeBytes: number;
+  approvalStatus: ApprovalStatus;
+  approvalNote: string | null;
 };
 
 export function DocumentList({
@@ -30,6 +35,8 @@ export function DocumentList({
   canWrite,
   uploadNewDocument,
   uploadNewVersion,
+  requestApproval,
+  respondApproval,
 }: {
   clientId: string;
   processId: string | null;
@@ -38,10 +45,14 @@ export function DocumentList({
   canWrite: boolean;
   uploadNewDocument: (clientId: string, processId: string | null, requestId: string | null, formData: FormData) => Promise<void>;
   uploadNewVersion: (documentId: string, formData: FormData) => Promise<void>;
+  requestApproval?: (documentId: string) => Promise<void>;
+  respondApproval?: (documentId: string, approved: boolean, note: string) => Promise<void>;
 }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [versioningId, setVersioningId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [side, setSide] = useState<"time" | "cliente">("time");
@@ -74,6 +85,50 @@ export function DocumentList({
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível enviar a nova versão.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRequestApproval(documentId: string) {
+    if (!requestApproval) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await requestApproval(documentId);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível solicitar a aprovação.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleApprove(documentId: string) {
+    if (!respondApproval) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await respondApproval(documentId, true, "");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível registrar a aprovação.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReject(documentId: string) {
+    if (!respondApproval) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await respondApproval(documentId, false, rejectNote);
+      setRejectingId(null);
+      setRejectNote("");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível registrar a recusa.");
     } finally {
       setBusy(false);
     }
@@ -130,6 +185,14 @@ export function DocumentList({
                     {CATEGORY_LABELS[doc.category]} · v{doc.currentVersion} · {formatFileSize(doc.latestSizeBytes)} ·{" "}
                     {doc.uploadedByName} · {new Date(doc.createdAt).toLocaleDateString("pt-BR")}
                   </p>
+                  {doc.approvalStatus && (
+                    <Badge variant={APPROVAL_STATUS_VARIANT[doc.approvalStatus]} className="mt-1">
+                      {APPROVAL_STATUS_LABELS[doc.approvalStatus]}
+                    </Badge>
+                  )}
+                  {doc.approvalStatus === "RECUSADO" && doc.approvalNote && (
+                    <p className="mt-1 text-xs italic text-muted-soft">"{doc.approvalNote}"</p>
+                  )}
                 </div>
                 <div className="flex flex-none items-center gap-3">
                   <a
@@ -149,6 +212,38 @@ export function DocumentList({
                       Nova versão
                     </button>
                   )}
+                  {requestApproval &&
+                    !doc.uploadedByIsClient &&
+                    (doc.approvalStatus === null || doc.approvalStatus === "RECUSADO") && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleRequestApproval(doc.id)}
+                        className="text-xs text-accent hover:underline"
+                      >
+                        {doc.approvalStatus === "RECUSADO" ? "Solicitar de novo" : "Solicitar aprovação"}
+                      </button>
+                    )}
+                  {respondApproval && doc.approvalStatus === "PENDENTE" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleApprove(doc.id)}
+                        className="text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+                      >
+                        Aprovar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setRejectingId(rejectingId === doc.id ? null : doc.id)}
+                        className="text-xs text-red-500 hover:underline"
+                      >
+                        Recusar
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               {versioningId === doc.id && (
@@ -161,6 +256,33 @@ export function DocumentList({
                     Enviar
                   </Button>
                 </form>
+              )}
+              {rejectingId === doc.id && (
+                <div className="mt-2 space-y-2 rounded-md bg-surface-alt p-2">
+                  <Textarea
+                    value={rejectNote}
+                    onChange={(e) => setRejectNote(e.target.value)}
+                    placeholder="Motivo da recusa (opcional)"
+                    rows={2}
+                    className="text-xs"
+                  />
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => handleReject(doc.id)}>
+                      Confirmar recusa
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setRejectingId(null);
+                        setRejectNote("");
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
               )}
             </li>
           ))}

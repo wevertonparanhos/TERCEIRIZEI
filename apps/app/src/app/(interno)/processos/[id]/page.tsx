@@ -44,6 +44,7 @@ import {
   requestDocument,
   markRequestReceived,
   cancelRequest,
+  requestDocumentApproval,
 } from "@/modules/documents/actions";
 
 export default async function ProcessoDetalhePage({ params }: { params: { id: string } }) {
@@ -296,8 +297,11 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                         createdAt: d.createdAt.toISOString(),
                         latestFileName: latest?.fileName ?? "",
                         latestSizeBytes: latest?.sizeBytes ?? 0,
+                        approvalStatus: d.approvalStatus,
+                        approvalNote: d.approvalNote,
                       };
                     })}
+                    requestApproval={requestDocumentApproval}
                     openRequests={process.documentRequests
                       .filter((r) => r.status === "PENDENTE")
                       .map((r) => ({ id: r.id, label: r.label }))}

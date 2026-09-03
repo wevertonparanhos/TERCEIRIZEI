@@ -279,6 +279,8 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
                   createdAt: d.createdAt.toISOString(),
                   latestFileName: latest?.fileName ?? "",
                   latestSizeBytes: latest?.sizeBytes ?? 0,
+                  approvalStatus: d.approvalStatus,
+                  approvalNote: d.approvalNote,
                 };
               })}
               openRequests={documentRequests

@@ -66,6 +66,17 @@ enum DocumentRequestStatus {
   @@map("document_request_status")
 }
 
+// aprovação do cliente por documento (não do processo inteiro) — usado
+// principalmente pra entregáveis enviados na etapa de conclusão; puramente
+// informativo, não trava mudança de etapa.
+enum DocumentApprovalStatus {
+  PENDENTE
+  APROVADO
+  RECUSADO
+
+  @@map("document_approval_status")
+}
+
 enum InvoiceStatus {
   PENDENTE
   PAGA
@@ -570,6 +581,8 @@ model Document {
   category       DocumentCategory
   name           String
   currentVersion Int              @default(1) @map("current_version")
+  approvalStatus DocumentApprovalStatus? @map("approval_status")
+  approvalNote   String?          @map("approval_note")
   uploadedById   String           @map("uploaded_by_id") @db.Uuid
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")

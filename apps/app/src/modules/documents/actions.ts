@@ -137,7 +137,12 @@ async function performNewVersion(params: { document: NonNullable<Awaited<ReturnT
         uploadedById: uploaderId,
       },
     }),
-    prisma.document.update({ where: { id: document.id }, data: { currentVersion: nextVersion } }),
+    // uma nova versão invalida qualquer aprovação anterior — o conteúdo mudou,
+    // precisa de nova solicitação se o staff quiser aprovação do cliente de novo.
+    prisma.document.update({
+      where: { id: document.id },
+      data: { currentVersion: nextVersion, approvalStatus: null, approvalNote: null },
+    }),
   ]);
 
   await logAudit({
@@ -245,6 +250,64 @@ export async function markRequestReceived(requestId: string) {
 
   revalidatePath("/processos");
   revalidatePath("/clientes");
+}
+
+/** Staff solicita a aprovação do cliente pra um documento já enviado — ex.:
+ * entregável final na etapa de conclusão. Puramente informativo, não trava
+ * mudança de etapa. */
+export async function requestDocumentApproval(documentId: string) {
+  const user = await requireStaff();
+  const document = await prisma.document.findFirst({ where: { id: documentId, tenantId: user.tenantId } });
+  if (!document) throw new Error("Documento não encontrado.");
+
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { approvalStatus: "PENDENTE", approvalNote: null },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "document.request_approval",
+    entityType: "document",
+    entityId: documentId,
+    description: `Aprovação do cliente solicitada para o documento "${document.name}".`,
+  });
+
+  if (document.processId) revalidatePath(`/processos/${document.processId}`);
+  revalidatePath(`/clientes/${document.clientId}`);
+  if (document.processId) revalidatePath(`/portal/processos/${document.processId}`);
+}
+
+/** Cliente aprova ou recusa um documento pelo Portal — só o próprio, e só
+ * enquanto estiver PENDENTE (evita responder duas vezes). */
+export async function respondDocumentApproval(documentId: string, approved: boolean, note: string) {
+  const user = await requireOwnClient();
+  const document = await prisma.document.findFirst({ where: { id: documentId, clientId: user.clientId } });
+  if (!document) throw new Error("Documento não encontrado.");
+  if (document.approvalStatus !== "PENDENTE") {
+    throw new Error("Este documento não está aguardando aprovação.");
+  }
+
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { approvalStatus: approved ? "APROVADO" : "RECUSADO", approvalNote: note.trim() || null },
+  });
+
+  await logAudit({
+    tenantId: document.tenantId,
+    userId: user.id,
+    action: approved ? "document.approve" : "document.reject",
+    entityType: "document",
+    entityId: documentId,
+    description: `Documento "${document.name}" ${approved ? "aprovado" : "recusado"} pelo cliente.`,
+  });
+
+  if (document.processId) {
+    revalidatePath(`/processos/${document.processId}`);
+    revalidatePath(`/portal/processos/${document.processId}`);
+  }
+  revalidatePath(`/clientes/${document.clientId}`);
 }
 
 export async function cancelRequest(requestId: string) {
