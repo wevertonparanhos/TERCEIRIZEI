@@ -74,6 +74,31 @@ const DEMO_WORKFLOW_STEPS = [
   { name: "Conclusão", estimatedDays: 1 },
 ];
 
+// 17 etapas reais da seção 25 do briefing (Abertura de Empresa — MG). As 3
+// marcadas "quando aplicável" no briefing (Inscrição Estadual, Licenciamento,
+// Alvará) entram sempre — sem base oficial de qual CNAE exige o quê em MG
+// (princípio 65), o operador cancela manualmente a ProcessStep quando não
+// se aplicar a um processo específico.
+const MG_WORKFLOW_STEPS = [
+  { name: "Triagem", estimatedDays: 1 },
+  { name: "Dados", estimatedDays: 1 },
+  { name: "Documentos", estimatedDays: 2, requiresDocument: true },
+  { name: "Viabilidade", estimatedDays: 2 },
+  { name: "Análise da Viabilidade", estimatedDays: 1 },
+  { name: "Coleta/DBE", estimatedDays: 3 },
+  { name: "Ato Constitutivo", estimatedDays: 2, requiresDocument: true },
+  { name: "Assinatura", estimatedDays: 1 },
+  { name: "Registro na Junta", estimatedDays: 5, requiresProtocol: true },
+  { name: "Análise", estimatedDays: 3 },
+  { name: "CNPJ", estimatedDays: 3, requiresProtocol: true },
+  { name: "Inscrição Municipal", estimatedDays: 3, requiresProtocol: true },
+  { name: "Inscrição Estadual", estimatedDays: 3, requiresProtocol: true },
+  { name: "Licenciamento", estimatedDays: 5, requiresProtocol: true },
+  { name: "Alvará", estimatedDays: 5, requiresProtocol: true },
+  { name: "Conferência", estimatedDays: 1 },
+  { name: "Conclusão", estimatedDays: 1 },
+];
+
 const DEMO_AGENCIES = [
   { name: "Receita Federal", sphere: "FEDERAL" as const },
   { name: "REDESIM", sphere: "FEDERAL" as const },
@@ -235,6 +260,38 @@ async function main() {
           name: "[DEMO] Abertura — regra padrão",
           processType: "OPENING",
           workflowId: workflow.id,
+          priority: 0,
+        },
+      });
+    }
+
+    const mgWorkflowName = "Abertura de Empresa — MG";
+    let mgWorkflow = await prisma.workflow.findFirst({ where: { tenantId: tenant.id, name: mgWorkflowName } });
+    if (!mgWorkflow) {
+      mgWorkflow = await prisma.workflow.create({
+        data: { tenantId: tenant.id, name: mgWorkflowName, processType: "OPENING", state: "MG" },
+      });
+      await prisma.workflowStep.createMany({
+        data: MG_WORKFLOW_STEPS.map((s, index) => ({
+          workflowId: mgWorkflow!.id,
+          name: s.name,
+          order: index + 1,
+          estimatedDays: s.estimatedDays,
+          requiresDocument: s.requiresDocument ?? false,
+          requiresProtocol: s.requiresProtocol ?? false,
+        })),
+      });
+    }
+
+    const existingMgRule = await prisma.rule.findFirst({ where: { tenantId: tenant.id, workflowId: mgWorkflow.id } });
+    if (!existingMgRule) {
+      await prisma.rule.create({
+        data: {
+          tenantId: tenant.id,
+          name: "Abertura — MG",
+          processType: "OPENING",
+          state: "MG",
+          workflowId: mgWorkflow.id,
           priority: 0,
         },
       });

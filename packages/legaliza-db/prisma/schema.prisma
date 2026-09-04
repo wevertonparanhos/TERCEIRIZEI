@@ -249,6 +249,8 @@ model Company {
   capital            Decimal?     @db.Decimal(14, 2)
   stateRegistration  String?      @map("state_registration")
   municipalRegistration String?   @map("municipal_registration")
+  // Objeto social — texto livre, seção 11 do briefing.
+  businessPurpose    String?      @map("business_purpose")
   status             String       @default("ativa")
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @updatedAt @map("updated_at")

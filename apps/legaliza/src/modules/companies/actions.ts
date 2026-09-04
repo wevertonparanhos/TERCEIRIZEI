@@ -8,6 +8,7 @@ import { companySchema, type CompanyInput } from "@/lib/validations/company";
 import { partnerSchema, type PartnerInput } from "@/lib/validations/partner";
 import { activitySchema, type ActivityInput } from "@/lib/validations/activity";
 import { addressSchema, type AddressInput } from "@/lib/validations/address";
+import { toDecimalOrNull } from "@/lib/decimal";
 
 // A conexão do Prisma usa a role postgres do Supabase (bypassa RLS) — tenant_id
 // explícito em todo where/data abaixo é a real fronteira de isolamento nesta
@@ -39,13 +40,6 @@ async function requireOwnCompany(user: CurrentUser, companyId: string) {
   if (!company) throw new Error("Empresa não encontrada.");
 }
 
-function toDecimalOrNull(value: string | undefined) {
-  if (!value) return null;
-  const normalized = value.replace(",", ".");
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 // ---------- Company ----------
 
 export async function createCompany(clientId: string, input: CompanyInput) {
@@ -67,6 +61,7 @@ export async function createCompany(clientId: string, input: CompanyInput) {
         capital: toDecimalOrNull(data.capital),
         stateRegistration: data.stateRegistration || null,
         municipalRegistration: data.municipalRegistration || null,
+        businessPurpose: data.businessPurpose || null,
         status: data.status,
       },
     });
@@ -105,6 +100,7 @@ export async function updateCompany(companyId: string, input: CompanyInput) {
         capital: toDecimalOrNull(data.capital),
         stateRegistration: data.stateRegistration || null,
         municipalRegistration: data.municipalRegistration || null,
+        businessPurpose: data.businessPurpose || null,
         status: data.status,
       },
     });
@@ -129,7 +125,7 @@ export async function updateCompany(companyId: string, input: CompanyInput) {
 
 // ---------- Partner ----------
 
-async function assertParticipationFits(companyId: string, newPercentage: number, excludePartnerId?: string) {
+export async function assertParticipationFits(companyId: string, newPercentage: number, excludePartnerId?: string) {
   const partners = await prisma.partner.findMany({
     where: { companyId, ...(excludePartnerId ? { id: { not: excludePartnerId } } : {}) },
     select: { participationPercentage: true },

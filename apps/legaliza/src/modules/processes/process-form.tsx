@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -64,6 +65,15 @@ export function ProcessForm({ clients }: { clients: ClientOption[] }) {
 
   return (
     <form onSubmit={handleSubmit(submit)} method="post" className="space-y-4" noValidate>
+      {selectedType === "OPENING" && (
+        <p className="rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">
+          Este processo nasce sem empresa vinculada (ela ainda não existe). Se preferir cadastrar cliente, empresa,
+          sócios e endereço de uma vez,{" "}
+          <Link href="/processos/abertura" className="font-medium underline">
+            use o assistente de abertura →
+          </Link>
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="clientId">Cliente</Label>

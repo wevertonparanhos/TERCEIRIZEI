@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export function CompanyForm({
   defaultValues,
@@ -107,6 +108,11 @@ export function CompanyForm({
             <option value="inativa">Inativa</option>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="businessPurpose">Objeto Social</Label>
+        <Textarea id="businessPurpose" rows={3} {...register("businessPurpose")} />
       </div>
 
       {serverError && (
