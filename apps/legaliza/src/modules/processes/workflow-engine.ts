@@ -1,4 +1,6 @@
 import { prisma, type ProcessType } from "@legaliza/db";
+import { pickBestRule } from "./rule-resolution";
+import { computeCumulativeDueDates } from "./step-scheduling";
 
 // Motor de regras simplificado (seção 22 do briefing): escolhe qual Workflow
 // usar por tipo de processo + UF + natureza jurídica. Sem DSL de condição
@@ -22,12 +24,7 @@ export async function resolveWorkflow(
     },
   });
 
-  if (rules.length === 0) return null;
-
-  const specificity = (r: (typeof rules)[number]) => (r.state ? 1 : 0) + (r.legalNature ? 1 : 0);
-  rules.sort((a, b) => b.priority - a.priority || specificity(b) - specificity(a));
-
-  return rules[0].workflowId;
+  return pickBestRule(rules);
 }
 
 // Copia as WorkflowStep ativas do workflow escolhido pra ProcessStep, na
@@ -44,21 +41,16 @@ export async function generateProcessSteps(processId: string, workflowId: string
 
   if (steps.length === 0) return 0;
 
-  let cursor = startedAt;
-  const data = steps.map((step, index) => {
-    if (step.estimatedDays) {
-      cursor = new Date(cursor.getTime() + step.estimatedDays * 24 * 60 * 60 * 1000);
-    }
-    return {
-      processId,
-      workflowStepId: step.id,
-      name: step.name,
-      description: step.description,
-      order: step.order,
-      status: index === 0 ? ("READY" as const) : ("PENDING" as const),
-      dueDate: step.estimatedDays ? cursor : null,
-    };
-  });
+  const dueDates = computeCumulativeDueDates(steps, startedAt);
+  const data = steps.map((step, index) => ({
+    processId,
+    workflowStepId: step.id,
+    name: step.name,
+    description: step.description,
+    order: step.order,
+    status: index === 0 ? ("READY" as const) : ("PENDING" as const),
+    dueDate: dueDates[index],
+  }));
 
   await prisma.processStep.createMany({ data });
 

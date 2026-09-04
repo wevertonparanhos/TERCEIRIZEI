@@ -13,6 +13,7 @@
     "build:site": "npm run build --workspace=@terceirizei/site",
     "build:app": "npm run build --workspace=@terceirizei/app",
     "build:legaliza": "npm run build --workspace=@legaliza/app",
+    "test:legaliza": "npm run test --workspace=@legaliza/app",
     "db:generate": "npm run generate --workspace=@terceirizei/db",
     "db:seed": "npm run seed --workspace=@terceirizei/db",
     "legaliza:db:generate": "npm run generate --workspace=@legaliza/db",
