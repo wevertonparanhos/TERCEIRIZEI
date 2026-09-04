@@ -99,6 +99,27 @@ const MG_WORKFLOW_STEPS = [
   { name: "Conclusão", estimatedDays: 1 },
 ];
 
+const AMENDMENT_WORKFLOW_STEPS = [
+  { name: "Triagem", estimatedDays: 1 },
+  { name: "Documentos", estimatedDays: 2, requiresDocument: true },
+  { name: "Elaboração da Alteração", estimatedDays: 2, requiresDocument: true },
+  { name: "Assinatura", estimatedDays: 1 },
+  { name: "Registro na Junta", estimatedDays: 5, requiresProtocol: true },
+  { name: "Averbação", estimatedDays: 3, requiresProtocol: true },
+  { name: "Conclusão", estimatedDays: 1 },
+];
+
+const CLOSURE_WORKFLOW_STEPS = [
+  { name: "Solicitação", estimatedDays: 1 },
+  { name: "Consulta de Débitos", estimatedDays: 3 },
+  { name: "Documentos", estimatedDays: 2, requiresDocument: true },
+  { name: "Distrato/Ato de Encerramento", estimatedDays: 2, requiresDocument: true },
+  { name: "Baixa Federal", estimatedDays: 5, requiresProtocol: true },
+  { name: "Baixa Estadual", estimatedDays: 5, requiresProtocol: true },
+  { name: "Baixa Municipal", estimatedDays: 5, requiresProtocol: true },
+  { name: "Conclusão", estimatedDays: 1 },
+];
+
 const DEMO_AGENCIES = [
   { name: "Receita Federal", sphere: "FEDERAL" as const },
   { name: "REDESIM", sphere: "FEDERAL" as const },
@@ -292,6 +313,68 @@ async function main() {
           processType: "OPENING",
           state: "MG",
           workflowId: mgWorkflow.id,
+          priority: 0,
+        },
+      });
+    }
+
+    const amendmentWorkflowName = "Alteração Contratual — Padrão";
+    let amendmentWorkflow = await prisma.workflow.findFirst({ where: { tenantId: tenant.id, name: amendmentWorkflowName } });
+    if (!amendmentWorkflow) {
+      amendmentWorkflow = await prisma.workflow.create({
+        data: { tenantId: tenant.id, name: amendmentWorkflowName, processType: "AMENDMENT" },
+      });
+      await prisma.workflowStep.createMany({
+        data: AMENDMENT_WORKFLOW_STEPS.map((s, index) => ({
+          workflowId: amendmentWorkflow!.id,
+          name: s.name,
+          order: index + 1,
+          estimatedDays: s.estimatedDays,
+          requiresDocument: s.requiresDocument ?? false,
+          requiresProtocol: s.requiresProtocol ?? false,
+        })),
+      });
+    }
+
+    const existingAmendmentRule = await prisma.rule.findFirst({ where: { tenantId: tenant.id, workflowId: amendmentWorkflow.id } });
+    if (!existingAmendmentRule) {
+      await prisma.rule.create({
+        data: {
+          tenantId: tenant.id,
+          name: "Alteração — regra padrão",
+          processType: "AMENDMENT",
+          workflowId: amendmentWorkflow.id,
+          priority: 0,
+        },
+      });
+    }
+
+    const closureWorkflowName = "Baixa de Empresa — Padrão";
+    let closureWorkflow = await prisma.workflow.findFirst({ where: { tenantId: tenant.id, name: closureWorkflowName } });
+    if (!closureWorkflow) {
+      closureWorkflow = await prisma.workflow.create({
+        data: { tenantId: tenant.id, name: closureWorkflowName, processType: "CLOSURE" },
+      });
+      await prisma.workflowStep.createMany({
+        data: CLOSURE_WORKFLOW_STEPS.map((s, index) => ({
+          workflowId: closureWorkflow!.id,
+          name: s.name,
+          order: index + 1,
+          estimatedDays: s.estimatedDays,
+          requiresDocument: s.requiresDocument ?? false,
+          requiresProtocol: s.requiresProtocol ?? false,
+        })),
+      });
+    }
+
+    const existingClosureRule = await prisma.rule.findFirst({ where: { tenantId: tenant.id, workflowId: closureWorkflow.id } });
+    if (!existingClosureRule) {
+      await prisma.rule.create({
+        data: {
+          tenantId: tenant.id,
+          name: "Baixa — regra padrão",
+          processType: "CLOSURE",
+          workflowId: closureWorkflow.id,
           priority: 0,
         },
       });

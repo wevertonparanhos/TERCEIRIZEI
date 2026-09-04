@@ -58,6 +58,14 @@ export default async function ProcessDetailPage({ params }: { params: { id: stri
             {process.municipality}/{process.state} · Prioridade {process.priority} · Workflow:{" "}
             {process.workflow?.name ?? "nenhum"}
           </p>
+          {process.type !== "OPENING" && process.company && (
+            <Link
+              href={`/empresas/${process.company.id}`}
+              className="mt-1 inline-block text-sm font-medium text-accent hover:underline"
+            >
+              Editar dados da empresa →
+            </Link>
+          )}
         </div>
         <ProcessStatusSelect processId={process.id} status={process.status} />
       </div>

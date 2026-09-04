@@ -22,12 +22,14 @@ export async function createProcess(input: ProcessInput) {
   if (!client) throw new Error("Cliente não encontrado.");
 
   let legalNature: string | null = null;
+  let previousLegalNature: string | null = null;
   if (data.companyId) {
     const company = await prisma.company.findFirst({
       where: { id: data.companyId, tenantId: user.tenantId!, clientId: data.clientId },
     });
     if (!company) throw new Error("Empresa não encontrada para este cliente.");
     legalNature = company.legalNature;
+    previousLegalNature = company.legalNature;
   }
 
   const startedAt = new Date();
@@ -50,6 +52,24 @@ export async function createProcess(input: ProcessInput) {
   const stepsGenerated = workflowId ? await generateProcessSteps(process.id, workflowId, startedAt) : 0;
   if (workflowId) await generateChecklist(process.id, workflowId);
 
+  // Transformação societária: a mudança de natureza jurídica já é aplicada
+  // ao criar o processo (mesma lógica de "já decidiu, agora está
+  // registrando" usada na Alteração) — não fica pendente até o processo
+  // concluir, diferente da Baixa (ver updateProcessStatus).
+  if (data.type === "TRANSFORMATION" && data.desiredLegalNature && data.companyId) {
+    await prisma.company.update({
+      where: { id: data.companyId },
+      data: { legalNature: data.desiredLegalNature },
+    });
+    await prisma.checklistItem.create({
+      data: {
+        processId: process.id,
+        label: `Transformação: ${previousLegalNature ?? "não informada"} → ${data.desiredLegalNature}`,
+        required: true,
+      },
+    });
+  }
+
   await logAudit({
     tenantId: user.tenantId!,
     userId: user.id,
@@ -66,11 +86,13 @@ export async function createProcess(input: ProcessInput) {
 export async function updateProcessStatus(processId: string, status: ProcessStatus) {
   const user = await requireWriteAccess();
 
-  const result = await prisma.process.updateMany({
-    where: { id: processId, tenantId: user.tenantId! },
+  const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId! } });
+  if (!process) throw new Error("Processo não encontrado.");
+
+  await prisma.process.update({
+    where: { id: processId },
     data: { status, completedAt: status === "COMPLETED" ? new Date() : null },
   });
-  if (result.count === 0) throw new Error("Processo não encontrado.");
 
   await logAudit({
     tenantId: user.tenantId!,
@@ -81,8 +103,24 @@ export async function updateProcessStatus(processId: string, status: ProcessStat
     description: `Status do processo alterado para ${status}.`,
   });
 
+  // Baixa: a empresa só é marcada inativa quando o processo de fato conclui
+  // — ela continua ativa (e operando) durante todo o trâmite de fechamento,
+  // diferente de Alteração/Transformação, onde a mudança já vale ao criar.
+  if (process.type === "CLOSURE" && status === "COMPLETED" && process.companyId) {
+    await prisma.company.update({ where: { id: process.companyId }, data: { status: "inativa" } });
+    await logAudit({
+      tenantId: user.tenantId!,
+      userId: user.id,
+      action: "company.closed",
+      entityType: "company",
+      entityId: process.companyId,
+      description: "Empresa marcada como inativa (baixa concluída).",
+    });
+  }
+
   revalidatePath(`/processos/${processId}`);
   revalidatePath("/processos");
+  revalidatePath("/empresas");
 }
 
 export async function updateProcessStepStatus(processId: string, stepId: string, status: ProcessStepStatus) {

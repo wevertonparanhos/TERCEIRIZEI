@@ -19,7 +19,11 @@ const TYPE_LABELS: Record<string, string> = {
   CLOSURE: "Baixa",
 };
 
-type ClientOption = { id: string; name: string; companies: { id: string; legalName: string }[] };
+type ClientOption = {
+  id: string;
+  name: string;
+  companies: { id: string; legalName: string; legalNature: string | null }[];
+};
 
 export function ProcessForm({ clients }: { clients: ClientOption[] }) {
   const router = useRouter();
@@ -39,9 +43,14 @@ export function ProcessForm({ clients }: { clients: ClientOption[] }) {
 
   const selectedClientId = watch("clientId");
   const selectedType = watch("type");
+  const selectedCompanyId = watch("companyId");
   const companies = useMemo(
     () => clients.find((c) => c.id === selectedClientId)?.companies ?? [],
     [clients, selectedClientId]
+  );
+  const selectedCompany = useMemo(
+    () => companies.find((c) => c.id === selectedCompanyId),
+    [companies, selectedCompanyId]
   );
 
   async function submit(data: ProcessInput) {
@@ -71,6 +80,15 @@ export function ProcessForm({ clients }: { clients: ClientOption[] }) {
           sócios e endereço de uma vez,{" "}
           <Link href="/processos/abertura" className="font-medium underline">
             use o assistente de abertura →
+          </Link>
+        </p>
+      )}
+      {selectedType === "AMENDMENT" && (
+        <p className="rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">
+          Se preferir marcar exatamente o que está mudando (endereço, sócios, CNAEs...) e gerar um checklist pra cada
+          item,{" "}
+          <Link href="/processos/alteracao" className="font-medium underline">
+            use o assistente de alteração →
           </Link>
         </p>
       )}
@@ -112,6 +130,19 @@ export function ProcessForm({ clients }: { clients: ClientOption[] }) {
             </Select>
             {errors.companyId && <p className="text-xs text-red-600">{errors.companyId.message}</p>}
           </div>
+        )}
+
+        {selectedType === "TRANSFORMATION" && (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="currentLegalNature">Natureza Jurídica Atual</Label>
+              <Input id="currentLegalNature" readOnly disabled value={selectedCompany?.legalNature ?? "—"} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="desiredLegalNature">Natureza Jurídica Desejada</Label>
+              <Input id="desiredLegalNature" placeholder="ex: Sociedade Limitada Unipessoal" {...register("desiredLegalNature")} />
+            </div>
+          </>
         )}
 
         <div className="space-y-1.5">

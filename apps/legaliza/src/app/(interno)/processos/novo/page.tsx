@@ -7,7 +7,7 @@ export default async function NewProcessPage() {
 
   const clients = await prisma.client.findMany({
     where: { tenantId: user.tenantId! },
-    select: { id: true, name: true, companies: { select: { id: true, legalName: true } } },
+    select: { id: true, name: true, companies: { select: { id: true, legalName: true, legalNature: true } } },
     orderBy: { name: "asc" },
   });
 

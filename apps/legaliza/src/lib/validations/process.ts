@@ -11,6 +11,7 @@ export const processSchema = z
     priority: z.enum(PROCESS_PRIORITIES),
     state: z.string().length(2, "UF deve ter 2 letras."),
     municipality: z.string().min(1, "Informe o município."),
+    desiredLegalNature: z.string().optional(),
   })
   .refine((data) => data.type === "OPENING" || !!data.companyId, {
     message: "Selecione a empresa (obrigatória para este tipo de processo).",
