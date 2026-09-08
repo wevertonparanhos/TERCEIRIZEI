@@ -28,7 +28,10 @@ export default async function ProcessDetailPage({ params }: { params: { id: stri
         steps: { orderBy: { order: "asc" } },
         checklistItems: { orderBy: { createdAt: "asc" } },
         documents: { orderBy: { createdAt: "desc" } },
-        protocols: { include: { governmentAgency: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
+        protocols: {
+          include: { governmentAgency: { select: { name: true, portalUrl: true } } },
+          orderBy: { createdAt: "desc" },
+        },
       },
     }),
     prisma.governmentAgency.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -114,10 +117,13 @@ export default async function ProcessDetailPage({ params }: { params: { id: stri
             protocolNumber: p.protocolNumber,
             status: p.status,
             url: p.url,
+            documentId: p.documentId,
+            expectedResponseAt: p.expectedResponseAt ? p.expectedResponseAt.toISOString() : null,
             governmentAgency: p.governmentAgency,
           }))}
           agencies={agencies}
           steps={process.steps.map((s) => ({ id: s.id, name: s.name }))}
+          documents={process.documents.map((d) => ({ id: d.id, name: d.name }))}
         />
       </div>
     </div>

@@ -25,6 +25,8 @@ export async function createProtocol(processId: string, input: ProtocolInput) {
       governmentAgencyId: data.governmentAgencyId,
       protocolNumber: data.protocolNumber,
       url: data.url || null,
+      documentId: data.documentId || null,
+      expectedResponseAt: data.expectedResponseAt ? new Date(data.expectedResponseAt) : null,
       notes: data.notes || null,
     },
   });

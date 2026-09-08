@@ -120,11 +120,14 @@ const CLOSURE_WORKFLOW_STEPS = [
   { name: "Conclusão", estimatedDays: 1 },
 ];
 
+// portalUrl só pros órgãos reais e específicos (dado público verificável,
+// não procedimento inventado — princípio 65). "Prefeitura"/"Licenciamento"
+// são nomes genéricos sem órgão específico, ficam sem portalUrl.
 const DEMO_AGENCIES = [
-  { name: "Receita Federal", sphere: "FEDERAL" as const },
-  { name: "REDESIM", sphere: "FEDERAL" as const },
-  { name: "JUCEMG", sphere: "ESTADUAL" as const, state: "MG" },
-  { name: "SEF/MG", sphere: "ESTADUAL" as const, state: "MG" },
+  { name: "Receita Federal", sphere: "FEDERAL" as const, portalUrl: "https://www.gov.br/receitafederal" },
+  { name: "REDESIM", sphere: "FEDERAL" as const, portalUrl: "https://www.redesim.gov.br" },
+  { name: "JUCEMG", sphere: "ESTADUAL" as const, state: "MG", portalUrl: "https://jucemg.mg.gov.br" },
+  { name: "SEF/MG", sphere: "ESTADUAL" as const, state: "MG", portalUrl: "https://www.fazenda.mg.gov.br" },
   { name: "Prefeitura", sphere: "MUNICIPAL" as const },
   { name: "Licenciamento", sphere: "MUNICIPAL" as const },
 ];
@@ -430,11 +433,18 @@ async function main() {
     console.log(`Tenant demo: ${tenant.name} (${tenant.id}) — admin: ${demo.adminEmail}`);
   }
 
-  const existingAgencies = await prisma.governmentAgency.count();
-  if (existingAgencies === 0) {
-    await prisma.governmentAgency.createMany({ data: DEMO_AGENCIES });
-    console.log(`Catálogo de órgãos seedado: ${DEMO_AGENCIES.map((a) => a.name).join(", ")}`);
+  // Sem @@unique([name]) no schema — upsert manual por nome (não createMany
+  // condicional) pra que portalUrl chegue nos registros já seedados antes
+  // desta fase, sem precisar apagar o catálogo.
+  for (const agency of DEMO_AGENCIES) {
+    const existing = await prisma.governmentAgency.findFirst({ where: { name: agency.name } });
+    if (existing) {
+      await prisma.governmentAgency.update({ where: { id: existing.id }, data: { portalUrl: agency.portalUrl ?? null } });
+    } else {
+      await prisma.governmentAgency.create({ data: agency });
+    }
   }
+  console.log(`Catálogo de órgãos seedado: ${DEMO_AGENCIES.map((a) => a.name).join(", ")}`);
 
   console.log(`\nLogin de demonstração (todos): senha "${DEMO_PASSWORD}"`);
 }

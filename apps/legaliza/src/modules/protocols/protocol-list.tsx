@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -12,26 +13,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
+const TERMINAL_STATUSES = new Set(["APPROVED", "REJECTED", "COMPLETED"]);
+
 type Protocol = {
   id: string;
   protocolNumber: string;
   status: string;
   url: string | null;
-  governmentAgency: { name: string };
+  documentId: string | null;
+  expectedResponseAt: string | null;
+  governmentAgency: { name: string; portalUrl: string | null };
 };
 type AgencyOption = { id: string; name: string };
 type StepOption = { id: string; name: string };
+type DocumentOption = { id: string; name: string };
 
 export function ProtocolList({
   processId,
   protocols,
   agencies,
   steps,
+  documents,
 }: {
   processId: string;
   protocols: Protocol[];
   agencies: AgencyOption[];
   steps: StepOption[];
+  documents: DocumentOption[];
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -74,40 +82,77 @@ export function ProtocolList({
               <tr className="border-b border-border bg-surface-alt text-left text-muted">
                 <th className="px-3 py-2 font-medium">Número</th>
                 <th className="px-3 py-2 font-medium">Órgão</th>
-                <th className="px-3 py-2 font-medium">URL</th>
+                <th className="px-3 py-2 font-medium">Documento</th>
+                <th className="px-3 py-2 font-medium">Prazo</th>
                 <th className="px-3 py-2 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
-              {protocols.map((p) => (
-                <tr key={p.id} className="border-b border-border last:border-0 bg-surface">
-                  <td className="px-3 py-2 text-ink">{p.protocolNumber}</td>
-                  <td className="px-3 py-2 text-muted">{p.governmentAgency.name}</td>
-                  <td className="px-3 py-2 text-muted">
-                    {p.url ? (
-                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-                        link
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Select
-                      key={`${p.id}-${p.status}`}
-                      className="h-8 w-44 text-xs"
-                      defaultValue={p.status}
-                      onChange={(e) => onChangeStatus(p.id, e.target.value as ProtocolStatus)}
-                    >
-                      {PROTOCOL_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </Select>
-                  </td>
-                </tr>
-              ))}
+              {protocols.map((p) => {
+                const overdue =
+                  !TERMINAL_STATUSES.has(p.status) &&
+                  !!p.expectedResponseAt &&
+                  new Date(p.expectedResponseAt) < new Date();
+                return (
+                  <tr key={p.id} className="border-b border-border last:border-0 bg-surface">
+                    <td className="px-3 py-2 text-ink">
+                      {p.url ? (
+                        <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          {p.protocolNumber}
+                        </a>
+                      ) : (
+                        p.protocolNumber
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-muted">
+                      {p.governmentAgency.name}
+                      {p.governmentAgency.portalUrl && (
+                        <>
+                          {" "}
+                          ·{" "}
+                          <a
+                            href={p.governmentAgency.portalUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-accent hover:underline"
+                          >
+                            portal do órgão →
+                          </a>
+                        </>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-muted">
+                      {p.documentId ? (
+                        <Link href={`/documentos/${p.documentId}`} className="text-accent hover:underline">
+                          ver documento
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className={`px-3 py-2 ${overdue ? "font-medium text-red-600" : "text-muted"}`}>
+                      {p.expectedResponseAt
+                        ? new Date(p.expectedResponseAt).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+                        : "—"}
+                      {overdue && " (vencido)"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Select
+                        key={`${p.id}-${p.status}`}
+                        className="h-8 w-44 text-xs"
+                        defaultValue={p.status}
+                        onChange={(e) => onChangeStatus(p.id, e.target.value as ProtocolStatus)}
+                      >
+                        {PROTOCOL_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </Select>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -154,6 +199,21 @@ export function ProtocolList({
               <Label htmlFor="protocol-url">URL (opcional)</Label>
               <Input id="protocol-url" placeholder="https://..." {...register("url")} />
               {errors.url && <p className="text-xs text-red-600">{errors.url.message}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="protocol-document">Documento enviado (opcional)</Label>
+              <Select id="protocol-document" {...register("documentId")}>
+                <option value="">Nenhum</option>
+                {documents.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="protocol-expected-response">Prazo esperado de resposta (opcional)</Label>
+              <Input id="protocol-expected-response" type="date" {...register("expectedResponseAt")} />
             </div>
             <div className="col-span-2 space-y-1">
               <Label htmlFor="protocol-notes">Observações</Label>

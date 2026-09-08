@@ -554,11 +554,15 @@ model DocumentRequest {
 // briefing (Receita Federal, REDESIM, JUCEMG, SEF/MG, Prefeitura,
 // Licenciamento) — sem inventar nenhum órgão além desses.
 model GovernmentAgency {
-  id     String           @id @default(uuid()) @db.Uuid
-  name   String
-  sphere GovernmentSphere
-  state  String?
-  active Boolean          @default(true)
+  id        String           @id @default(uuid()) @db.Uuid
+  name      String
+  sphere    GovernmentSphere
+  state     String?
+  active    Boolean          @default(true)
+  // Link pro portal oficial do órgão (dado público verificável, seção 26 —
+  // "Manual Assistido": o operador é direcionado pro lugar certo, mas
+  // continua submetendo manualmente).
+  portalUrl String?          @map("portal_url")
 
   protocols Protocol[]
 
@@ -580,6 +584,10 @@ model Protocol {
   // Liga a um Document já enviado (em vez de um path solto) — mais
   // consistente já que o GED existe nesta mesma fase.
   documentId         String?        @map("document_id") @db.Uuid
+  // Prazo esperado de resposta do órgão, informado opcionalmente pelo
+  // operador — alimenta o alerta de "protocolos com prazo vencido" no
+  // Dashboard.
+  expectedResponseAt DateTime?      @map("expected_response_at")
   notes              String?
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")

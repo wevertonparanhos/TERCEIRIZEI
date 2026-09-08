@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@legaliza/db";
 import { requireUser } from "@/lib/rbac";
 
@@ -102,11 +103,20 @@ export default async function DashboardPage() {
 
   const tenantId = user.tenantId;
 
-  const [statusCounts, typeCounts, clientCount, companyCount] = await Promise.all([
+  const [statusCounts, typeCounts, clientCount, companyCount, overdueProtocols] = await Promise.all([
     prisma.process.groupBy({ by: ["status"], where: { tenantId }, _count: true }),
     prisma.process.groupBy({ by: ["type"], where: { tenantId }, _count: true }),
     prisma.client.count({ where: { tenantId } }),
     prisma.company.count({ where: { tenantId } }),
+    prisma.protocol.findMany({
+      where: {
+        tenantId,
+        expectedResponseAt: { lt: new Date() },
+        status: { notIn: ["APPROVED", "REJECTED", "COMPLETED"] },
+      },
+      include: { governmentAgency: { select: { name: true } }, process: { select: { id: true } } },
+      orderBy: { expectedResponseAt: "asc" },
+    }),
   ]);
 
   const countByStatus = (status: string) => statusCounts.find((s) => s.status === status)?._count ?? 0;
@@ -153,6 +163,26 @@ export default async function DashboardPage() {
           <p className="mb-3 text-sm font-medium text-ink">Processos por tipo</p>
           <BarList rows={typeRows} />
         </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <p className="mb-3 text-sm font-medium text-ink">Protocolos com prazo vencido</p>
+        {overdueProtocols.length > 0 ? (
+          <ul className="space-y-2">
+            {overdueProtocols.map((p) => (
+              <li key={p.id} className="flex items-center justify-between text-sm">
+                <Link href={`/processos/${p.process.id}`} className="text-accent hover:underline">
+                  {p.protocolNumber} — {p.governmentAgency.name}
+                </Link>
+                <span className="font-mono text-xs text-red-600">
+                  vencido em {p.expectedResponseAt!.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-soft">Nenhum protocolo com prazo vencido.</p>
+        )}
       </div>
     </div>
   );
