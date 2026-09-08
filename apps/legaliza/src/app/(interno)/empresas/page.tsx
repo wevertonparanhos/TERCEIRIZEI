@@ -38,7 +38,7 @@ export default async function CompaniesPage() {
                       {company.legalName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-muted">{company.cnpj}</td>
+                  <td className="px-4 py-3 text-muted">{company.cnpj ?? "Aguardando CNPJ"}</td>
                   <td className="px-4 py-3 text-muted">{company.client.name}</td>
                   <td className="px-4 py-3 text-muted">{company.legalNature ?? "—"}</td>
                   <td className="px-4 py-3 text-muted">{address ? `${address.city}/${address.state}` : "—"}</td>

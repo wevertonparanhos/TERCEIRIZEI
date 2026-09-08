@@ -65,7 +65,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                         {company.legalName}
                       </Link>
                     </td>
-                    <td className="px-3 py-2 text-muted">{company.cnpj}</td>
+                    <td className="px-3 py-2 text-muted">{company.cnpj ?? "Aguardando CNPJ"}</td>
                     <td className="px-3 py-2">
                       <Badge variant={company.status === "ativa" ? "success" : "neutral"}>{company.status}</Badge>
                     </td>

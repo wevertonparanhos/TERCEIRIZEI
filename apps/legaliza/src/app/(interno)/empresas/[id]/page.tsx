@@ -40,7 +40,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         <h2 className="mb-4 text-sm font-medium text-ink">Dados da empresa</h2>
         <CompanyForm
           defaultValues={{
-            cnpj: company.cnpj,
+            cnpj: company.cnpj ?? undefined,
             legalName: company.legalName,
             tradeName: company.tradeName ?? undefined,
             legalNature: company.legalNature ?? undefined,

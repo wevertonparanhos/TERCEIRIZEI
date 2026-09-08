@@ -267,7 +267,7 @@ export function OpeningWizard({ clients }: { clients: ClientOption[] }) {
         {step === 1 && (
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="co-cnpj">CNPJ</Label>
+              <Label htmlFor="co-cnpj">CNPJ (deixe em branco — ainda não emitido numa Abertura)</Label>
               <Input id="co-cnpj" {...register("company.cnpj")} />
             </div>
             <div className="space-y-1.5">
@@ -471,7 +471,10 @@ export function OpeningWizard({ clients }: { clients: ClientOption[] }) {
                   ? clients.find((c) => c.id === getValues("existingClientId"))?.name
                   : getValues("newClient.name")}
               </p>
-              <p className="text-muted">{getValues("company.legalName")} — {getValues("company.cnpj")}</p>
+              <p className="text-muted">
+                {getValues("company.legalName")}
+                {getValues("company.cnpj") ? ` — ${getValues("company.cnpj")}` : " — CNPJ ainda não emitido"}
+              </p>
               <p className="mt-2 text-muted-soft">
                 {partners.length} sócio(s) · {activities.length} CNAE(s) · {getValues("address.city")}/{getValues("address.state")}
               </p>

@@ -28,6 +28,15 @@ describe("companySchema", () => {
     expect(companySchema.safeParse({ ...valid, cnpj: "00000000000000" }).success).toBe(false);
   });
 
+  it("aceita CNPJ vazio (Abertura: CNPJ ainda não foi emitido pela Receita Federal)", () => {
+    expect(companySchema.safeParse({ ...valid, cnpj: "" }).success).toBe(true);
+  });
+
+  it("aceita CNPJ ausente", () => {
+    const { cnpj, ...withoutCnpj } = valid;
+    expect(companySchema.safeParse(withoutCnpj).success).toBe(true);
+  });
+
   it("rejeita razão social muito curta", () => {
     expect(companySchema.safeParse({ ...valid, legalName: "A" }).success).toBe(false);
   });

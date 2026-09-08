@@ -4,7 +4,14 @@ import { isValidCnpjOnly } from "./document";
 export const COMPANY_SIZES = ["MEI", "ME", "EPP", "DEMAIS"] as const;
 
 export const companySchema = z.object({
-  cnpj: z.string().min(1, "Informe o CNPJ.").refine(isValidCnpjOnly, "CNPJ inválido."),
+  // Opcional: numa Abertura o CNPJ ainda não existe (só é emitido pela
+  // Receita Federal numa das últimas etapas do workflow). Quando
+  // preenchido, precisa ser um CNPJ válido.
+  cnpj: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || isValidCnpjOnly(v), "CNPJ inválido."),
   legalName: z.string().min(2, "Informe a razão social."),
   tradeName: z.string().optional(),
   legalNature: z.string().optional(),

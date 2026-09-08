@@ -57,7 +57,7 @@ export function CompanyForm({
     <form onSubmit={handleSubmit(submit)} method="post" className="space-y-4" noValidate>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="cnpj">CNPJ</Label>
+          <Label htmlFor="cnpj">CNPJ (deixe em branco se ainda não foi emitido)</Label>
           <Input id="cnpj" {...register("cnpj")} />
           {errors.cnpj && <p className="text-xs text-red-600">{errors.cnpj.message}</p>}
         </div>

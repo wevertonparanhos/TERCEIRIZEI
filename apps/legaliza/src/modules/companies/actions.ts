@@ -53,7 +53,7 @@ export async function createCompany(clientId: string, input: CompanyInput) {
       data: {
         tenantId: user.tenantId!,
         clientId,
-        cnpj: data.cnpj.replace(/\D/g, ""),
+        cnpj: data.cnpj ? data.cnpj.replace(/\D/g, "") : null,
         legalName: data.legalName,
         tradeName: data.tradeName || null,
         legalNature: data.legalNature || null,
@@ -92,7 +92,7 @@ export async function updateCompany(companyId: string, input: CompanyInput) {
     result = await prisma.company.updateMany({
       where: { id: companyId, tenantId: user.tenantId! },
       data: {
-        cnpj: data.cnpj.replace(/\D/g, ""),
+        cnpj: data.cnpj ? data.cnpj.replace(/\D/g, "") : null,
         legalName: data.legalName,
         tradeName: data.tradeName || null,
         legalNature: data.legalNature || null,

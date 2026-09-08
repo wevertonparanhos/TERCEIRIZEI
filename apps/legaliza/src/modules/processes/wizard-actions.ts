@@ -90,7 +90,7 @@ export async function createOpeningWizard(input: OpeningWizardInput) {
         data: {
           tenantId: user.tenantId!,
           clientId: client.id,
-          cnpj: companyData.cnpj.replace(/\D/g, ""),
+          cnpj: companyData.cnpj ? companyData.cnpj.replace(/\D/g, "") : null,
           legalName: companyData.legalName,
           tradeName: companyData.tradeName || null,
           legalNature: companyData.legalNature || null,
