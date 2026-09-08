@@ -7,19 +7,30 @@ import { updateCompany } from "@/modules/companies/actions";
 import { PartnerList } from "@/modules/companies/partner-list";
 import { ActivityList } from "@/modules/companies/activity-list";
 import { AddressForm } from "@/modules/companies/address-form";
+import { ComplianceList } from "@/modules/compliance/compliance-list";
 
 export default async function CompanyDetailPage({ params }: { params: { id: string } }) {
   const user = await requireRole("TENANT_ADMIN", "OPERATOR");
 
-  const company = await prisma.company.findFirst({
-    where: { id: params.id, tenantId: user.tenantId! },
-    include: {
-      client: { select: { id: true, name: true } },
-      partners: { orderBy: { name: "asc" } },
-      activities: { orderBy: { createdAt: "asc" } },
-      addresses: { take: 1 },
-    },
-  });
+  const [company, documents] = await Promise.all([
+    prisma.company.findFirst({
+      where: { id: params.id, tenantId: user.tenantId! },
+      include: {
+        client: { select: { id: true, name: true } },
+        partners: { orderBy: { name: "asc" } },
+        activities: { orderBy: { createdAt: "asc" } },
+        addresses: { take: 1 },
+        complianceItems: { orderBy: { createdAt: "desc" } },
+      },
+    }),
+    // Document.processId é obrigatório (Fase 4) — não há FK direta pra
+    // Company, então busca pelos processos da empresa.
+    prisma.document.findMany({
+      where: { process: { companyId: params.id } },
+      select: { id: true, name: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
   if (!company) notFound();
 
   const address = company.addresses[0];
@@ -90,6 +101,23 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
                 }
               : undefined
           }
+        />
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="mb-4 text-sm font-medium text-ink">Compliance</h2>
+        <ComplianceList
+          companyId={company.id}
+          items={company.complianceItems.map((i) => ({
+            id: i.id,
+            type: i.type,
+            name: i.name,
+            issuedAt: i.issuedAt ? i.issuedAt.toISOString() : null,
+            expiresAt: i.expiresAt ? i.expiresAt.toISOString() : null,
+            documentId: i.documentId,
+            notes: i.notes,
+          }))}
+          documents={documents}
         />
       </div>
     </div>

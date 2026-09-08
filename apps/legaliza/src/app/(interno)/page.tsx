@@ -9,6 +9,15 @@ const TYPE_LABELS: Record<string, string> = {
   CLOSURE: "Baixa",
 };
 
+const COMPLIANCE_TYPE_LABELS: Record<string, string> = {
+  CERTIDAO_NEGATIVA: "Certidão Negativa",
+  ALVARA: "Alvará",
+  CERTIFICADO_DIGITAL: "Certificado Digital",
+};
+
+// Alerta com 30 dias de antecedência — mesmo corte usado em compliance-list.tsx.
+const COMPLIANCE_ALERT_WINDOW_DAYS = 30;
+
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Rascunho",
   NEW: "Novo",
@@ -103,7 +112,7 @@ export default async function DashboardPage() {
 
   const tenantId = user.tenantId;
 
-  const [statusCounts, typeCounts, clientCount, companyCount, overdueProtocols] = await Promise.all([
+  const [statusCounts, typeCounts, clientCount, companyCount, overdueProtocols, expiringCompliance] = await Promise.all([
     prisma.process.groupBy({ by: ["status"], where: { tenantId }, _count: true }),
     prisma.process.groupBy({ by: ["type"], where: { tenantId }, _count: true }),
     prisma.client.count({ where: { tenantId } }),
@@ -116,6 +125,14 @@ export default async function DashboardPage() {
       },
       include: { governmentAgency: { select: { name: true } }, process: { select: { id: true } } },
       orderBy: { expectedResponseAt: "asc" },
+    }),
+    prisma.complianceItem.findMany({
+      where: {
+        tenantId,
+        expiresAt: { lt: new Date(Date.now() + COMPLIANCE_ALERT_WINDOW_DAYS * 24 * 60 * 60 * 1000) },
+      },
+      include: { company: { select: { id: true, legalName: true } } },
+      orderBy: { expiresAt: "asc" },
     }),
   ]);
 
@@ -182,6 +199,30 @@ export default async function DashboardPage() {
           </ul>
         ) : (
           <p className="text-sm text-muted-soft">Nenhum protocolo com prazo vencido.</p>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <p className="mb-3 text-sm font-medium text-ink">Compliance vencendo/vencido (próximos 30 dias)</p>
+        {expiringCompliance.length > 0 ? (
+          <ul className="space-y-2">
+            {expiringCompliance.map((item) => {
+              const expired = item.expiresAt! < new Date();
+              return (
+                <li key={item.id} className="flex items-center justify-between text-sm">
+                  <Link href={`/empresas/${item.company.id}`} className="text-accent hover:underline">
+                    {COMPLIANCE_TYPE_LABELS[item.type] ?? item.type} "{item.name}" — {item.company.legalName}
+                  </Link>
+                  <span className={`font-mono text-xs ${expired ? "text-red-600" : "text-amber-600"}`}>
+                    {expired ? "vencido em " : "vence em "}
+                    {item.expiresAt!.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-soft">Nenhum item de compliance vencendo nos próximos 30 dias.</p>
         )}
       </div>
     </div>

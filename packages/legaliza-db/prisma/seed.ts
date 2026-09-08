@@ -127,9 +127,22 @@ const DEMO_AGENCIES = [
   { name: "Receita Federal", sphere: "FEDERAL" as const, portalUrl: "https://www.gov.br/receitafederal" },
   { name: "REDESIM", sphere: "FEDERAL" as const, portalUrl: "https://www.redesim.gov.br" },
   { name: "JUCEMG", sphere: "ESTADUAL" as const, state: "MG", portalUrl: "https://jucemg.mg.gov.br" },
-  { name: "SEF/MG", sphere: "ESTADUAL" as const, state: "MG", portalUrl: "https://www.fazenda.mg.gov.br" },
+  // Link direto pra emissão da CDT (mais útil que a home da Fazenda/MG).
+  { name: "SEF/MG", sphere: "ESTADUAL" as const, state: "MG", portalUrl: "https://cdt.fazenda.mg.gov.br/cdt-emitida" },
   { name: "Prefeitura", sphere: "MUNICIPAL" as const },
   { name: "Licenciamento", sphere: "MUNICIPAL" as const },
+  // Emissão de CND municipal depende da prefeitura do CNPJ — BH é só o
+  // exemplo real que o usuário passou (Fase 10); outros municípios ficam
+  // sem portalUrl até serem pedidos.
+  { name: "Prefeitura de Belo Horizonte", sphere: "MUNICIPAL" as const, portalUrl: "https://cnd.pbh.gov.br/CNDOnline/" },
+  { name: "Justiça do Trabalho (CNDT)", sphere: "FEDERAL" as const, portalUrl: "https://cndt-certidao.tst.jus.br/gerarCertidao" },
+  { name: "Caixa Econômica Federal (FGTS)", sphere: "FEDERAL" as const, portalUrl: "https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf" },
+  {
+    name: "TJMG (Falência e Concordata)",
+    sphere: "ESTADUAL" as const,
+    state: "MG",
+    portalUrl: "https://rupe.tjmg.jus.br/rupe/justica/publico/certidoes/criarSolicitacaoCertidao.rupe?solicitacaoPublica=true",
+  },
 ];
 
 const INSTANCE_ID = "00000000-0000-0000-0000-000000000000";

@@ -127,6 +127,18 @@ enum ProtocolStatus {
   @@map("protocol_status")
 }
 
+// Certidão negativa, alvará ou certificado digital — controle de vencimento
+// da empresa (não de um processo específico). Registro manual (busca real
+// via certificado digital fica fora de escopo — Fase 10, seção "Fora de
+// escopo": exigiria automação de navegador + guardar credencial sensível).
+enum ComplianceItemType {
+  CERTIDAO_NEGATIVA
+  ALVARA
+  CERTIFICADO_DIGITAL
+
+  @@map("compliance_item_type")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -147,6 +159,7 @@ model Tenant {
   documents         Document[]
   documentRequests  DocumentRequest[]
   protocols         Protocol[]
+  complianceItems   ComplianceItem[]
   auditLogs         AuditLog[]
 
   @@map("tenants")
@@ -260,10 +273,11 @@ model Company {
 
   tenant     Tenant            @relation(fields: [tenantId], references: [id])
   client     Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  partners   Partner[]
-  activities CompanyActivity[]
-  addresses  CompanyAddress[]
-  processes  Process[]
+  partners        Partner[]
+  activities      CompanyActivity[]
+  addresses       CompanyAddress[]
+  processes       Process[]
+  complianceItems ComplianceItem[]
 
   @@unique([tenantId, cnpj])
   @@index([tenantId])
@@ -501,6 +515,7 @@ model Document {
   requests       DocumentRequest[]
   checklistItems ChecklistItem[]
   protocols      Protocol[]
+  complianceItems ComplianceItem[]
 
   @@index([tenantId])
   @@index([clientId])
@@ -604,6 +619,34 @@ model Protocol {
   @@index([tenantId])
   @@index([processId])
   @@map("protocols")
+}
+
+// Controle de vencimento de certidões negativas, alvarás e certificados
+// digitais (Fase 10) — ligado à Company, não a um Process específico (a
+// renovação continua valendo mesmo sem processo aberto). Registro manual;
+// o operador anexa o PDF que baixou do portal oficial (documentId, reaproveita
+// o GED) e registra a validade — sem integração automática (ver comentário
+// no enum ComplianceItemType).
+model ComplianceItem {
+  id         String             @id @default(uuid()) @db.Uuid
+  tenantId   String             @map("tenant_id") @db.Uuid
+  companyId  String             @map("company_id") @db.Uuid
+  type       ComplianceItemType
+  name       String
+  issuedAt   DateTime?          @map("issued_at")
+  expiresAt  DateTime?          @map("expires_at")
+  documentId String?            @map("document_id") @db.Uuid
+  notes      String?
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id])
+
+  @@index([tenantId])
+  @@index([companyId])
+  @@map("compliance_items")
 }
 
 // Trilha de auditoria. logAudit() nunca derruba a ação que chamou — falha de
