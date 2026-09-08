@@ -81,28 +81,32 @@ export default function Navbar() {
             </motion.a>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-1">
-              {navLinks.map((link) => {
+            <div className="hidden lg:flex items-center">
+              {navLinks.map((link, index) => {
                 const isActive = activeSection === link.href.replace("#", "");
                 return (
-                  <button
-                    key={link.href}
-                    onClick={() => handleNavClick(link.href)}
-                    className={`relative px-4 py-2 text-sm font-semibold transition-colors duration-200 rounded-lg group ${
-                      isActive
-                        ? "text-[#14528D]"
-                        : "text-gray-500 hover:text-[#1B2558]"
-                    }`}
-                  >
-                    {isActive && (
-                      <motion.span
-                        layoutId="activeNav"
-                        className="absolute inset-0 bg-[#14528D]/8 rounded-lg"
-                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                      />
+                  <div key={link.href} className="flex items-center">
+                    {index > 0 && (
+                      <span className="w-px h-4 bg-gray-200 mx-1" />
                     )}
-                    <span className="relative">{link.label}</span>
-                  </button>
+                    <button
+                      onClick={() => handleNavClick(link.href)}
+                      className={`relative px-4 py-2 text-sm font-semibold transition-colors duration-200 rounded-lg group ${
+                        isActive
+                          ? "text-[#14528D]"
+                          : "text-gray-500 hover:text-[#1B2558]"
+                      }`}
+                    >
+                      {isActive && (
+                        <motion.span
+                          layoutId="activeNav"
+                          className="absolute inset-0 bg-[#14528D]/8 rounded-lg"
+                          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                        />
+                      )}
+                      <span className="relative">{link.label}</span>
+                    </button>
+                  </div>
                 );
               })}
             </div>
