@@ -335,7 +335,7 @@ export default function Pricing() {
                 <div className="text-center mb-8">
                   <div className="flex items-end justify-center gap-1 mb-2">
                     <span className="text-sm text-gray-500 mb-1">R$</span>
-                    <span className="text-5xl font-black text-[#1B2558]">1.620</span>
+                    <span className="text-5xl font-black text-[#1B2558]">1.499,90</span>
                     <span className="text-lg text-gray-500 mb-1">/mês</span>
                   </div>
                   <p className="text-gray-500 text-sm">Gestão administrativa completa para profissionais e empresas</p>
@@ -360,13 +360,15 @@ export default function Pricing() {
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-3 mb-8 pt-6 border-t border-gray-200">
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
-                    <div className="text-lg font-black text-[#1B2558]">R$ 528,00</div>
-                    <div className="text-xs text-gray-500">Alterações e Atualizações no CNPJ</div>
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                    <div className="text-lg font-black text-green-600">GRÁTIS</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Abertura e Alteração de CNPJ</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">(exceto taxas dos órgãos)</div>
                   </div>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
-                    <div className="text-lg font-black text-[#1B2558]">R$ 849,00</div>
-                    <div className="text-xs text-gray-500">Implantação de Sistemas</div>
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                    <div className="text-lg font-black text-green-600">GRÁTIS</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Implantação de Sistema</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">(sistema à escolha do cliente)</div>
                   </div>
                 </div>
 
