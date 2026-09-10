@@ -38,6 +38,9 @@ import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
   updateProcess,
   createTask,
+  addTaskImpediment,
+  resolveTaskImpediment,
+  reopenTaskImpediment,
   updateTaskStatus,
   deleteTask,
   addChecklistItem,
@@ -76,7 +79,16 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
       serviceType: { select: { name: true } },
       assignees: { select: { userId: true } },
       stage: { select: { label: true, color: true } },
-      tasks: { orderBy: { createdAt: "asc" }, include: { assignee: { select: { name: true } } } },
+      tasks: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          assignee: { select: { name: true } },
+          impediments: {
+            orderBy: { createdAt: "desc" },
+            include: { createdBy: { select: { name: true } }, resolvedBy: { select: { name: true } } },
+          },
+        },
+      },
       checklist: { orderBy: { createdAt: "asc" } },
       stageHistory: {
         orderBy: { changedAt: "asc" },
@@ -306,10 +318,21 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                     priority: t.priority,
                     dueAt: t.dueAt ? t.dueAt.toISOString() : null,
                     assigneeName: t.assignee?.name ?? null,
+                    impediments: t.impediments.map((i) => ({
+                      id: i.id,
+                      title: i.title,
+                      createdAt: i.createdAt.toISOString(),
+                      createdByName: i.createdBy.name,
+                      resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
+                      resolvedByName: i.resolvedBy?.name ?? null,
+                    })),
                   }))}
                   createTask={createTask}
                   updateTaskStatus={updateTaskStatus}
                   deleteTask={deleteTask}
+                  addTaskImpediment={addTaskImpediment}
+                  resolveTaskImpediment={resolveTaskImpediment}
+                  reopenTaskImpediment={reopenTaskImpediment}
                 />
               ),
             },

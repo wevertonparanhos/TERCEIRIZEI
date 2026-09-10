@@ -5,12 +5,17 @@ import { getCurrentUser } from "@/lib/rbac";
 import { ProcessCreateForm } from "@/modules/processes/process-create-form";
 import { createProcess } from "@/modules/processes/actions";
 
-export default async function NovoProcessoPage() {
+export default async function NovoProcessoPage({ searchParams }: { searchParams: { area?: string } }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "ADMIN" && user.role !== "GESTOR") redirect("/processos");
 
-  const [clients, companies, serviceTypes] = await Promise.all([
+  const [workspaces, clients, companies, serviceTypes] = await Promise.all([
+    prisma.workspace.findMany({
+      where: { tenantId: user.tenantId },
+      select: { id: true, name: true },
+      orderBy: { position: "asc" },
+    }),
     prisma.client.findMany({
       where: { tenantId: user.tenantId, status: "ativo" },
       select: { id: true, name: true },
@@ -43,6 +48,8 @@ export default async function NovoProcessoPage() {
 
       <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ProcessCreateForm
+          workspaces={workspaces}
+          defaultWorkspaceId={searchParams.area}
           clients={clients}
           companies={companies}
           serviceTypes={serviceTypes.map((st) => ({

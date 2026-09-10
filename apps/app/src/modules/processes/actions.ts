@@ -88,22 +88,28 @@ export async function createProcess(input: CreateProcessInput) {
   });
   if (!client) throw new Error("Cliente não encontrado.");
 
+  const workspace = await prisma.workspace.findFirst({
+    where: { id: data.workspaceId, tenantId: user.tenantId },
+  });
+  if (!workspace) throw new Error("Área de trabalho não encontrada.");
+
   const serviceType = await prisma.serviceType.findFirst({
     where: { id: data.serviceTypeId, tenantId: user.tenantId },
   });
   if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
 
   const firstStage = await prisma.kanbanStage.findFirst({
-    where: { tenantId: user.tenantId },
+    where: { workspaceId: workspace.id },
     orderBy: { position: "asc" },
   });
-  if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para este tenant.");
+  if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para esta área de trabalho.");
 
   const number = await nextProcessNumber(user.tenantId);
 
   const process = await prisma.process.create({
     data: {
       tenantId: user.tenantId,
+      workspaceId: workspace.id,
       number,
       clientId: data.clientId,
       companyId: data.companyId || null,
@@ -168,8 +174,16 @@ export async function clientCreateProcess(input: ClientCreateProcessInput) {
   });
   if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
 
-  const firstStage = await prisma.kanbanStage.findFirst({
+  // Cliente não escolhe área de trabalho — processo aberto pelo portal sempre
+  // cai na primeira área do tenant (normalmente "Principal").
+  const workspace = await prisma.workspace.findFirst({
     where: { tenantId: user.tenantId },
+    orderBy: { position: "asc" },
+  });
+  if (!workspace) throw new Error("Nenhuma área de trabalho configurada para este tenant.");
+
+  const firstStage = await prisma.kanbanStage.findFirst({
+    where: { workspaceId: workspace.id },
     orderBy: { position: "asc" },
   });
   if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para este tenant.");
@@ -179,6 +193,7 @@ export async function clientCreateProcess(input: ClientCreateProcessInput) {
   const process = await prisma.process.create({
     data: {
       tenantId: user.tenantId,
+      workspaceId: workspace.id,
       number,
       clientId: user.clientId,
       companyId: data.companyId || null,
@@ -216,8 +231,10 @@ export async function updateProcessStage(processId: string, toStageId: string) {
   const user = await requireStaff();
   const process = await loadProcessForWrite(processId, user);
 
-  const stage = await prisma.kanbanStage.findFirst({ where: { id: toStageId, tenantId: user.tenantId } });
-  if (!stage) throw new Error("Etapa não encontrada.");
+  const stage = await prisma.kanbanStage.findFirst({
+    where: { id: toStageId, tenantId: user.tenantId, workspaceId: process.workspaceId },
+  });
+  if (!stage) throw new Error("Etapa não encontrada nesta área de trabalho.");
 
   if (process.stageId === toStageId) return;
 
@@ -384,6 +401,56 @@ export async function deleteTask(processId: string, taskId: string) {
   revalidatePath(`/processos/${processId}`);
 }
 
+// --- Pendência por tarefa (mesmo padrão do Impedimento do processo, só que
+// escopado a uma tarefa específica dentro do checklist de subtarefas) ---
+
+export async function addTaskImpediment(processId: string, taskId: string, title: string) {
+  const user = await requireStaff();
+  await loadProcessForWrite(processId, user);
+  if (!title.trim()) throw new Error("Descreva a pendência.");
+
+  const task = await prisma.task.findFirst({ where: { id: taskId, processId } });
+  if (!task) throw new Error("Tarefa não encontrada.");
+
+  await prisma.taskImpediment.create({ data: { taskId, title: title.trim(), createdById: user.id } });
+
+  revalidatePath(`/processos/${processId}`);
+}
+
+async function loadTaskImpedimentForWrite(processId: string, taskId: string, impedimentId: string) {
+  const impediment = await prisma.taskImpediment.findFirst({
+    where: { id: impedimentId, taskId, task: { processId } },
+  });
+  if (!impediment) throw new Error("Pendência não encontrada.");
+  return impediment;
+}
+
+export async function resolveTaskImpediment(processId: string, taskId: string, impedimentId: string) {
+  const user = await requireStaff();
+  await loadProcessForWrite(processId, user);
+  await loadTaskImpedimentForWrite(processId, taskId, impedimentId);
+
+  await prisma.taskImpediment.update({
+    where: { id: impedimentId },
+    data: { resolvedAt: new Date(), resolvedById: user.id },
+  });
+
+  revalidatePath(`/processos/${processId}`);
+}
+
+export async function reopenTaskImpediment(processId: string, taskId: string, impedimentId: string) {
+  const user = await requireStaff();
+  await loadProcessForWrite(processId, user);
+  await loadTaskImpedimentForWrite(processId, taskId, impedimentId);
+
+  await prisma.taskImpediment.update({
+    where: { id: impedimentId },
+    data: { resolvedAt: null, resolvedById: null },
+  });
+
+  revalidatePath(`/processos/${processId}`);
+}
+
 export async function addChecklistItem(processId: string, label: string, category?: string) {
   const user = await requireStaff();
   await loadProcessForWrite(processId, user);
@@ -413,30 +480,33 @@ export async function deleteChecklistItem(processId: string, itemId: string) {
 
 // --- Gestão das etapas (colunas) do Kanban ---
 
-export async function createStage(label: string) {
+export async function createStage(workspaceId: string, label: string) {
   const user = await requireManageAccess();
   if (!label.trim()) throw new Error("Informe o nome da etapa.");
 
+  const workspace = await prisma.workspace.findFirst({ where: { id: workspaceId, tenantId: user.tenantId } });
+  if (!workspace) throw new Error("Área de trabalho não encontrada.");
+
   const last = await prisma.kanbanStage.findFirst({
-    where: { tenantId: user.tenantId },
+    where: { workspaceId },
     orderBy: { position: "desc" },
   });
 
   await prisma.kanbanStage.create({
-    data: { tenantId: user.tenantId, label: label.trim(), position: (last?.position ?? 0) + 1 },
+    data: { tenantId: user.tenantId, workspaceId, label: label.trim(), position: (last?.position ?? 0) + 1 },
   });
 
   revalidatePath("/processos");
   revalidatePath("/processos/etapas");
 }
 
-export async function renameStage(stageId: string, label: string) {
+export async function renameStage(stageId: string, label: string, color?: string) {
   const user = await requireManageAccess();
   if (!label.trim()) throw new Error("Informe o nome da etapa.");
 
   const result = await prisma.kanbanStage.updateMany({
     where: { id: stageId, tenantId: user.tenantId },
-    data: { label: label.trim() },
+    data: { label: label.trim(), ...(color ? { color } : {}) },
   });
   if (result.count === 0) throw new Error("Etapa não encontrada.");
 
@@ -475,17 +545,110 @@ async function swapStagePositions(stageAId: string, stageBId: string) {
 export async function moveStage(stageId: string, direction: "up" | "down") {
   const user = await requireManageAccess();
 
+  const current = await prisma.kanbanStage.findFirst({ where: { id: stageId, tenantId: user.tenantId } });
+  if (!current) throw new Error("Etapa não encontrada.");
+
   const stages = await prisma.kanbanStage.findMany({
-    where: { tenantId: user.tenantId },
+    where: { workspaceId: current.workspaceId },
     orderBy: { position: "asc" },
   });
   const index = stages.findIndex((s) => s.id === stageId);
-  if (index === -1) throw new Error("Etapa não encontrada.");
 
   const targetIndex = direction === "up" ? index - 1 : index + 1;
   if (targetIndex < 0 || targetIndex >= stages.length) return;
 
   await swapStagePositions(stages[index].id, stages[targetIndex].id);
+
+  revalidatePath("/processos");
+  revalidatePath("/processos/etapas");
+}
+
+// --- Áreas de Trabalho (quadros Kanban independentes) ---
+
+export async function createWorkspace(name: string) {
+  const user = await requireManageAccess();
+  if (!name.trim()) throw new Error("Informe o nome da área de trabalho.");
+
+  const last = await prisma.workspace.findFirst({
+    where: { tenantId: user.tenantId },
+    orderBy: { position: "desc" },
+  });
+
+  const workspace = await prisma.workspace.create({
+    data: { tenantId: user.tenantId, name: name.trim(), position: (last?.position ?? 0) + 1 },
+  });
+
+  await prisma.kanbanStage.create({
+    data: { tenantId: user.tenantId, workspaceId: workspace.id, label: "Novo", position: 1 },
+  });
+
+  revalidatePath("/processos");
+  revalidatePath("/processos/etapas");
+  return { id: workspace.id };
+}
+
+export async function renameWorkspace(workspaceId: string, name: string) {
+  const user = await requireManageAccess();
+  if (!name.trim()) throw new Error("Informe o nome da área de trabalho.");
+
+  const result = await prisma.workspace.updateMany({
+    where: { id: workspaceId, tenantId: user.tenantId },
+    data: { name: name.trim() },
+  });
+  if (result.count === 0) throw new Error("Área de trabalho não encontrada.");
+
+  revalidatePath("/processos");
+  revalidatePath("/processos/etapas");
+}
+
+export async function deleteWorkspace(workspaceId: string) {
+  const user = await requireManageAccess();
+
+  const workspace = await prisma.workspace.findFirst({ where: { id: workspaceId, tenantId: user.tenantId } });
+  if (!workspace) throw new Error("Área de trabalho não encontrada.");
+
+  const totalWorkspaces = await prisma.workspace.count({ where: { tenantId: user.tenantId } });
+  if (totalWorkspaces <= 1) throw new Error("Precisa existir pelo menos uma área de trabalho.");
+
+  const inUse = await prisma.process.count({ where: { workspaceId } });
+  if (inUse > 0) throw new Error(`Existem ${inUse} processo(s) nesta área — mova-os antes de excluir.`);
+
+  await prisma.$transaction([
+    prisma.kanbanStage.deleteMany({ where: { workspaceId } }),
+    prisma.workspace.delete({ where: { id: workspaceId } }),
+  ]);
+
+  revalidatePath("/processos");
+  revalidatePath("/processos/etapas");
+}
+
+async function swapWorkspacePositions(workspaceAId: string, workspaceBId: string) {
+  const [a, b] = await Promise.all([
+    prisma.workspace.findUniqueOrThrow({ where: { id: workspaceAId } }),
+    prisma.workspace.findUniqueOrThrow({ where: { id: workspaceBId } }),
+  ]);
+
+  await prisma.$transaction([
+    prisma.workspace.update({ where: { id: a.id }, data: { position: -1 } }),
+    prisma.workspace.update({ where: { id: b.id }, data: { position: a.position } }),
+    prisma.workspace.update({ where: { id: a.id }, data: { position: b.position } }),
+  ]);
+}
+
+export async function moveWorkspace(workspaceId: string, direction: "up" | "down") {
+  const user = await requireManageAccess();
+
+  const workspaces = await prisma.workspace.findMany({
+    where: { tenantId: user.tenantId },
+    orderBy: { position: "asc" },
+  });
+  const index = workspaces.findIndex((w) => w.id === workspaceId);
+  if (index === -1) throw new Error("Área de trabalho não encontrada.");
+
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= workspaces.length) return;
+
+  await swapWorkspacePositions(workspaces[index].id, workspaces[targetIndex].id);
 
   revalidatePath("/processos");
   revalidatePath("/processos/etapas");

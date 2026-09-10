@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
+type Workspace = { id: string; name: string };
 type Client = { id: string; name: string };
 type Company = { id: string; clientId: string; razaoSocial: string };
 type ServiceType = {
@@ -30,11 +31,15 @@ function addDaysAsInputDate(days: number): string {
 }
 
 export function ProcessCreateForm({
+  workspaces,
+  defaultWorkspaceId,
   clients,
   companies,
   serviceTypes,
   onSubmit,
 }: {
+  workspaces: Workspace[];
+  defaultWorkspaceId?: string;
   clients: Client[];
   companies: Company[];
   serviceTypes: ServiceType[];
@@ -52,7 +57,10 @@ export function ProcessCreateForm({
     watch,
     setValue,
     formState: { errors, dirtyFields },
-  } = useForm<CreateProcessInput>({ resolver: zodResolver(createProcessSchema), defaultValues: { priority: "MEDIA" } });
+  } = useForm<CreateProcessInput>({
+    resolver: zodResolver(createProcessSchema),
+    defaultValues: { priority: "MEDIA", workspaceId: defaultWorkspaceId ?? workspaces[0]?.id },
+  });
 
   const watchedClientId = watch("clientId");
   const clientCompanies = useMemo(
@@ -99,6 +107,18 @@ export function ProcessCreateForm({
   return (
     <form onSubmit={handleSubmit(submit)} method="post" className="space-y-4" noValidate>
       <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="workspaceId">Área de trabalho</Label>
+          <Select id="workspaceId" {...register("workspaceId")}>
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </Select>
+          {errors.workspaceId && <p className="text-xs text-red-600">{errors.workspaceId.message}</p>}
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="clientId">Cliente</Label>
           <Select

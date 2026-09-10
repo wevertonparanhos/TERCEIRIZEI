@@ -16,7 +16,7 @@ export function StageManager({
 }: {
   stages: Stage[];
   createStage: (label: string) => Promise<void>;
-  renameStage: (stageId: string, label: string) => Promise<void>;
+  renameStage: (stageId: string, label: string, color?: string) => Promise<void>;
   deleteStage: (stageId: string) => Promise<void>;
   moveStage: (stageId: string, direction: "up" | "down") => Promise<void>;
 }) {
@@ -45,8 +45,9 @@ export function StageManager({
 
   async function handleRename(formData: FormData) {
     const label = (formData.get("label") as string) ?? "";
+    const color = (formData.get("color") as string) ?? "";
     const stageId = formData.get("stageId") as string;
-    await run(() => renameStage(stageId, label));
+    await run(() => renameStage(stageId, label, color));
     setEditingId(null);
   }
 
@@ -60,6 +61,13 @@ export function StageManager({
             {editingId === stage.id ? (
               <form action={handleRename} className="flex flex-1 items-center gap-2">
                 <input type="hidden" name="stageId" value={stage.id} />
+                <input
+                  type="color"
+                  name="color"
+                  defaultValue={stage.color}
+                  className="h-8 w-8 flex-none cursor-pointer rounded border border-border-strong bg-transparent p-0.5"
+                  title="Cor da etapa"
+                />
                 <Input name="label" defaultValue={stage.label} className="h-8 flex-1" autoFocus />
                 <Button type="submit" size="sm" disabled={busy}>
                   Salvar

@@ -20,6 +20,7 @@ describe("processSchema", () => {
 
 describe("createProcessSchema", () => {
   const valid = {
+    workspaceId: "workspace-1",
     clientId: "client-1",
     serviceTypeId: "service-1",
     description: "Abertura de empresa para o cliente.",

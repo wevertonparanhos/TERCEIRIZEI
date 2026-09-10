@@ -21,6 +21,7 @@ export type ProcessInput = z.infer<typeof processSchema>;
 // Criação direta de processo (staff) — antes era "abrir demanda", hoje já
 // nasce no Kanban (fusão Demanda/Processo).
 export const createProcessSchema = z.object({
+  workspaceId: z.string().min(1, "Selecione a área de trabalho."),
   clientId: z.string().min(1, "Selecione um cliente."),
   companyId: z.string().optional().or(z.literal("")),
   serviceTypeId: z.string().min(1, "Selecione o tipo de serviço."),

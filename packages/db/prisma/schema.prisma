@@ -119,6 +119,7 @@ model Tenant {
   serviceTypes     ServiceType[]
   processes        Process[]
   kanbanStages     KanbanStage[]
+  workspaces       Workspace[]
   counters         TenantCounter[]
   documents        Document[]
   documentRequests DocumentRequest[]
@@ -193,6 +194,8 @@ model User {
   processPresence    ProcessPresence[]
   createdImpediments  ProcessImpediment[] @relation("ImpedimentCreatedBy")
   resolvedImpediments ProcessImpediment[] @relation("ImpedimentResolvedBy")
+  createdTaskImpediments  TaskImpediment[] @relation("TaskImpedimentCreatedBy")
+  resolvedTaskImpediments TaskImpediment[] @relation("TaskImpedimentResolvedBy")
   assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
   recurringTaskCompletions RecurringTaskCompletion[]
   clientNotes              ClientNote[]
@@ -455,6 +458,7 @@ model TenantCounter {
 model Process {
   id                String         @id @default(uuid()) @db.Uuid
   tenantId          String         @map("tenant_id") @db.Uuid
+  workspaceId       String         @map("workspace_id") @db.Uuid
   number            Int
   clientId          String         @map("client_id") @db.Uuid
   companyId         String?        @map("company_id") @db.Uuid
@@ -470,6 +474,7 @@ model Process {
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
   tenant       Tenant                 @relation(fields: [tenantId], references: [id])
+  workspace    Workspace              @relation(fields: [workspaceId], references: [id])
   client       Client                 @relation(fields: [clientId], references: [id])
   company      Company?               @relation(fields: [companyId], references: [id])
   serviceType  ServiceType            @relation(fields: [serviceTypeId], references: [id])
@@ -490,9 +495,29 @@ model Process {
 
   @@unique([tenantId, number])
   @@index([tenantId])
+  @@index([workspaceId])
   @@index([clientId])
   @@index([stageId])
   @@map("processes")
+}
+
+// Áreas de Trabalho — quadros Kanban independentes dentro do mesmo tenant
+// (ex.: Principal, Licitações, Consultoria), cada um com seu próprio conjunto
+// de etapas. Livres/sem vínculo fixo com Tipo de Serviço — o usuário cria
+// quantas quiser e escolhe manualmente em qual área cada processo entra.
+model Workspace {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  position  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  stages    KanbanStage[]
+  processes Process[]
+
+  @@unique([tenantId, position])
+  @@map("workspaces")
 }
 
 // múltiplos responsáveis por processo — substitui o antigo Process.assignedUserId
@@ -532,22 +557,25 @@ model ProcessInstallment {
   @@map("process_installments")
 }
 
-// colunas do Kanban de processos — configuráveis por tenant, não um enum fixo,
-// para o time poder criar/renomear/reordenar etapas conforme o fluxo real de trabalho.
+// colunas do Kanban de processos — configuráveis por área de trabalho, não um enum
+// fixo, para o time poder criar/renomear/reordenar/colorir etapas por quadro conforme
+// o fluxo real de trabalho de cada área.
 model KanbanStage {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  label     String
-  position  Int
-  color     String   @default("#64748B")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  label       String
+  position    Int
+  color       String   @default("#64748B")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id])
   processes    Process[]
   movesFrom    ProcessStage[] @relation("StageFrom")
   movesTo      ProcessStage[] @relation("StageTo")
 
-  @@unique([tenantId, position])
+  @@unique([workspaceId, position])
   @@map("kanban_stages")
 }
 
@@ -580,11 +608,31 @@ model Task {
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
 
-  process  Process @relation(fields: [processId], references: [id], onDelete: Cascade)
-  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  process     Process           @relation(fields: [processId], references: [id], onDelete: Cascade)
+  assignee    User?             @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  impediments TaskImpediment[]
 
   @@index([processId])
   @@map("tasks")
+}
+
+// Pendência por tarefa — mesmo padrão do ProcessImpediment, só que escopado a uma
+// tarefa específica dentro do processo (não ao processo inteiro).
+model TaskImpediment {
+  id           String    @id @default(uuid()) @db.Uuid
+  taskId       String    @map("task_id") @db.Uuid
+  title        String
+  createdById  String    @map("created_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+  resolvedAt   DateTime? @map("resolved_at")
+  resolvedById String?   @map("resolved_by_id") @db.Uuid
+
+  task       Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdBy  User  @relation("TaskImpedimentCreatedBy", fields: [createdById], references: [id])
+  resolvedBy User? @relation("TaskImpedimentResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([taskId])
+  @@map("task_impediments")
 }
 
 model ProcessChecklistItem {

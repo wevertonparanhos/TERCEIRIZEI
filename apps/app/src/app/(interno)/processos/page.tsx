@@ -5,6 +5,7 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { KanbanBoard, type KanbanCard, type Stage } from "@/modules/processes/kanban-board";
+import { WorkspaceTabs } from "@/modules/processes/workspace-tabs";
 import {
   isProcessOverdue,
   hasUnreadClientComment,
@@ -12,7 +13,7 @@ import {
   isPresenceActive,
   isDueToday,
 } from "@/modules/processes/labels";
-import { updateProcessStage } from "@/modules/processes/actions";
+import { updateProcessStage, createWorkspace } from "@/modules/processes/actions";
 
 function KpiCard({
   value,
@@ -47,18 +48,27 @@ function KpiCard({
   );
 }
 
-export default async function ProcessosPage() {
+export default async function ProcessosPage({ searchParams }: { searchParams: { area?: string } }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"].includes(user.role)) redirect("/");
 
   const canManage = user.role === "ADMIN" || user.role === "GESTOR";
 
+  const workspaces = await prisma.workspace.findMany({
+    where: { tenantId: user.tenantId },
+    orderBy: { position: "asc" },
+  });
+  const activeWorkspace = workspaces.find((w) => w.id === searchParams.area) ?? workspaces[0];
+
   const [stages, processes] = await Promise.all([
-    prisma.kanbanStage.findMany({ where: { tenantId: user.tenantId }, orderBy: { position: "asc" } }),
+    activeWorkspace
+      ? prisma.kanbanStage.findMany({ where: { workspaceId: activeWorkspace.id }, orderBy: { position: "asc" } })
+      : Promise.resolve([]),
     prisma.process.findMany({
       where: {
         tenantId: user.tenantId,
+        ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {}),
         ...(user.role === "OPERACIONAL" ? { assignees: { some: { userId: user.id } } } : {}),
       },
       include: {
@@ -123,18 +133,29 @@ export default async function ProcessosPage() {
           <p className="text-sm text-muted">{processes.length} processo(s)</p>
         </div>
         <div className="flex gap-2">
-          {canManage && (
-            <Link href="/processos/etapas">
+          {canManage && activeWorkspace && (
+            <Link href={`/processos/etapas?area=${activeWorkspace.id}`}>
               <Button variant="outline">Gerenciar etapas</Button>
             </Link>
           )}
-          {canManage && (
-            <Link href="/processos/nova">
+          {canManage && activeWorkspace && (
+            <Link href={`/processos/nova?area=${activeWorkspace.id}`}>
               <Button>+ Novo Processo</Button>
             </Link>
           )}
         </div>
       </div>
+
+      {activeWorkspace && (
+        <div className="mt-4 flex-none">
+          <WorkspaceTabs
+            workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+            activeId={activeWorkspace.id}
+            basePath="/processos"
+            createWorkspace={createWorkspace}
+          />
+        </div>
+      )}
 
       <div className="mt-4 grid flex-none grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <KpiCard value={kpis.total} label="Total" icon={ClipboardList} />
