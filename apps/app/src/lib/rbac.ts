@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@terceirizei/db";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -13,8 +14,11 @@ export type CurrentUser = {
   role: Role;
 };
 
-/** Perfil de aplicação (public.users) do usuário autenticado na requisição atual, ou null. */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+/** Perfil de aplicação (public.users) do usuário autenticado na requisição atual, ou null.
+ * `cache()` deduplica chamadas dentro da mesma requisição — sem isso, layout + página
+ * (e qualquer componente aninhado) cada um dispara sua própria verificação de sessão
+ * + consulta ao banco, dobrando (ou mais) o custo fixo de autenticação por clique. */
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = createSupabaseServerClient();
   const {
     data: { user: authUser },
@@ -40,7 +44,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     email: profile.email,
     role: profile.role.name,
   };
-}
+});
 
 /** Checagem fina baseada na tabela role_permissions — usada conforme cada módulo declara seus recursos. */
 export async function roleHasPermission(role: Role, resource: string, action: string) {
