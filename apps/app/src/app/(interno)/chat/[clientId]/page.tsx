@@ -33,7 +33,7 @@ export default async function ChatThreadPage({ params }: { params: { clientId: s
         <h1 className="mt-1 text-2xl font-bold text-ink">{client.name}</h1>
       </div>
 
-      <div className="mt-4 flex-1 overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="mt-4 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-sm">
         <ChatThread
           messages={client.messages.map((m) => ({
             id: m.id,

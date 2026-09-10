@@ -41,7 +41,7 @@ export default async function NovoProcessoPage() {
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-ink">Novo Processo</h1>
 
-      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+      <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ProcessCreateForm
           clients={clients}
           companies={companies}

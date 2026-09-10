@@ -24,7 +24,7 @@ export default async function NovaPropostaPage() {
       <h1 className="mt-2 text-2xl font-bold text-ink">Nova Proposta</h1>
       <p className="mt-1 text-sm text-muted">Adicione os itens da proposta depois de criá-la.</p>
 
-      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+      <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ProposalForm clients={clients} onSubmit={createProposal} />
       </div>
     </div>

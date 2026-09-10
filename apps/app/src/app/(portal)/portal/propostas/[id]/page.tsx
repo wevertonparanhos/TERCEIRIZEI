@@ -44,12 +44,12 @@ export default async function PortalPropostaDetalhePage({ params }: { params: { 
       </div>
 
       {proposal.notes && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <p className="whitespace-pre-wrap text-sm text-muted">{proposal.notes}</p>
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink">Itens</h2>
           <span className="font-mono text-lg font-semibold text-ink">{currencyFormatter.format(total)}</span>
@@ -65,7 +65,7 @@ export default async function PortalPropostaDetalhePage({ params }: { params: { 
       </div>
 
       {proposal.respondedAt ? (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <h2 className="text-base font-semibold text-ink">Sua resposta</h2>
           <p className="mt-2 text-sm text-muted">
             {proposal.status === "ACEITA" ? "Aceita" : "Recusada"} em {proposal.respondedAt.toLocaleString("pt-BR")}
@@ -73,7 +73,7 @@ export default async function PortalPropostaDetalhePage({ params }: { params: { 
           {proposal.responseNote && <p className="mt-2 whitespace-pre-wrap text-sm text-ink">{proposal.responseNote}</p>}
         </div>
       ) : canRespond ? (
-        <div className="rounded-lg border border-border bg-surface p-6 print:hidden">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6 print:hidden">
           <ProposalResponse proposalId={proposal.id} respond={clientRespondProposal} />
         </div>
       ) : status === "EXPIRADA" ? (

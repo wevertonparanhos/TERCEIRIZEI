@@ -58,7 +58,7 @@ export default async function PropostaDetalhePage({ params }: { params: { id: st
       </div>
 
       {isDraft && canManage ? (
-        <div className="rounded-lg border border-border bg-surface p-6 print:hidden">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6 print:hidden">
           <h2 className="mb-4 text-base font-semibold text-ink">Dados da proposta</h2>
           <ProposalForm
             clients={clients}
@@ -74,14 +74,14 @@ export default async function PropostaDetalhePage({ params }: { params: { id: st
         </div>
       ) : (
         proposal.notes && (
-          <div className="rounded-lg border border-border bg-surface p-6">
+          <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
             <h2 className="text-base font-semibold text-ink">Observações</h2>
             <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{proposal.notes}</p>
           </div>
         )
       )}
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ProposalItems
           proposalId={proposal.id}
           items={proposal.items.map((i) => ({ id: i.id, description: i.description, value: i.value.toString() }))}
@@ -92,7 +92,7 @@ export default async function PropostaDetalhePage({ params }: { params: { id: st
       </div>
 
       {proposal.status !== "RASCUNHO" && proposal.respondedAt && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <h2 className="text-base font-semibold text-ink">Resposta do cliente</h2>
           <p className="mt-2 text-sm text-muted">
             {proposal.status === "ACEITA" ? "Aceita" : "Recusada"} em{" "}

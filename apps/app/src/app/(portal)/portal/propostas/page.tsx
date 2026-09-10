@@ -30,7 +30,7 @@ export default async function PortalPropostasPage() {
             <Link
               key={p.id}
               href={`/portal/propostas/${p.id}`}
-              className="block rounded-lg border border-border bg-surface p-5 hover:shadow-sm"
+              className="block rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs text-muted-soft">#{p.number}</span>

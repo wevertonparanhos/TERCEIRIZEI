@@ -29,12 +29,12 @@ export default async function EquipePage() {
       <h1 className="text-2xl font-bold text-ink">Equipe</h1>
       <p className="mt-1 text-sm text-muted">{staff.length} membro(s)</p>
 
-      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+      <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <h2 className="mb-4 text-base font-semibold text-ink">Convidar novo membro</h2>
         <InviteStaffForm invite={inviteStaffMember} />
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-border/70 bg-surface shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">

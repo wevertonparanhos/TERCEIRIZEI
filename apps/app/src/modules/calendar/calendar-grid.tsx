@@ -16,7 +16,7 @@ export function CalendarGrid({ monthKey, eventsByDay }: { monthKey: string; even
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-sm">
         <div className="grid grid-cols-7 border-b border-border bg-surface-alt text-xs font-medium uppercase tracking-wide text-muted">
           {WEEKDAY_LABELS.map((w) => (
             <div key={w} className="px-2 py-2 text-center">
@@ -61,7 +61,7 @@ export function CalendarGrid({ monthKey, eventsByDay }: { monthKey: string; even
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-4">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-4">
         <h3 className="text-sm font-semibold text-ink">
           {selectedDay ? formatSelectedDay(selectedDay) : "Selecione um dia"}
         </h3>

@@ -54,7 +54,7 @@ export default async function FaturaDetalhePage({ params }: { params: { id: stri
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink">Total</h2>
           <span className="font-mono text-lg font-semibold text-ink">
@@ -64,7 +64,7 @@ export default async function FaturaDetalhePage({ params }: { params: { id: stri
         {invoice.notes && <p className="mt-3 whitespace-pre-wrap text-sm text-muted">{invoice.notes}</p>}
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <InvoiceItems
           invoiceId={invoice.id}
           items={invoice.items.map((item) => ({
@@ -81,7 +81,7 @@ export default async function FaturaDetalhePage({ params }: { params: { id: stri
       </div>
 
       {invoice.status === "PENDENTE" && (
-        <div className="space-y-4 rounded-lg border border-border bg-surface p-6">
+        <div className="space-y-4 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <h2 className="text-base font-semibold text-ink">Registrar pagamento</h2>
           <MarkPaidForm invoiceId={invoice.id} markPaid={markInvoicePaid} />
           <div className="border-t border-border pt-4">
@@ -91,7 +91,7 @@ export default async function FaturaDetalhePage({ params }: { params: { id: stri
       )}
 
       {invoice.status === "PAGA" && invoice.paidAt && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <h2 className="text-base font-semibold text-ink">Pagamento</h2>
           <p className="mt-2 text-sm text-muted">
             Pago em {invoice.paidAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}

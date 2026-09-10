@@ -98,7 +98,7 @@ export function RecurringTasksBoard({
               + Nova Tarefa Recorrente
             </Button>
           ) : (
-            <form action={handleCreate} className="rounded-lg border border-border bg-surface p-6">
+            <form action={handleCreate} className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="clientId">Cliente</Label>
@@ -159,7 +159,7 @@ export function RecurringTasksBoard({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+      <div className="overflow-x-auto rounded-2xl border border-border/70 bg-surface shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">

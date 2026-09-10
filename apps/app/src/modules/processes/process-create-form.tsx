@@ -173,7 +173,7 @@ export function ProcessCreateForm({
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface-alt p-4">
+      <div className="rounded-2xl border border-border/70 bg-surface-alt shadow-sm p-4">
         <label className="flex items-center gap-2 text-sm font-medium text-ink">
           <input
             type="checkbox"

@@ -66,7 +66,7 @@ export function ContactList({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-6">
+    <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-ink">Contatos</h2>
         {canWrite && (

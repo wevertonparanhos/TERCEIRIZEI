@@ -21,7 +21,7 @@ export default async function PortalChatPage() {
         <p className="text-sm text-muted">Fale diretamente com a equipe da Terceirizei.</p>
       </div>
 
-      <div className="mt-4 flex-1 overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="mt-4 flex-1 overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-sm">
         <ChatThread
           messages={messages.map((m) => ({
             id: m.id,

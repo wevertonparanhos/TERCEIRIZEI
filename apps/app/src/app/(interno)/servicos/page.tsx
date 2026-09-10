@@ -35,7 +35,7 @@ export default async function ServicosPage() {
         </Link>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="mt-6 overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-sm">
         <ul className="divide-y divide-border">
           {serviceTypes.map((st) => (
             <li key={st.id}>

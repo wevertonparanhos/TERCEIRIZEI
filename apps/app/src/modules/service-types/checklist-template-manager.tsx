@@ -70,7 +70,7 @@ export function ChecklistTemplateManager({
                   {group.category ?? "Outros"}
                 </p>
               )}
-              <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+              <ul className="divide-y divide-border rounded-2xl border border-border/70 bg-surface shadow-sm">
                 {group.items.map((item) => {
                   const index = items.findIndex((i) => i.id === item.id);
                   return (

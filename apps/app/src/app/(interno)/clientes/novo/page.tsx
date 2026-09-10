@@ -23,7 +23,7 @@ export default async function NovoClientePage() {
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-ink">Novo Cliente</h1>
 
-      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+      <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ClientForm owners={owners} submitLabel="Criar cliente" onSubmit={createClient} />
       </div>
     </div>

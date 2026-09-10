@@ -23,7 +23,7 @@ export default async function PortalNovaDemandaPage() {
         Conte pra gente o que você precisa — nossa equipe vai analisar e entrar em contato.
       </p>
 
-      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+      <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ClientProcessForm companies={companies} serviceTypes={serviceTypes} onSubmit={clientCreateProcess} />
       </div>
     </div>

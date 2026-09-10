@@ -74,7 +74,7 @@ export default async function FaturarProcessosPage({
       </form>
 
       {searchParams.clientId && (
-        <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+        <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           {processes.length === 0 ? (
             <p className="text-sm text-muted-soft">
               Nenhum processo com valor definido e sem fatura vinculada para este cliente.

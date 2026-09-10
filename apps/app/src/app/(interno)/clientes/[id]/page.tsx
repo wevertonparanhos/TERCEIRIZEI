@@ -116,7 +116,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <h2 className="mb-4 text-base font-semibold text-ink">Dados do cliente</h2>
         <ClientForm
           owners={owners}
@@ -168,7 +168,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
       )}
 
       {user.role !== "OPERACIONAL" && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-ink">Pagamentos</h2>
             <Link href={`/clientes/${client.id}/relatorio`} className="text-sm text-accent hover:underline">
@@ -207,7 +207,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
       )}
 
       {user.role !== "FINANCEIRO" && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-ink">Tarefas Recorrentes</h2>
             <Link href="/tarefas-recorrentes" className="text-sm text-accent hover:underline">
@@ -248,7 +248,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
       )}
 
       {canWriteDocs && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <ClientNotes
             clientId={client.id}
             notes={clientNotes.map((n) => ({
@@ -270,7 +270,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
 
       {user.role !== "FINANCEIRO" && (
         <>
-          <div className="rounded-lg border border-border bg-surface p-6">
+          <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
             <DocumentList
               clientId={client.id}
               processId={null}
@@ -299,7 +299,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
             />
           </div>
 
-          <div className="rounded-lg border border-border bg-surface p-6">
+          <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
             <DocumentRequests
               clientId={client.id}
               processId={null}

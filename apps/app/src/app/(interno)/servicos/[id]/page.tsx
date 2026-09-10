@@ -37,7 +37,7 @@ export default async function ServicoDetalhePage({ params }: { params: { id: str
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ServiceTypeForm
           submitLabel="Salvar alterações"
           defaultValues={{
@@ -54,7 +54,7 @@ export default async function ServicoDetalhePage({ params }: { params: { id: str
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ChecklistTemplateManager
           serviceTypeId={serviceType.id}
           items={serviceType.checklistTemplate.map((i) => ({ id: i.id, label: i.label, category: i.category }))}

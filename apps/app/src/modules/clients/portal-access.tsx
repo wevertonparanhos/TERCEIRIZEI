@@ -49,7 +49,7 @@ export function PortalAccess({
   // antes do usuário conseguir copiá-lo.
   if (inviteLink) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <h2 className="text-base font-semibold text-ink">Acesso ao Portal</h2>
         <div className="mt-4 rounded-md border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-4">
           <p className="text-sm font-medium text-emerald-800 dark:text-emerald-400">
@@ -68,7 +68,7 @@ export function PortalAccess({
 
   if (linkedEmail) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <h2 className="text-base font-semibold text-ink">Acesso ao Portal</h2>
         <p className="mt-2 text-sm text-muted">
           Este cliente já acessa o Portal com o e-mail <b>{linkedEmail}</b>.
@@ -78,7 +78,7 @@ export function PortalAccess({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-6">
+    <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
       <h2 className="text-base font-semibold text-ink">Acesso ao Portal</h2>
       <p className="mt-1 text-sm text-muted">
         Este cliente ainda não tem acesso ao Portal. Crie o acesso e envie o link pra ele definir a própria senha.

@@ -47,7 +47,7 @@ function ProfileSection({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-6">
+    <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
       <h2 className="text-base font-semibold text-ink">Dados pessoais</h2>
       <form onSubmit={handleSubmit(submit)} method="post" className="mt-4 space-y-4" noValidate>
         <div className="space-y-1.5">
@@ -110,7 +110,7 @@ function PasswordSection() {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-6">
+    <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
       <h2 className="text-base font-semibold text-ink">Trocar senha</h2>
       <form onSubmit={handleSubmit(submit)} method="post" className="mt-4 space-y-4" noValidate>
         <div className="space-y-1.5">

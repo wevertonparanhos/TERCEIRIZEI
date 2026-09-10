@@ -30,7 +30,7 @@ export default async function AtividadesPage() {
         {groups.map((group) => (
           <div key={group.key}>
             <h2 className="text-sm font-semibold capitalize text-muted-soft">{group.label}</h2>
-            <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-surface">
+            <ul className="mt-2 divide-y divide-border rounded-2xl border border-border/70 bg-surface shadow-sm">
               {group.logs.map((log) => (
                 <li key={log.id} className="flex items-start gap-3 px-4 py-3">
                   <span className={`mt-1.5 h-2 w-2 flex-none rounded-full ${ENTITY_TYPE_DOT[log.entityType] ?? "bg-slate-500"}`} />

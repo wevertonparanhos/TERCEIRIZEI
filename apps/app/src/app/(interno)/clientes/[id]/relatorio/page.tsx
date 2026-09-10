@@ -84,15 +84,15 @@ export default async function ClienteRelatorioPage({
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="rounded-lg border border-border bg-surface p-5 print:border-slate-300">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 print:border-slate-300">
           <p className="text-xl font-bold text-ink">{currencyFormatter.format(summary.total)}</p>
           <p className="text-sm text-muted">Total ({summary.count})</p>
         </div>
-        <div className="rounded-lg border border-border bg-surface p-5 print:border-slate-300">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 print:border-slate-300">
           <p className="text-xl font-bold text-emerald-600">{currencyFormatter.format(summary.recebido)}</p>
           <p className="text-sm text-muted">Recebido</p>
         </div>
-        <div className="rounded-lg border border-border bg-surface p-5 print:border-slate-300">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 print:border-slate-300">
           <p className="text-xl font-bold text-ink">{currencyFormatter.format(summary.pendente)}</p>
           <p className="text-sm text-muted">Pendente</p>
         </div>
@@ -102,7 +102,7 @@ export default async function ClienteRelatorioPage({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-surface print:border-slate-300">
+      <div className="overflow-x-auto rounded-2xl border border-border/70 bg-surface shadow-sm print:border-slate-300">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted print:bg-transparent">

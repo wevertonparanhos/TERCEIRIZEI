@@ -196,12 +196,12 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <h2 className="mb-2 text-base font-semibold text-ink">Descrição</h2>
         <p className="whitespace-pre-wrap text-sm text-ink">{process.description}</p>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ProcessTabs
           tabs={[
             {

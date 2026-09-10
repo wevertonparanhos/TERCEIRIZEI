@@ -68,7 +68,7 @@ export default async function ClientesPage({
         </Button>
       </form>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-border/70 bg-surface shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">

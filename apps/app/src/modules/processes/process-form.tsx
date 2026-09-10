@@ -102,7 +102,7 @@ export function ProcessForm({
         </div>
       </fieldset>
 
-      <fieldset disabled={readOnly} className="rounded-lg border border-border bg-surface-alt p-4">
+      <fieldset disabled={readOnly} className="rounded-2xl border border-border/70 bg-surface-alt shadow-sm p-4">
         <label className="flex items-center justify-between gap-3">
           <span>
             <span className="block text-sm font-medium text-ink">Visível no portal do cliente</span>

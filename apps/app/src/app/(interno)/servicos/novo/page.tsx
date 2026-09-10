@@ -19,7 +19,7 @@ export default async function NovoServicoPage() {
         Depois de criado, você pode adicionar o checklist padrão na tela do modelo.
       </p>
 
-      <div className="mt-6 rounded-lg border border-border bg-surface p-6">
+      <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ServiceTypeForm submitLabel="Criar modelo" onSubmit={createServiceType} />
       </div>
     </div>

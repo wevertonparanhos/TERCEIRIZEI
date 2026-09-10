@@ -61,15 +61,15 @@ export default async function FinanceiroPage({
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="rounded-lg border border-border bg-surface p-5">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5">
           <p className="text-xl font-bold text-ink">{currencyFormatter.format(summary.total)}</p>
           <p className="text-sm text-muted">{summary.count} demanda(s) no período</p>
         </div>
-        <div className="rounded-lg border border-border bg-surface p-5">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5">
           <p className="text-xl font-bold text-emerald-600">{currencyFormatter.format(summary.recebido)}</p>
           <p className="text-sm text-muted">Recebido</p>
         </div>
-        <div className="rounded-lg border border-border bg-surface p-5">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5">
           <p className="text-xl font-bold text-ink">{currencyFormatter.format(summary.pendente)}</p>
           <p className="text-sm text-muted">Pendente</p>
         </div>
@@ -79,7 +79,7 @@ export default async function FinanceiroPage({
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-border/70 bg-surface shadow-sm">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">

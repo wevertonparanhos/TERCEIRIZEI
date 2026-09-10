@@ -33,7 +33,7 @@ export default async function PortalFaturasPage() {
             <Link
               key={i.id}
               href={`/portal/processos/${i.processId}`}
-              className="block rounded-lg border border-border bg-surface p-5 hover:shadow-sm"
+              className="block rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs text-muted-soft">#{i.process.number}{installmentLabel}</span>

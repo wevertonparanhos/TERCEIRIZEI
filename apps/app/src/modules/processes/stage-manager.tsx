@@ -52,7 +52,7 @@ export function StageManager({
 
   return (
     <div>
-      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+      <ul className="divide-y divide-border rounded-2xl border border-border/70 bg-surface shadow-sm">
         {stages.map((stage, index) => (
           <li key={stage.id} className="flex items-center gap-3 px-4 py-3">
             <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ backgroundColor: stage.color }} />

@@ -23,7 +23,7 @@ export default async function PortalProcessosPage() {
 
       <div className="mt-6 space-y-3">
         {processes.length === 0 && (
-          <p className="rounded-lg border border-border bg-surface p-6 text-sm text-muted-soft">
+          <p className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6 text-sm text-muted-soft">
             Nenhum processo em andamento.
           </p>
         )}
@@ -31,7 +31,7 @@ export default async function PortalProcessosPage() {
           <Link
             key={p.id}
             href={`/portal/processos/${p.id}`}
-            className="flex items-center justify-between rounded-lg border border-border bg-surface p-4 hover:shadow-sm"
+            className="flex items-center justify-between rounded-2xl border border-border/70 bg-surface shadow-sm p-4 hover:shadow-sm"
           >
             <div>
               <p className="text-sm font-medium text-ink">

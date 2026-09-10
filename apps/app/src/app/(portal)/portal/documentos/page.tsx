@@ -35,7 +35,7 @@ export default async function PortalDocumentosPage() {
         <p className="text-sm text-muted">Documentos gerais, não ligados a um processo específico.</p>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <DocumentList
           clientId={user.clientId}
           processId={null}
@@ -63,7 +63,7 @@ export default async function PortalDocumentosPage() {
       </div>
 
       {requests.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <DocumentRequests
             clientId={user.clientId}
             processId={null}

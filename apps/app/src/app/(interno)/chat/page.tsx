@@ -40,7 +40,7 @@ export default async function ChatListPage() {
       <h1 className="text-2xl font-bold text-ink">Chat</h1>
       <p className="text-sm text-muted">Conversa direta com cada cliente.</p>
 
-      <div className="mt-6 max-w-2xl divide-y divide-border rounded-lg border border-border bg-surface">
+      <div className="mt-6 max-w-2xl divide-y divide-border rounded-2xl border border-border/70 bg-surface shadow-sm">
         {rows.length === 0 && <p className="px-4 py-10 text-center text-sm text-muted-soft">Nenhum cliente ativo.</p>}
         {rows.map((row) => (
           <Link key={row.id} href={`/chat/${row.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface-alt">

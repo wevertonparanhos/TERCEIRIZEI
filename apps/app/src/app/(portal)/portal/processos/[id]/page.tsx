@@ -69,13 +69,13 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <h2 className="mb-2 text-base font-semibold text-ink">Descrição</h2>
         <p className="whitespace-pre-wrap text-sm text-ink">{process.description}</p>
       </div>
 
       {process.checklist.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <h2 className="mb-3 text-base font-semibold text-ink">Checklist</h2>
           <ul className="space-y-1.5">
             {process.checklist.map((item) => (
@@ -88,7 +88,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <DocumentList
           clientId={user.clientId}
           processId={process.id}
@@ -119,7 +119,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
       </div>
 
       {process.documentRequests.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface p-6">
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           <DocumentRequests
             clientId={user.clientId}
             processId={process.id}
@@ -137,7 +137,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-surface p-6">
+      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <ProcessComments
           processId={process.id}
           comments={process.comments.map((c) => ({

@@ -39,21 +39,21 @@ export default async function PortalDashboardPage() {
       <h1 className="mt-1 text-2xl font-bold text-ink">{user.name}</h1>
 
       <div className="mt-6 grid grid-cols-3 gap-4">
-        <Link href="/portal/processos" className="rounded-lg border border-border bg-surface p-5 hover:shadow-sm">
+        <Link href="/portal/processos" className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm">
           <p className="text-2xl font-bold text-ink">{activeProcesses}</p>
           <p className="text-sm text-muted">Processos em andamento</p>
         </Link>
-        <Link href="/portal/documentos" className="rounded-lg border border-border bg-surface p-5 hover:shadow-sm">
+        <Link href="/portal/documentos" className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm">
           <p className="text-2xl font-bold text-ink">{pendingRequests}</p>
           <p className="text-sm text-muted">Documentos pendentes</p>
         </Link>
-        <Link href="/portal/faturas" className="rounded-lg border border-border bg-surface p-5 hover:shadow-sm">
+        <Link href="/portal/faturas" className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm">
           <p className="text-2xl font-bold text-ink">{unpaidProcesses.length}</p>
           <p className="text-sm text-muted">Pagamentos pendentes</p>
         </Link>
       </div>
 
-      <div className="mt-8 rounded-lg border border-border bg-surface p-6">
+      <div className="mt-8 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink">Demandas recentes</h2>
           <Link href="/portal/nova-demanda" className="text-sm text-accent hover:underline">
@@ -87,7 +87,7 @@ export default async function PortalDashboardPage() {
         )}
       </div>
 
-      <Link href="/portal/faturas" className="mt-6 block rounded-lg border border-border bg-surface p-6 hover:shadow-sm">
+      <Link href="/portal/faturas" className="mt-6 block rounded-2xl border border-border/70 bg-surface shadow-sm p-6 hover:shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink">Financeiro</h2>
           <span className="text-sm text-accent hover:underline">Ver detalhes →</span>
