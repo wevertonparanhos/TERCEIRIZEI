@@ -229,23 +229,18 @@ export default async function DashboardPage() {
   const sixMonthsStart = new Date(Date.UTC(last6Months[0].year, last6Months[0].month, 1));
 
   const [
-    activeProcesses,
     activeClients,
     newClientsThisMonth,
     stages,
     deadlines,
-    paymentsThisMonth,
     overdueProcesses,
-    processesForStale,
-    processesForUnread,
+    activeProcessesDetail,
     overdueRecurringTasks,
     unreadMentions,
     installmentsForChart,
     processesCreatedForChart,
     stageChangesConcludedForChart,
-    activeProcessesByServiceType,
   ] = await Promise.all([
-      prisma.process.count({ where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } } }),
       prisma.client.count({ where: { tenantId: user.tenantId, status: "ativo" } }),
       prisma.client.count({ where: { tenantId: user.tenantId, createdAt: { gte: startOfMonth } } }),
       prisma.kanbanStage.findMany({
@@ -259,25 +254,16 @@ export default async function DashboardPage() {
         take: 5,
         include: { client: { select: { name: true } } },
       }),
-      canSeeFinance
-        ? prisma.processInstallment.findMany({
-            where: { process: { tenantId: user.tenantId }, paymentDueDate: { gte: monthStart, lte: monthEnd } },
-            select: { value: true, paymentDueDate: true, paidAt: true },
-          })
-        : Promise.resolve([]),
       prisma.process.count({
         where: { tenantId: user.tenantId, dueAt: { lt: now }, stage: { label: ACTIVE_STAGE_FILTER } },
       }),
+      // Junta em uma query só o que antes eram 4 (stale/não-lido/tipo de serviço/contagem
+      // de ativos) — todas filtravam exatamente os mesmos processos ativos do tenant.
       prisma.process.findMany({
         where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } },
         select: {
           stage: { select: { label: true } },
           stageHistory: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
-        },
-      }),
-      prisma.process.findMany({
-        where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } },
-        select: {
           comments: {
             where: { author: { role: { name: "CLIENTE" } } },
             orderBy: { createdAt: "desc" },
@@ -285,6 +271,7 @@ export default async function DashboardPage() {
             select: { createdAt: true },
           },
           commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
+          serviceType: { select: { name: true } },
         },
       }),
       prisma.recurringTask.count({
@@ -293,6 +280,8 @@ export default async function DashboardPage() {
       prisma.processCommentMention.count({
         where: { mentionedUserId: user.id, readAt: null, comment: { process: { tenantId: user.tenantId } } },
       }),
+      // Cobre os últimos 6 meses inteiros (inclui o mês atual) — o resumo financeiro
+      // do mês corrente é derivado deste mesmo resultado, sem query separada.
       canSeeFinance
         ? prisma.processInstallment.findMany({
             where: {
@@ -310,11 +299,12 @@ export default async function DashboardPage() {
         where: { process: { tenantId: user.tenantId }, changedAt: { gte: sixMonthsStart }, toStage: { label: "Concluído" } },
         select: { changedAt: true },
       }),
-      prisma.process.findMany({
-        where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } },
-        select: { serviceType: { select: { name: true } } },
-      }),
     ]);
+
+  const activeProcesses = activeProcessesDetail.length;
+  const paymentsThisMonth = installmentsForChart.filter(
+    (i) => i.paymentDueDate && i.paymentDueDate >= monthStart && i.paymentDueDate <= monthEnd
+  );
 
   const previstoSeries = sumByMonth(
     installmentsForChart.map((r) => ({ date: r.paymentDueDate, value: Number(r.value) })),
@@ -344,16 +334,16 @@ export default async function DashboardPage() {
     concluidos: concluidosSeries[i],
   }));
 
-  const serviceTypeData = countByLabel(activeProcessesByServiceType.map((p) => ({ label: p.serviceType.name })));
+  const serviceTypeData = countByLabel(activeProcessesDetail.map((p) => ({ label: p.serviceType.name })));
 
   const financeSummary = summarizePayments(
     paymentsThisMonth.map((p) => ({ value: Number(p.value), paymentDueDate: p.paymentDueDate, paidAt: p.paidAt }))
   );
-  const unreadCommentsCount = processesForUnread.filter((p) =>
+  const unreadCommentsCount = activeProcessesDetail.filter((p) =>
     hasUnreadClientComment(p.comments[0]?.createdAt ?? null, p.commentReads[0]?.lastReadAt ?? null)
   ).length;
   const maxStageCount = Math.max(1, ...stages.map((s) => s._count.processes));
-  const staleProcessesCount = processesForStale.filter(
+  const staleProcessesCount = activeProcessesDetail.filter(
     (p) => p.stageHistory[0] && isProcessStale(p.stage.label, p.stageHistory[0].changedAt)
   ).length;
 
