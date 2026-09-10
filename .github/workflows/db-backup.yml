@@ -1,0 +1,44 @@
+name: Backup do banco (Supabase)
+
+on:
+  schedule:
+    # 06:00 UTC = 03:00 horário de Brasília
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout da branch de backups
+        uses: actions/checkout@v4
+        with:
+          ref: db-backups
+
+      - name: Instalar cliente Postgres
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Gerar dump do banco
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p dumps
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges -Fc \
+            -f "dumps/terceirizei-$(date -u +%Y%m%d-%H%M).dump"
+
+      - name: Manter só os 30 dumps mais recentes
+        run: |
+          cd dumps
+          ls -1t *.dump 2>/dev/null | tail -n +31 | xargs -r rm --
+
+      - name: Publicar
+        run: |
+          git config user.name "backup-bot"
+          git config user.email "backup-bot@users.noreply.github.com"
+          git add dumps
+          git diff --cached --quiet && echo "Nada novo para commitar." && exit 0
+          git commit -m "Backup automático $(date -u +%Y-%m-%d)"
+          git push origin db-backups
