@@ -1,11 +1,12 @@
 "use client";
 
+import { useId } from "react";
 import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -69,17 +70,49 @@ export function RevenueChart({ data }: { data: { month: string; previsto: number
 }
 
 export function ProcessesTrendChart({ data }: { data: { month: string; criados: number; concluidos: number }[] }) {
+  const gradientId = useId().replace(/:/g, "");
+  const fillCriados = `fill-criados-${gradientId}`;
+  const fillConcluidos = `fill-concluidos-${gradientId}`;
+
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data}>
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id={fillCriados} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={SERIES_PLAN} stopOpacity={0.25} />
+            <stop offset="95%" stopColor={SERIES_PLAN} stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id={fillConcluidos} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={SERIES_GOOD} stopOpacity={0.25} />
+            <stop offset="95%" stopColor={SERIES_GOOD} stopOpacity={0} />
+          </linearGradient>
+        </defs>
         <CartesianGrid vertical={false} stroke={GRID_COLOR} />
         <XAxis dataKey="month" tick={{ fill: AXIS_COLOR, fontSize: 12 }} axisLine={{ stroke: GRID_COLOR }} tickLine={false} />
         <YAxis tick={{ fill: AXIS_COLOR, fontSize: 12 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} />
         <Tooltip content={<ChartTooltip formatter={(v) => String(v)} />} cursor={{ stroke: GRID_COLOR }} />
         <Legend wrapperStyle={{ fontSize: 12, color: AXIS_COLOR }} />
-        <Line type="monotone" dataKey="criados" name="Criados" stroke={SERIES_PLAN} strokeWidth={2} dot={{ r: 4, fill: SERIES_PLAN }} />
-        <Line type="monotone" dataKey="concluidos" name="Concluídos" stroke={SERIES_GOOD} strokeWidth={2} dot={{ r: 4, fill: SERIES_GOOD }} />
-      </LineChart>
+        <Area
+          type="monotone"
+          dataKey="criados"
+          name="Criados"
+          stroke={SERIES_PLAN}
+          strokeWidth={2}
+          fill={`url(#${fillCriados})`}
+          dot={{ r: 3, fill: SERIES_PLAN, strokeWidth: 0 }}
+          activeDot={{ r: 5 }}
+        />
+        <Area
+          type="monotone"
+          dataKey="concluidos"
+          name="Concluídos"
+          stroke={SERIES_GOOD}
+          strokeWidth={2}
+          fill={`url(#${fillConcluidos})`}
+          dot={{ r: 3, fill: SERIES_GOOD, strokeWidth: 0 }}
+          activeDot={{ r: 5 }}
+        />
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
