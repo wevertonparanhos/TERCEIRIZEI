@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { prisma } from "@terceirizei/db";
+import { prisma, withPrismaRetry } from "@terceirizei/db";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const ROLES = ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO", "CLIENTE"] as const;
@@ -26,10 +26,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   if (!authUser) return null;
 
-  const profile = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    include: { role: true },
-  });
+  const profile = await withPrismaRetry(() =>
+    prisma.user.findUnique({
+      where: { id: authUser.id },
+      include: { role: true },
+    })
+  );
 
   // active=false (equipe ou portal do cliente desativado) precisa bloquear a
   // sessão de verdade — sem isso "Desativar" era só cosmético, o login
