@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ClipboardList, CalendarClock, AlertTriangle, Wallet, ShieldAlert, MessageSquare, type LucideIcon } from "lucide-react";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
@@ -13,17 +14,35 @@ import {
 } from "@/modules/processes/labels";
 import { updateProcessStage } from "@/modules/processes/actions";
 
-function KpiCard({ value, label, tone = "neutral" }: { value: number; label: string; tone?: "neutral" | "danger" }) {
+function KpiCard({
+  value,
+  label,
+  icon: Icon,
+  tone = "neutral",
+}: {
+  value: number;
+  label: string;
+  icon: LucideIcon;
+  tone?: "neutral" | "danger";
+}) {
+  const isDanger = tone === "danger" && value > 0;
   return (
     <div
-      className={`rounded-lg border p-4 ${
-        tone === "danger" && value > 0
-          ? "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10"
-          : "border-border bg-surface"
+      className={`rounded-2xl border p-4 shadow-sm ${
+        isDanger ? "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10" : "border-border/70 bg-surface"
       }`}
     >
-      <p className={`text-xl font-bold ${tone === "danger" && value > 0 ? "text-red-600" : "text-ink"}`}>{value}</p>
-      <p className="text-xs text-muted">{label}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-muted">{label}</p>
+        <span
+          className={`flex h-7 w-7 flex-none items-center justify-center rounded-lg ${
+            isDanger ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400" : "bg-accent-soft text-accent"
+          }`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+      </div>
+      <p className={`mt-1.5 text-xl font-bold ${isDanger ? "text-red-600" : "text-ink"}`}>{value}</p>
     </div>
   );
 }
@@ -118,12 +137,12 @@ export default async function ProcessosPage() {
       </div>
 
       <div className="mt-4 grid flex-none grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <KpiCard value={kpis.total} label="Total" />
-        <KpiCard value={kpis.entregaHoje} label="Entrega hoje" />
-        <KpiCard value={kpis.atrasadas} label="Atrasadas" tone="danger" />
-        <KpiCard value={kpis.pagamentoAtrasado} label="Pgto. atrasado" tone="danger" />
-        <KpiCard value={kpis.impedimento} label="Impedimento" tone="danger" />
-        <KpiCard value={kpis.comentarioNaoLido} label="Comentário não lido" tone="danger" />
+        <KpiCard value={kpis.total} label="Total" icon={ClipboardList} />
+        <KpiCard value={kpis.entregaHoje} label="Entrega hoje" icon={CalendarClock} />
+        <KpiCard value={kpis.atrasadas} label="Atrasadas" icon={AlertTriangle} tone="danger" />
+        <KpiCard value={kpis.pagamentoAtrasado} label="Pgto. atrasado" icon={Wallet} tone="danger" />
+        <KpiCard value={kpis.impedimento} label="Impedimento" icon={ShieldAlert} tone="danger" />
+        <KpiCard value={kpis.comentarioNaoLido} label="Comentário não lido" icon={MessageSquare} tone="danger" />
       </div>
 
       <div className="mt-4 flex-1 overflow-hidden">

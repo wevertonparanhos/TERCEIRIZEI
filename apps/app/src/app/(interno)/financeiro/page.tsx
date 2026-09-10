@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ClipboardList, CircleCheckBig, Clock, AlertTriangle } from "lucide-react";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
@@ -61,21 +62,41 @@ export default async function FinanceiroPage({
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5">
-          <p className="text-xl font-bold text-ink">{currencyFormatter.format(summary.total)}</p>
-          <p className="text-sm text-muted">{summary.count} demanda(s) no período</p>
+        <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm text-muted">{summary.count} demanda(s) no período</p>
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-accent-soft text-accent">
+              <ClipboardList className="h-4 w-4" />
+            </span>
+          </div>
+          <p className="mt-1.5 text-xl font-bold text-ink">{currencyFormatter.format(summary.total)}</p>
         </div>
-        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5">
-          <p className="text-xl font-bold text-emerald-600">{currencyFormatter.format(summary.recebido)}</p>
-          <p className="text-sm text-muted">Recebido</p>
+        <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm text-muted">Recebido</p>
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+              <CircleCheckBig className="h-4 w-4" />
+            </span>
+          </div>
+          <p className="mt-1.5 text-xl font-bold text-emerald-600">{currencyFormatter.format(summary.recebido)}</p>
         </div>
-        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5">
-          <p className="text-xl font-bold text-ink">{currencyFormatter.format(summary.pendente)}</p>
-          <p className="text-sm text-muted">Pendente</p>
+        <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm text-muted">Pendente</p>
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-accent-soft text-accent">
+              <Clock className="h-4 w-4" />
+            </span>
+          </div>
+          <p className="mt-1.5 text-xl font-bold text-ink">{currencyFormatter.format(summary.pendente)}</p>
         </div>
-        <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-5">
-          <p className="text-xl font-bold text-red-600">{currencyFormatter.format(summary.atrasado)}</p>
-          <p className="text-sm text-muted">Atrasado</p>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm dark:border-red-500/30 dark:bg-red-500/10">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm text-muted">Atrasado</p>
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+          </div>
+          <p className="mt-1.5 text-xl font-bold text-red-600">{currencyFormatter.format(summary.atrasado)}</p>
         </div>
       </div>
 
