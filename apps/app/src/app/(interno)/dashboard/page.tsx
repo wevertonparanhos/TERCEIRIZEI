@@ -3,6 +3,8 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { isProcessStale, hasUnreadClientComment } from "@/modules/processes/labels";
 import { resolvePeriod, summarizePayments } from "@/modules/finance/period";
+import { getLastMonths, sumByMonth, countByMonth, countByLabel } from "@/modules/dashboard/analytics";
+import { RevenueChart, ProcessesTrendChart, ServiceTypeBarChart } from "@/modules/dashboard/charts";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -155,6 +157,9 @@ export default async function DashboardPage() {
 
   const { start: monthStart, end: monthEnd } = resolvePeriod("mes", undefined, undefined, now);
 
+  const last6Months = getLastMonths(6, now);
+  const sixMonthsStart = new Date(Date.UTC(last6Months[0].year, last6Months[0].month, 1));
+
   const [
     activeProcesses,
     activeClients,
@@ -167,6 +172,10 @@ export default async function DashboardPage() {
     processesForUnread,
     overdueRecurringTasks,
     unreadMentions,
+    installmentsForChart,
+    processesCreatedForChart,
+    stageChangesConcludedForChart,
+    activeProcessesByServiceType,
   ] = await Promise.all([
       prisma.process.count({ where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } } }),
       prisma.client.count({ where: { tenantId: user.tenantId, status: "ativo" } }),
@@ -216,7 +225,58 @@ export default async function DashboardPage() {
       prisma.processCommentMention.count({
         where: { mentionedUserId: user.id, readAt: null, comment: { process: { tenantId: user.tenantId } } },
       }),
+      canSeeFinance
+        ? prisma.processInstallment.findMany({
+            where: {
+              process: { tenantId: user.tenantId },
+              OR: [{ paymentDueDate: { gte: sixMonthsStart } }, { paidAt: { gte: sixMonthsStart } }],
+            },
+            select: { value: true, paymentDueDate: true, paidAt: true },
+          })
+        : Promise.resolve([]),
+      prisma.process.findMany({
+        where: { tenantId: user.tenantId, createdAt: { gte: sixMonthsStart } },
+        select: { createdAt: true },
+      }),
+      prisma.processStage.findMany({
+        where: { process: { tenantId: user.tenantId }, changedAt: { gte: sixMonthsStart }, toStage: { label: "Concluído" } },
+        select: { changedAt: true },
+      }),
+      prisma.process.findMany({
+        where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } },
+        select: { serviceType: { select: { name: true } } },
+      }),
     ]);
+
+  const previstoSeries = sumByMonth(
+    installmentsForChart.map((r) => ({ date: r.paymentDueDate, value: Number(r.value) })),
+    last6Months
+  );
+  const recebidoSeries = sumByMonth(
+    installmentsForChart.map((r) => ({ date: r.paidAt, value: Number(r.value) })),
+    last6Months
+  );
+  const revenueData = last6Months.map((m, i) => ({
+    month: m.label,
+    previsto: previstoSeries[i],
+    recebido: recebidoSeries[i],
+  }));
+
+  const criadosSeries = countByMonth(
+    processesCreatedForChart.map((r) => ({ date: r.createdAt })),
+    last6Months
+  );
+  const concluidosSeries = countByMonth(
+    stageChangesConcludedForChart.map((r) => ({ date: r.changedAt })),
+    last6Months
+  );
+  const processesTrendData = last6Months.map((m, i) => ({
+    month: m.label,
+    criados: criadosSeries[i],
+    concluidos: concluidosSeries[i],
+  }));
+
+  const serviceTypeData = countByLabel(activeProcessesByServiceType.map((p) => ({ label: p.serviceType.name })));
 
   const financeSummary = summarizePayments(
     paymentsThisMonth.map((p) => ({ value: Number(p.value), paymentDueDate: p.paymentDueDate, paidAt: p.paidAt }))
@@ -278,6 +338,28 @@ export default async function DashboardPage() {
 
       <DeadlinesList title="Prazos nos próximos 7 dias" deadlines={deadlines} />
 
+      <h2 className="mt-8 text-base font-semibold text-ink">Análises</h2>
+      <div className="mt-3 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <h3 className="text-sm font-semibold text-ink">Processos — últimos 6 meses</h3>
+          <p className="text-xs text-muted-soft">Criados vs. concluídos por mês</p>
+          <div className="mt-4">
+            <ProcessesTrendChart data={processesTrendData} />
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <h3 className="text-sm font-semibold text-ink">Distribuição por tipo de serviço</h3>
+          <p className="text-xs text-muted-soft">Processos ativos agora</p>
+          <div className="mt-4">
+            {serviceTypeData.length === 0 ? (
+              <p className="text-sm text-muted-soft">Nenhum processo ativo no momento.</p>
+            ) : (
+              <ServiceTypeBarChart data={serviceTypeData} />
+            )}
+          </div>
+        </div>
+      </div>
+
       {canSeeFinance && (
         <div className="mt-6 rounded-lg border border-border bg-surface p-6">
           <div className="flex items-center justify-between">
@@ -304,6 +386,12 @@ export default async function DashboardPage() {
               <p className="text-xl font-bold text-emerald-600">{currencyFormatter.format(financeSummary.recebido)}</p>
               <p className="text-sm text-muted">recebido este mês</p>
             </div>
+          </div>
+
+          <h3 className="mt-6 text-sm font-semibold text-ink">Faturamento — últimos 6 meses</h3>
+          <p className="text-xs text-muted-soft">Previsto vs. recebido por mês</p>
+          <div className="mt-4">
+            <RevenueChart data={revenueData} />
           </div>
         </div>
       )}

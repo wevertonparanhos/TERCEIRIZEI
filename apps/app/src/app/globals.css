@@ -15,6 +15,7 @@
   --color-muted-soft: 148 163 184; /* slate-400 */
   --color-accent: 20 82 141; /* brand-blue */
   --color-accent-soft: 219 234 254; /* blue-100 */
+  --color-good: 5 150 105; /* emerald-600 — status "recebido"/"concluído" nos gráficos */
 }
 
 .dark {
@@ -28,6 +29,7 @@
   --color-muted-soft: 100 112 148;
   --color-accent: 56 189 248;
   --color-accent-soft: 15 47 74;
+  --color-good: 52 211 153; /* emerald-400 */
 }
 
 body {
