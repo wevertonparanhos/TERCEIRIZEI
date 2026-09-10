@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { WhatsAppLink } from "@/components/whatsapp-link";
 
 const CONTACT_ROLES = [
   { value: "operacional", label: "Responsável operacional" },
@@ -89,15 +90,20 @@ export function ContactList({
                   {contact.phone ? ` · ${contact.phone}` : ""}
                 </p>
               </div>
-              {canWrite && (
-                <button
-                  type="button"
-                  onClick={() => handleDelete(contact.id)}
-                  className="text-xs text-red-500 hover:underline"
-                >
-                  Remover
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                <WhatsAppLink phone={contact.phone} className="text-xs text-accent hover:underline">
+                  WhatsApp
+                </WhatsAppLink>
+                {canWrite && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(contact.id)}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>

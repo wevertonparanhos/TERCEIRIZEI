@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { WhatsAppLink } from "@/components/whatsapp-link";
 import {
   FileText,
   MessageSquare,
@@ -69,7 +71,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
   const process = await prisma.process.findFirst({
     where: { id: params.id, tenantId: user.tenantId },
     include: {
-      client: { select: { name: true } },
+      client: { select: { name: true, phone: true, whatsapp: true } },
       company: { select: { razaoSocial: true } },
       serviceType: { select: { name: true } },
       assignees: { select: { userId: true } },
@@ -163,6 +165,13 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             {paymentSummary.status !== "SEM_PAGAMENTO" && (
               <Badge variant={PAYMENT_STATUS_BADGE_VARIANT[paymentSummary.status]}>{PAYMENT_STATUS_LABELS[paymentSummary.status]}</Badge>
             )}
+            <WhatsAppLink
+              phone={process.client.whatsapp || process.client.phone}
+              message={`Olá! Sobre o processo #${process.number} (${process.serviceType.name})...`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Falar no WhatsApp
+            </WhatsAppLink>
           </div>
           <p className="text-sm text-muted">
             {process.serviceType.name}

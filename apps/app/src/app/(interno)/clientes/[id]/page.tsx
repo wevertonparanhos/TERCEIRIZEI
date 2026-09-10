@@ -7,6 +7,8 @@ import { getPaymentStatus, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_BADGE_VARIANT }
 import { FREQUENCY_LABELS, isRecurringTaskDue } from "@/modules/recurring-tasks/labels";
 import { completeRecurringTaskOccurrence } from "@/modules/recurring-tasks/actions";
 import { CompleteRecurringTaskButton } from "@/modules/recurring-tasks/complete-button";
+import { buttonVariants } from "@/components/ui/button";
+import { WhatsAppLink } from "@/components/whatsapp-link";
 import { ClientForm } from "@/modules/clients/client-form";
 import { CompanyList } from "@/modules/clients/company-list";
 import { ContactList } from "@/modules/clients/contact-list";
@@ -101,6 +103,12 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
           <Badge variant={client.status === "ativo" ? "success" : "neutral"}>
             {client.status === "ativo" ? "Ativo" : "Inativo"}
           </Badge>
+          <WhatsAppLink
+            phone={client.whatsapp || client.phone}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Falar no WhatsApp
+          </WhatsAppLink>
         </div>
         <p className="text-sm text-muted">
           {client.type === "PF" ? "Pessoa Física" : "Pessoa Jurídica"} · cliente desde{" "}
