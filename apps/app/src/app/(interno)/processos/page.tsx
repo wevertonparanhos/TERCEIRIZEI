@@ -129,8 +129,8 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
     <div className="flex h-screen flex-col p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Processos</h1>
-          <p className="text-sm text-muted">{processes.length} processo(s)</p>
+          <h1 className="text-2xl font-bold text-ink">Área de Trabalho</h1>
+          <p className="text-sm text-muted">{processes.length} tarefa(s)</p>
         </div>
         <div className="flex gap-2">
           {canManage && activeWorkspace && (
@@ -140,7 +140,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
           )}
           {canManage && activeWorkspace && (
             <Link href={`/processos/nova?area=${activeWorkspace.id}`}>
-              <Button>+ Novo Processo</Button>
+              <Button>+ Nova Tarefa</Button>
             </Link>
           )}
         </div>

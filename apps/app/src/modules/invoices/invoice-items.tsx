@@ -63,7 +63,7 @@ export function InvoiceItems({
             <li key={item.id} className="flex items-center gap-3 py-2">
               <span className="flex-1 text-sm text-ink">
                 {item.description}
-                {item.process && <span className="ml-2 text-xs text-muted-soft">Processo #{item.process.number}</span>}
+                {item.process && <span className="ml-2 text-xs text-muted-soft">Tarefa #{item.process.number}</span>}
               </span>
               <span className="font-mono text-sm text-muted">{currencyFormatter.format(Number(item.amount))}</span>
               {canWrite && (
@@ -91,7 +91,7 @@ export function InvoiceItems({
           {processes.length > 0 && (
             <div className="w-48">
               <Select name="processId" defaultValue="">
-                <option value="">Sem processo vinculado</option>
+                <option value="">Sem tarefa vinculada</option>
                 {processes.map((p) => (
                   <option key={p.id} value={p.id}>
                     #{p.number} — {p.description.slice(0, 30)}

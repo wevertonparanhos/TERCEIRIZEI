@@ -43,7 +43,7 @@ export function BillProcessesForm({
   async function submit(formData: FormData) {
     setError(null);
     if (selected.size === 0) {
-      setError("Selecione ao menos um processo.");
+      setError("Selecione ao menos uma tarefa.");
       return;
     }
     const dueDate = formData.get("dueDate") as string;
@@ -69,7 +69,7 @@ export function BillProcessesForm({
               checked={selected.has(p.id)}
               onChange={() => toggle(p.id)}
               className="h-4 w-4 rounded border-border-strong"
-              aria-label={`Selecionar processo #${p.number}`}
+              aria-label={`Selecionar tarefa #${p.number}`}
             />
             <span className="flex-1 text-sm text-ink">
               #{p.number} — {p.description.slice(0, 60)}
@@ -94,7 +94,7 @@ export function BillProcessesForm({
         Agrupar em uma única fatura
       </label>
       {!grouped && selected.size > 1 && (
-        <p className="text-xs text-muted-soft">Será gerada uma fatura separada para cada processo selecionado.</p>
+        <p className="text-xs text-muted-soft">Será gerada uma fatura separada para cada tarefa selecionada.</p>
       )}
 
       <div className="space-y-1.5">

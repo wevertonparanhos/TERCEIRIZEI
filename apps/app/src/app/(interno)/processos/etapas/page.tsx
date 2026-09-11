@@ -37,12 +37,12 @@ export default async function EtapasPage({ searchParams }: { searchParams: { are
   return (
     <div className="mx-auto max-w-2xl p-8">
       <Link href="/processos" className="text-sm text-accent hover:underline">
-        ← Voltar para Processos
+        ← Voltar para Área de Trabalho
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-ink">Áreas de trabalho e etapas do Kanban</h1>
       <p className="mt-1 text-sm text-muted">
         Cada área de trabalho tem seu próprio quadro. Crie, renomeie, reordene ou remova áreas e etapas conforme o
-        fluxo de trabalho — uma etapa ou área só pode ser removida quando não houver processos nela.
+        fluxo de trabalho — uma etapa ou área só pode ser removida quando não houver tarefas nela.
       </p>
 
       <div className="mt-6">

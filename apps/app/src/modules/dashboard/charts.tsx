@@ -133,7 +133,7 @@ export function ServiceTypeBarChart({ data }: { data: { label: string; count: nu
           width={140}
         />
         <Tooltip content={<ChartTooltip formatter={(v) => String(v)} />} cursor={{ fill: "rgb(var(--color-surface-alt))" }} />
-        <Bar dataKey="count" name="Processos ativos" fill={SERIES_PLAN} radius={[0, 4, 4, 0]} maxBarSize={20} />
+        <Bar dataKey="count" name="Tarefas ativas" fill={SERIES_PLAN} radius={[0, 4, 4, 0]} maxBarSize={20} />
       </BarChart>
     </ResponsiveContainer>
   );

@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Wallet,
   AlertTriangle,
-  ListTodo,
   ListChecks,
   Paperclip,
   History,
@@ -26,7 +25,6 @@ import {
 } from "@/modules/processes/labels";
 import { ProcessTabs } from "@/modules/processes/process-tabs";
 import { ProcessForm } from "@/modules/processes/process-form";
-import { TaskList } from "@/modules/processes/task-list";
 import { Checklist } from "@/modules/processes/checklist";
 import { ProcessComments } from "@/modules/processes/process-comments";
 import { MarkCommentsRead } from "@/modules/processes/mark-comments-read";
@@ -37,12 +35,6 @@ import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import {
   updateProcess,
-  createTask,
-  addTaskImpediment,
-  resolveTaskImpediment,
-  reopenTaskImpediment,
-  updateTaskStatus,
-  deleteTask,
   addChecklistItem,
   toggleChecklistItem,
   deleteChecklistItem,
@@ -79,16 +71,6 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
       serviceType: { select: { name: true } },
       assignees: { select: { userId: true } },
       stage: { select: { label: true, color: true } },
-      tasks: {
-        orderBy: { createdAt: "asc" },
-        include: {
-          assignee: { select: { name: true } },
-          impediments: {
-            orderBy: { createdAt: "desc" },
-            include: { createdBy: { select: { name: true } }, resolvedBy: { select: { name: true } } },
-          },
-        },
-      },
       checklist: { orderBy: { createdAt: "asc" } },
       stageHistory: {
         orderBy: { changedAt: "asc" },
@@ -164,7 +146,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
       <div className="flex items-start justify-between">
         <div>
           <Link href="/processos" className="text-sm text-accent hover:underline">
-            ← Voltar para Processos
+            ← Voltar para Área de Trabalho
           </Link>
           <div className="mt-2 flex items-center gap-3">
             <h1 className="text-2xl font-bold text-ink">
@@ -179,7 +161,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             )}
             <WhatsAppLink
               phone={process.client.whatsapp || process.client.phone}
-              message={`Olá! Sobre o processo #${process.number} (${process.serviceType.name})...`}
+              message={`Olá! Sobre a tarefa #${process.number} (${process.serviceType.name})...`}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               Falar no WhatsApp
@@ -303,40 +285,6 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
               ),
             },
             {
-              key: "tarefas",
-              label: "Tarefas",
-              icon: <ListTodo className="h-4 w-4" />,
-              content: (
-                <TaskList
-                  processId={process.id}
-                  staff={staff}
-                  canWrite={canWrite}
-                  tasks={process.tasks.map((t) => ({
-                    id: t.id,
-                    title: t.title,
-                    status: t.status,
-                    priority: t.priority,
-                    dueAt: t.dueAt ? t.dueAt.toISOString() : null,
-                    assigneeName: t.assignee?.name ?? null,
-                    impediments: t.impediments.map((i) => ({
-                      id: i.id,
-                      title: i.title,
-                      createdAt: i.createdAt.toISOString(),
-                      createdByName: i.createdBy.name,
-                      resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
-                      resolvedByName: i.resolvedBy?.name ?? null,
-                    })),
-                  }))}
-                  createTask={createTask}
-                  updateTaskStatus={updateTaskStatus}
-                  deleteTask={deleteTask}
-                  addTaskImpediment={addTaskImpediment}
-                  resolveTaskImpediment={resolveTaskImpediment}
-                  reopenTaskImpediment={reopenTaskImpediment}
-                />
-              ),
-            },
-            {
               key: "checklist",
               label: "Checklist",
               icon: <ListChecks className="h-4 w-4" />,
@@ -422,7 +370,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                           moveu de <b>{entry.fromStage.label}</b> para{" "}
                         </>
                       ) : (
-                        "abriu o processo em "
+                        "abriu a tarefa em "
                       )}
                       <b>{entry.toStage.label}</b>
                     </li>

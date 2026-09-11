@@ -59,7 +59,7 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
           )}
           {card.hasOpenImpediment && (
             <span
-              title="Processo com impedimento em aberto"
+              title="Tarefa com impedimento em aberto"
               className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
             >
               !
@@ -211,7 +211,7 @@ export function KanbanBoard({
       router.refresh();
     } catch (err) {
       setItems(previous);
-      setError(err instanceof Error ? err.message : "Não foi possível mover o processo.");
+      setError(err instanceof Error ? err.message : "Não foi possível mover a tarefa.");
     }
   }
 

@@ -2,17 +2,16 @@ import { describe, it, expect } from "vitest";
 import { buildCalendarEvents, groupEventsByDay } from "@/modules/calendar/events";
 
 describe("buildCalendarEvents", () => {
-  it("junta as cinco origens num único array ordenado por data", () => {
+  it("junta as quatro origens num único array ordenado por data", () => {
     const events = buildCalendarEvents({
       recurringTasks: [{ id: "r1", title: "Enviar relatório", nextDueAt: new Date(Date.UTC(2026, 8, 20)), clientName: "Cliente A" }],
       processDeadlines: [{ id: "p1", number: 10, description: "Abertura", requestedDeadline: new Date(Date.UTC(2026, 8, 5)), clientName: "Cliente B" }],
-      tasks: [{ id: "t1", title: "Revisar", dueAt: new Date(Date.UTC(2026, 8, 10)), processId: "p1", processNumber: 10, clientName: "Cliente B" }],
       payments: [{ id: "pay1", processId: "p2", number: 11, description: "Consultoria", paymentDueDate: new Date(Date.UTC(2026, 8, 15)), clientName: "Cliente C" }],
       documentRequests: [{ id: "d1", label: "Contrato social", deadline: new Date(Date.UTC(2026, 8, 1)), clientName: "Cliente A", processId: null }],
     });
 
-    expect(events).toHaveLength(5);
-    expect(events.map((e) => e.type)).toEqual(["documento", "prazo_processo", "tarefa", "pagamento", "recorrente"]);
+    expect(events).toHaveLength(4);
+    expect(events.map((e) => e.type)).toEqual(["documento", "prazo_processo", "pagamento", "recorrente"]);
   });
 
   it("marca overdue quando a data já passou", () => {
@@ -21,7 +20,6 @@ describe("buildCalendarEvents", () => {
       {
         recurringTasks: [{ id: "r1", title: "X", nextDueAt: new Date(Date.UTC(2026, 8, 5)), clientName: "A" }],
         processDeadlines: [],
-        tasks: [],
         payments: [],
         documentRequests: [],
       },
@@ -36,7 +34,6 @@ describe("buildCalendarEvents", () => {
       {
         recurringTasks: [{ id: "r1", title: "X", nextDueAt: new Date(Date.UTC(2026, 8, 5)), clientName: "A" }],
         processDeadlines: [],
-        tasks: [],
         payments: [],
         documentRequests: [],
       },
@@ -49,7 +46,6 @@ describe("buildCalendarEvents", () => {
     const events = buildCalendarEvents({
       recurringTasks: [],
       processDeadlines: [],
-      tasks: [],
       payments: [],
       documentRequests: [{ id: "d1", label: "RG", deadline: new Date(Date.UTC(2026, 8, 1)), clientName: "A", processId: null }],
     });
@@ -65,7 +61,6 @@ describe("groupEventsByDay", () => {
         { id: "r2", title: "Y", nextDueAt: new Date(Date.UTC(2026, 8, 5)), clientName: "B" },
       ],
       processDeadlines: [],
-      tasks: [],
       payments: [],
       documentRequests: [],
     });

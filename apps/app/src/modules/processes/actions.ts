@@ -6,18 +6,13 @@ import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import {
   processSchema,
-  taskSchema,
   createProcessSchema,
   clientCreateProcessSchema,
-  TASK_STATUSES,
   type ProcessInput,
-  type TaskInput,
   type CreateProcessInput,
   type ClientCreateProcessInput,
 } from "@/lib/validations/process";
 import { addDays } from "@/modules/processes/labels";
-
-type TaskStatusValue = (typeof TASK_STATUSES)[number];
 
 // A conexão do Prisma bypassa RLS (role postgres) — tenant_id/process_id explícitos
 // em todo where/data abaixo são a real fronteira de isolamento nesta camada.
@@ -42,11 +37,11 @@ async function loadProcessForWrite(processId: string, user: CurrentUser) {
     where: { id: processId, tenantId: user.tenantId },
     include: { assignees: { select: { userId: true } } },
   });
-  if (!process) throw new Error("Processo não encontrado.");
+  if (!process) throw new Error("Tarefa não encontrada.");
   if (user.role === "OPERACIONAL" && !process.assignees.some((a) => a.userId === user.id)) {
-    throw new Error("Você só pode alterar processos atribuídos a você.");
+    throw new Error("Você só pode alterar tarefas atribuídas a você.");
   }
-  if (user.role === "FINANCEIRO") throw new Error("Financeiro tem acesso somente leitura a processos.");
+  if (user.role === "FINANCEIRO") throw new Error("Financeiro tem acesso somente leitura a tarefas.");
   return process;
 }
 
@@ -150,7 +145,7 @@ export async function createProcess(input: CreateProcessInput) {
     action: "process.create",
     entityType: "process",
     entityId: process.id,
-    description: `Processo #${process.number} aberto.`,
+    description: `Tarefa #${process.number} aberta.`,
   });
 
   revalidatePath("/processos");
@@ -251,7 +246,7 @@ export async function updateProcessStage(processId: string, toStageId: string) {
     action: "process.stage_change",
     entityType: "process",
     entityId: processId,
-    description: `Processo #${process.number} mudou de etapa.`,
+    description: `Tarefa #${process.number} mudou de etapa.`,
     metadata: { fromStageId: process.stageId, toStageId },
   });
 
@@ -337,7 +332,7 @@ export async function markInstallmentPaid(processId: string, installmentId: stri
     action: paid ? "process.installment_paid" : "process.installment_unpaid",
     entityType: "process",
     entityId: processId,
-    description: `Parcela do processo #${process.number} marcada como ${paid ? "paga" : "pendente"}.`,
+    description: `Parcela da tarefa #${process.number} marcada como ${paid ? "paga" : "pendente"}.`,
   });
 
   revalidatePath(`/processos/${processId}`);
@@ -361,94 +356,6 @@ export async function deleteInstallment(processId: string, installmentId: string
   revalidatePath("/portal");
   revalidatePath("/portal/processos");
   revalidatePath(`/portal/processos/${processId}`);
-}
-
-export async function createTask(processId: string, input: TaskInput) {
-  const user = await requireStaff();
-  await loadProcessForWrite(processId, user);
-  const data = taskSchema.parse(input);
-
-  await prisma.task.create({
-    data: {
-      processId,
-      title: data.title,
-      assigneeId: data.assigneeId || null,
-      priority: data.priority,
-      dueAt: data.dueAt ? new Date(data.dueAt) : null,
-      notes: data.notes || null,
-    },
-  });
-
-  revalidatePath(`/processos/${processId}`);
-}
-
-export async function updateTaskStatus(processId: string, taskId: string, status: TaskStatusValue) {
-  const user = await requireStaff();
-  await loadProcessForWrite(processId, user);
-
-  await prisma.task.update({
-    where: { id: taskId, processId },
-    data: { status, completedAt: status === "CONCLUIDA" ? new Date() : null },
-  });
-
-  revalidatePath(`/processos/${processId}`);
-}
-
-export async function deleteTask(processId: string, taskId: string) {
-  const user = await requireStaff();
-  await loadProcessForWrite(processId, user);
-  await prisma.task.delete({ where: { id: taskId, processId } });
-  revalidatePath(`/processos/${processId}`);
-}
-
-// --- Pendência por tarefa (mesmo padrão do Impedimento do processo, só que
-// escopado a uma tarefa específica dentro do checklist de subtarefas) ---
-
-export async function addTaskImpediment(processId: string, taskId: string, title: string) {
-  const user = await requireStaff();
-  await loadProcessForWrite(processId, user);
-  if (!title.trim()) throw new Error("Descreva a pendência.");
-
-  const task = await prisma.task.findFirst({ where: { id: taskId, processId } });
-  if (!task) throw new Error("Tarefa não encontrada.");
-
-  await prisma.taskImpediment.create({ data: { taskId, title: title.trim(), createdById: user.id } });
-
-  revalidatePath(`/processos/${processId}`);
-}
-
-async function loadTaskImpedimentForWrite(processId: string, taskId: string, impedimentId: string) {
-  const impediment = await prisma.taskImpediment.findFirst({
-    where: { id: impedimentId, taskId, task: { processId } },
-  });
-  if (!impediment) throw new Error("Pendência não encontrada.");
-  return impediment;
-}
-
-export async function resolveTaskImpediment(processId: string, taskId: string, impedimentId: string) {
-  const user = await requireStaff();
-  await loadProcessForWrite(processId, user);
-  await loadTaskImpedimentForWrite(processId, taskId, impedimentId);
-
-  await prisma.taskImpediment.update({
-    where: { id: impedimentId },
-    data: { resolvedAt: new Date(), resolvedById: user.id },
-  });
-
-  revalidatePath(`/processos/${processId}`);
-}
-
-export async function reopenTaskImpediment(processId: string, taskId: string, impedimentId: string) {
-  const user = await requireStaff();
-  await loadProcessForWrite(processId, user);
-  await loadTaskImpedimentForWrite(processId, taskId, impedimentId);
-
-  await prisma.taskImpediment.update({
-    where: { id: impedimentId },
-    data: { resolvedAt: null, resolvedById: null },
-  });
-
-  revalidatePath(`/processos/${processId}`);
 }
 
 export async function addChecklistItem(processId: string, label: string, category?: string) {
@@ -521,7 +428,7 @@ export async function deleteStage(stageId: string) {
   if (!stage) throw new Error("Etapa não encontrada.");
 
   const inUse = await prisma.process.count({ where: { stageId } });
-  if (inUse > 0) throw new Error(`Existem ${inUse} processo(s) nesta etapa — mova-os antes de excluir.`);
+  if (inUse > 0) throw new Error(`Existem ${inUse} tarefa(s) nesta etapa — mova-as antes de excluir.`);
 
   await prisma.kanbanStage.delete({ where: { id: stageId } });
 
@@ -611,7 +518,7 @@ export async function deleteWorkspace(workspaceId: string) {
   if (totalWorkspaces <= 1) throw new Error("Precisa existir pelo menos uma área de trabalho.");
 
   const inUse = await prisma.process.count({ where: { workspaceId } });
-  if (inUse > 0) throw new Error(`Existem ${inUse} processo(s) nesta área — mova-os antes de excluir.`);
+  if (inUse > 0) throw new Error(`Existem ${inUse} tarefa(s) nesta área — mova-as antes de excluir.`);
 
   await prisma.$transaction([
     prisma.kanbanStage.deleteMany({ where: { workspaceId } }),
@@ -681,7 +588,7 @@ export async function addProcessComment(processId: string, body: string, mention
   if (!body.trim()) throw new Error("Escreva um comentário.");
 
   const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
-  if (!process) throw new Error("Processo não encontrado.");
+  if (!process) throw new Error("Tarefa não encontrada.");
 
   const comment = await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim() } });
   await createCommentMentions(comment.id, user.id, mentionedUserIds, user.tenantId);
@@ -699,7 +606,7 @@ export async function clientAddProcessComment(processId: string, body: string, _
   if (!body.trim()) throw new Error("Escreva um comentário.");
 
   const process = await prisma.process.findFirst({ where: { id: processId, clientId: user.clientId } });
-  if (!process) throw new Error("Processo não encontrado.");
+  if (!process) throw new Error("Tarefa não encontrada.");
 
   await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim() } });
 
@@ -745,7 +652,7 @@ async function requirePresenceAccess(): Promise<CurrentUser> {
 export async function markPresence(processId: string) {
   const user = await requirePresenceAccess();
   const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
-  if (!process) throw new Error("Processo não encontrado.");
+  if (!process) throw new Error("Tarefa não encontrada.");
 
   await prisma.processPresence.upsert({
     where: { processId_userId: { processId, userId: user.id } },
@@ -783,7 +690,7 @@ export async function addImpediment(processId: string, title: string) {
   if (!title.trim()) throw new Error("Descreva o impedimento.");
 
   const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
-  if (!process) throw new Error("Processo não encontrado.");
+  if (!process) throw new Error("Tarefa não encontrada.");
 
   await prisma.processImpediment.create({ data: { processId, title: title.trim(), createdById: user.id } });
 
@@ -793,7 +700,7 @@ export async function addImpediment(processId: string, title: string) {
     action: "process.impediment_add",
     entityType: "process",
     entityId: processId,
-    description: `Impedimento registrado no processo #${process.number}: "${title.trim()}".`,
+    description: `Impedimento registrado na tarefa #${process.number}: "${title.trim()}".`,
   });
 
   revalidatePath(`/processos/${processId}`);

@@ -79,7 +79,7 @@ export function StageManager({
             ) : (
               <>
                 <span className="flex-1 text-sm font-medium text-ink">{stage.label}</span>
-                <span className="text-xs text-muted-soft">{stage.processCount} processo(s)</span>
+                <span className="text-xs text-muted-soft">{stage.processCount} tarefa(s)</span>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"

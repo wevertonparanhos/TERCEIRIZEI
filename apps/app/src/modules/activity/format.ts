@@ -1,7 +1,7 @@
 export const ENTITY_TYPE_LABELS: Record<string, string> = {
   client: "Cliente",
-  process: "Processo",
-  demand: "Processo", // legado: entityType de antes da fusão Demanda/Processo (Etapa 16)
+  process: "Tarefa",
+  demand: "Tarefa", // legado: entityType de antes da fusão Demanda/Processo (Etapa 16)
   document: "Documento",
   document_request: "Solicitação de documento",
   invoice: "Fatura",

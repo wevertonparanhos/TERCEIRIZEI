@@ -36,15 +36,6 @@ enum DemandPriority {
   @@map("demand_priority")
 }
 
-enum TaskStatus {
-  A_FAZER
-  EM_ANDAMENTO
-  BLOQUEADA
-  CONCLUIDA
-
-  @@map("task_status")
-}
-
 enum DocumentCategory {
   DOCUMENTACAO_CADASTRAL
   CONTRATOS
@@ -182,7 +173,6 @@ model User {
   client             Client?           @relation(fields: [clientId], references: [id])
   ownedClients       Client[]          @relation("ClientOwner")
   processAssignments ProcessAssignee[]
-  assignedTasks      Task[]            @relation("TaskAssignee")
   uploadedDocuments  Document[]
   uploadedVersions   DocumentVersion[]
   requestedDocuments DocumentRequest[]
@@ -194,8 +184,6 @@ model User {
   processPresence    ProcessPresence[]
   createdImpediments  ProcessImpediment[] @relation("ImpedimentCreatedBy")
   resolvedImpediments ProcessImpediment[] @relation("ImpedimentResolvedBy")
-  createdTaskImpediments  TaskImpediment[] @relation("TaskImpedimentCreatedBy")
-  resolvedTaskImpediments TaskImpediment[] @relation("TaskImpedimentResolvedBy")
   assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
   recurringTaskCompletions RecurringTaskCompletion[]
   clientNotes              ClientNote[]
@@ -480,7 +468,6 @@ model Process {
   serviceType  ServiceType            @relation(fields: [serviceTypeId], references: [id])
   stage        KanbanStage            @relation(fields: [stageId], references: [id])
   stageHistory ProcessStage[]
-  tasks        Task[]
   checklist    ProcessChecklistItem[]
   tags         ProcessTag[]
   documents    Document[]
@@ -593,46 +580,6 @@ model ProcessStage {
 
   @@index([processId])
   @@map("process_stages")
-}
-
-model Task {
-  id          String         @id @default(uuid()) @db.Uuid
-  processId   String         @map("process_id") @db.Uuid
-  title       String
-  assigneeId  String?        @map("assignee_id") @db.Uuid
-  status      TaskStatus     @default(A_FAZER)
-  priority    DemandPriority @default(MEDIA)
-  dueAt       DateTime?      @map("due_at")
-  completedAt DateTime?      @map("completed_at")
-  notes       String?
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-
-  process     Process           @relation(fields: [processId], references: [id], onDelete: Cascade)
-  assignee    User?             @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  impediments TaskImpediment[]
-
-  @@index([processId])
-  @@map("tasks")
-}
-
-// Pendência por tarefa — mesmo padrão do ProcessImpediment, só que escopado a uma
-// tarefa específica dentro do processo (não ao processo inteiro).
-model TaskImpediment {
-  id           String    @id @default(uuid()) @db.Uuid
-  taskId       String    @map("task_id") @db.Uuid
-  title        String
-  createdById  String    @map("created_by_id") @db.Uuid
-  createdAt    DateTime  @default(now()) @map("created_at")
-  resolvedAt   DateTime? @map("resolved_at")
-  resolvedById String?   @map("resolved_by_id") @db.Uuid
-
-  task       Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  createdBy  User  @relation("TaskImpedimentCreatedBy", fields: [createdById], references: [id])
-  resolvedBy User? @relation("TaskImpedimentResolvedBy", fields: [resolvedById], references: [id])
-
-  @@index([taskId])
-  @@map("task_impediments")
 }
 
 model ProcessChecklistItem {

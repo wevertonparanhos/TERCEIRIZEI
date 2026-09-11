@@ -189,7 +189,7 @@ export async function clientUploadDocument(
   if (clientId !== user.clientId) throw new Error("Acesso negado.");
   if (processId) {
     const process = await prisma.process.findFirst({ where: { id: processId, clientId: user.clientId } });
-    if (!process) throw new Error("Processo não encontrado.");
+    if (!process) throw new Error("Tarefa não encontrada.");
   }
   await performUpload({ tenantId: user.tenantId, clientId, processId, requestId, uploaderId: user.id, formData });
 }

@@ -91,7 +91,7 @@ export async function addInvoiceItem(invoiceId: string, input: InvoiceItemInput)
 
   if (data.processId) {
     const process = await prisma.process.findFirst({ where: { id: data.processId, clientId: invoice.clientId } });
-    if (!process) throw new Error("Processo não encontrado.");
+    if (!process) throw new Error("Tarefa não encontrada.");
   }
 
   await prisma.invoiceItem.create({
@@ -166,10 +166,10 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
     include: { installments: true },
   });
   if (processesRaw.length !== data.processIds.length) {
-    throw new Error("Um ou mais processos não foram encontrados.");
+    throw new Error("Uma ou mais tarefas não foram encontradas.");
   }
   if (processesRaw.some((p) => p.installments.length === 0)) {
-    throw new Error("Todos os processos selecionados precisam ter ao menos uma parcela definida.");
+    throw new Error("Todas as tarefas selecionadas precisam ter ao menos uma parcela definida.");
   }
 
   const processes = processesRaw.map((p) => ({
@@ -179,7 +179,7 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
 
   const clientIds = new Set(processes.map((p) => p.clientId));
   if (data.grouped && clientIds.size > 1) {
-    throw new Error("Só é possível agrupar em uma única fatura processos do mesmo cliente.");
+    throw new Error("Só é possível agrupar em uma única fatura tarefas do mesmo cliente.");
   }
 
   const alreadyBilled = await prisma.invoiceItem.findMany({
@@ -187,7 +187,7 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
     select: { processId: true },
   });
   if (alreadyBilled.length > 0) {
-    throw new Error("Um ou mais processos selecionados já têm fatura vinculada.");
+    throw new Error("Uma ou mais tarefas selecionadas já têm fatura vinculada.");
   }
 
   const dueDate = new Date(data.dueDate);
@@ -211,7 +211,7 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
       data: processes.map((p) => ({
         invoiceId: invoice.id,
         processId: p.id,
-        description: `Processo #${p.number} — ${p.description.slice(0, 80)}`,
+        description: `Tarefa #${p.number} — ${p.description.slice(0, 80)}`,
         amount: p.value,
       })),
     });
@@ -235,7 +235,7 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
         data: {
           invoiceId: invoice.id,
           processId: p.id,
-          description: `Processo #${p.number} — ${p.description.slice(0, 80)}`,
+          description: `Tarefa #${p.number} — ${p.description.slice(0, 80)}`,
           amount: p.value,
         },
       });
@@ -249,7 +249,7 @@ export async function generateInvoiceFromProcesses(input: GenerateInvoiceInput) 
     action: "invoice.generate_from_processes",
     entityType: "invoice",
     entityId: invoiceIds[0],
-    description: `${invoiceIds.length} fatura(s) gerada(s) a partir de ${processes.length} processo(s).`,
+    description: `${invoiceIds.length} fatura(s) gerada(s) a partir de ${processes.length} tarefa(s).`,
     metadata: { processIds: data.processIds, grouped: data.grouped },
   });
 

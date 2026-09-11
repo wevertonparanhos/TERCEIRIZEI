@@ -36,7 +36,7 @@ export default async function NovaFaturaPage({ searchParams }: { searchParams: {
       <h1 className="mt-2 text-2xl font-bold text-ink">Nova Fatura</h1>
       {sourceProcess && (
         <p className="mt-1 text-sm text-muted">
-          Cliente pré-preenchido a partir do processo. Adicione os itens da cobrança depois de criar a fatura.
+          Cliente pré-preenchido a partir da tarefa. Adicione os itens da cobrança depois de criar a fatura.
         </p>
       )}
 

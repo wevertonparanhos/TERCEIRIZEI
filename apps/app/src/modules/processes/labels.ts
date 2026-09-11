@@ -12,13 +12,6 @@ export const PRIORITY_BADGE_VARIANT: Record<string, "neutral" | "success" | "war
   URGENTE: "warning",
 };
 
-export const TASK_STATUS_LABELS: Record<string, string> = {
-  A_FAZER: "A fazer",
-  EM_ANDAMENTO: "Em andamento",
-  BLOQUEADA: "Bloqueada",
-  CONCLUIDA: "Concluída",
-};
-
 const TERMINAL_STAGE_LABELS = ["Concluído", "Cancelado"];
 
 /** true quando o processo tem prazo vencido e ainda não está numa etapa terminal. */

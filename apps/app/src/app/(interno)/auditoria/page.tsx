@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   client: "Cliente",
   demand: "Demanda",
-  process: "Processo",
+  process: "Tarefa",
   document: "Documento",
   document_request: "Solicitação de documento",
   invoice: "Fatura",

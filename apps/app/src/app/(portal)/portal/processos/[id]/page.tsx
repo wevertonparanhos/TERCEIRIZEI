@@ -51,7 +51,7 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
       <RealtimeRefresh table="processes" filterColumn="client_id" filterValue={user.clientId} />
       <div>
         <Link href="/portal/processos" className="text-sm text-accent hover:underline">
-          ← Voltar para Meus Processos
+          ← Voltar para Minhas Tarefas
         </Link>
         <div className="mt-2 flex items-center gap-3">
           <h1 className="text-2xl font-bold text-ink">

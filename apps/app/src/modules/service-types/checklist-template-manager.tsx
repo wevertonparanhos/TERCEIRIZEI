@@ -55,8 +55,8 @@ export function ChecklistTemplateManager({
     <div>
       <h3 className="text-sm font-semibold text-ink">Checklist padrão</h3>
       <p className="mt-1 text-xs text-muted">
-        Copiado automaticamente para cada novo processo deste tipo de serviço — depois pode ser editado livremente
-        em cada processo.
+        Copiado automaticamente para cada nova tarefa deste tipo de serviço — depois pode ser editado livremente
+        em cada tarefa.
       </p>
 
       {items.length === 0 && <p className="mt-3 text-sm text-muted-soft">Nenhum item no checklist padrão.</p>}

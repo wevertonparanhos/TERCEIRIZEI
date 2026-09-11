@@ -54,9 +54,9 @@ export default async function FaturarProcessosPage({
       <Link href="/financeiro" className="text-sm text-accent hover:underline">
         ← Voltar para Financeiro
       </Link>
-      <h1 className="mt-2 text-2xl font-bold text-ink">Faturar Processos</h1>
+      <h1 className="mt-2 text-2xl font-bold text-ink">Faturar Tarefas</h1>
       <p className="mt-1 text-sm text-muted">
-        Gere uma fatura a partir do valor já definido em um ou mais processos do mesmo cliente.
+        Gere uma fatura a partir do valor já definido em uma ou mais tarefas do mesmo cliente.
       </p>
 
       <form method="get" className="mt-6 flex gap-3">
@@ -69,7 +69,7 @@ export default async function FaturarProcessosPage({
           ))}
         </Select>
         <Button type="submit" variant="outline">
-          Ver processos
+          Ver tarefas
         </Button>
       </form>
 
@@ -77,7 +77,7 @@ export default async function FaturarProcessosPage({
         <div className="mt-6 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
           {processes.length === 0 ? (
             <p className="text-sm text-muted-soft">
-              Nenhum processo com valor definido e sem fatura vinculada para este cliente.
+              Nenhuma tarefa com valor definido e sem fatura vinculada para este cliente.
             </p>
           ) : (
             <BillProcessesForm

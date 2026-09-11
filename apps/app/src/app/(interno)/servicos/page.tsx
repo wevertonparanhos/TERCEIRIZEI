@@ -24,7 +24,7 @@ export default async function ServicosPage() {
           <h1 className="text-2xl font-bold text-ink">Modelos de Processo</h1>
           <p className="text-sm text-muted">
             Tipos de serviço com valor, prazo, prioridade e checklist padrão — aplicados automaticamente na abertura
-            de um novo processo, mas sempre ajustáveis caso a caso.
+            de uma nova tarefa, mas sempre ajustáveis caso a caso.
           </p>
         </div>
         <Link
@@ -47,7 +47,7 @@ export default async function ServicosPage() {
                   {st.defaultDeadlineDays ? ` · ${st.defaultDeadlineDays}d` : ""}
                   {st._count.checklistTemplate > 0 ? ` · ${st._count.checklistTemplate} item(s) de checklist` : ""}
                 </span>
-                <span className="text-xs text-muted-soft">{st._count.processes} processo(s)</span>
+                <span className="text-xs text-muted-soft">{st._count.processes} tarefa(s)</span>
               </Link>
             </li>
           ))}

@@ -1,12 +1,11 @@
 import { dayKeyFromDate } from "@/modules/calendar/month";
 
-export const EVENT_TYPES = ["recorrente", "prazo_processo", "tarefa", "pagamento", "documento"] as const;
+export const EVENT_TYPES = ["recorrente", "prazo_processo", "pagamento", "documento"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   recorrente: "Tarefa recorrente",
-  prazo_processo: "Prazo de processo",
-  tarefa: "Tarefa",
+  prazo_processo: "Prazo de tarefa",
   pagamento: "Pagamento",
   documento: "Documento solicitado",
 };
@@ -15,7 +14,6 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
 export const EVENT_TYPE_DOT: Record<EventType, string> = {
   recorrente: "bg-violet-500",
   prazo_processo: "bg-blue-500",
-  tarefa: "bg-amber-500",
   pagamento: "bg-emerald-500",
   documento: "bg-rose-500",
 };
@@ -34,7 +32,6 @@ export function buildCalendarEvents(
   input: {
     recurringTasks: { id: string; title: string; nextDueAt: Date; clientName: string }[];
     processDeadlines: { id: string; number: number; description: string; requestedDeadline: Date; clientName: string }[];
-    tasks: { id: string; title: string; dueAt: Date; processId: string; processNumber: number; clientName: string }[];
     payments: { id: string; processId: string; number: number; description: string; paymentDueDate: Date; clientName: string }[];
     documentRequests: { id: string; label: string; deadline: Date; clientName: string; processId: string | null }[];
   },
@@ -63,18 +60,6 @@ export function buildCalendarEvents(
       clientName: p.clientName,
       href: `/processos/${p.id}`,
       overdue: p.requestedDeadline.getTime() < now.getTime(),
-    });
-  }
-
-  for (const t of input.tasks) {
-    events.push({
-      id: `tarefa-${t.id}`,
-      type: "tarefa",
-      date: t.dueAt,
-      title: `${t.title} (#${t.processNumber})`,
-      clientName: t.clientName,
-      href: `/processos/${t.processId}`,
-      overdue: t.dueAt.getTime() < now.getTime(),
     });
   }
 

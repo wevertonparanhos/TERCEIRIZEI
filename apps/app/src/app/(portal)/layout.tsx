@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV_ITEMS = [
   { href: "/portal", label: "Dashboard" },
-  { href: "/portal/processos", label: "Meus Processos" },
+  { href: "/portal/processos", label: "Minhas Tarefas" },
   { href: "/portal/nova-demanda", label: "Nova Demanda" },
   { href: "/portal/chat", label: "Chat" },
   { href: "/portal/propostas", label: "Propostas" },

@@ -236,7 +236,7 @@ export function ProcessCreateForm({
       )}
 
       <Button type="submit" disabled={submitting}>
-        {submitting ? "Salvando..." : "Abrir processo"}
+        {submitting ? "Salvando..." : "Abrir tarefa"}
       </Button>
     </form>
   );

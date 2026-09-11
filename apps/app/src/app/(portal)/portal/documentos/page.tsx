@@ -32,7 +32,7 @@ export default async function PortalDocumentosPage() {
       <RealtimeRefresh table="document_requests" filterColumn="client_id" filterValue={user.clientId} />
       <div>
         <h1 className="text-2xl font-bold text-ink">Documentos</h1>
-        <p className="text-sm text-muted">Documentos gerais, não ligados a um processo específico.</p>
+        <p className="text-sm text-muted">Documentos gerais, não ligados a uma tarefa específica.</p>
       </div>
 
       <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">

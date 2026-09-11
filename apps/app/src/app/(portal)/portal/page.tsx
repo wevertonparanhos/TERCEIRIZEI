@@ -41,7 +41,7 @@ export default async function PortalDashboardPage() {
       <div className="mt-6 grid grid-cols-3 gap-4">
         <Link href="/portal/processos" className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm">
           <p className="text-2xl font-bold text-ink">{activeProcesses}</p>
-          <p className="text-sm text-muted">Processos em andamento</p>
+          <p className="text-sm text-muted">Tarefas em andamento</p>
         </Link>
         <Link href="/portal/documentos" className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm">
           <p className="text-2xl font-bold text-ink">{pendingRequests}</p>

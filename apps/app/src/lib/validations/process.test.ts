@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { processSchema, taskSchema, createProcessSchema, clientCreateProcessSchema } from "./process";
+import { processSchema, createProcessSchema, clientCreateProcessSchema } from "./process";
 
 describe("processSchema", () => {
   it("aceita um processo válido só com prioridade + visibleInPortal (demais campos opcionais)", () => {
@@ -60,18 +60,6 @@ describe("clientCreateProcessSchema", () => {
       description: "Preciso de uma certidão negativa de débitos.",
       priority: "ALTA",
     });
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("taskSchema", () => {
-  it("aceita uma tarefa válida", () => {
-    const result = taskSchema.safeParse({ title: "Enviar documentos", priority: "ALTA" });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejeita título muito curto", () => {
-    const result = taskSchema.safeParse({ title: "X", priority: "ALTA" });
     expect(result.success).toBe(false);
   });
 });

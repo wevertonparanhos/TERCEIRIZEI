@@ -104,7 +104,7 @@ export default async function FinanceiroPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">
-              <th className="px-4 py-3 font-medium">Processo</th>
+              <th className="px-4 py-3 font-medium">Tarefa</th>
               <th className="px-4 py-3 font-medium">Cliente</th>
               <th className="px-4 py-3 font-medium">Vencimento</th>
               <th className="px-4 py-3 font-medium">Valor</th>

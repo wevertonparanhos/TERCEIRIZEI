@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   Sparkles,
   ClipboardList,
-  ListChecks,
   Users,
   AlertTriangle,
   Clock,
@@ -119,7 +118,6 @@ export default async function DashboardPage() {
 
   if (user.role === "OPERACIONAL") {
     const [
-      myOpenTasks,
       myActiveProcesses,
       myDeadlines,
       myOverdueProcesses,
@@ -128,9 +126,6 @@ export default async function DashboardPage() {
       myOverdueRecurringTasks,
       myUnreadMentions,
     ] = await Promise.all([
-      prisma.task.count({
-        where: { assigneeId: user.id, status: { not: "CONCLUIDA" }, process: { tenantId: user.tenantId } },
-      }),
       prisma.process.count({
         where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
       }),
@@ -193,17 +188,16 @@ export default async function DashboardPage() {
 
         <h2 className="mt-8 text-base font-semibold text-ink">Minha carga de trabalho</h2>
         <div className="mt-3 grid grid-cols-2 gap-4">
-          <StatCard href="/processos" value={myActiveProcesses} label="Processos atribuídos a mim" icon={ClipboardList} />
-          <StatCard value={myOpenTasks} label="Tarefas pendentes" icon={ListChecks} />
+          <StatCard href="/processos" value={myActiveProcesses} label="Tarefas atribuídas a mim" icon={ClipboardList} />
         </div>
 
         <h2 className="mt-6 text-base font-semibold text-ink">Atenção</h2>
         <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
-          <AttentionCard href="/processos" value={myOverdueProcesses} label="Meus processos com prazo vencido" icon={AlertTriangle} />
+          <AttentionCard href="/processos" value={myOverdueProcesses} label="Minhas tarefas com prazo vencido" icon={AlertTriangle} />
           <AttentionCard
             href="/processos"
             value={myStaleProcesses}
-            label="Meus processos sem mudança de etapa há 5+ dias"
+            label="Minhas tarefas sem mudança de etapa há 5+ dias"
             icon={Clock}
           />
           <AttentionCard href="/processos" value={myUnreadComments} label="Comentários do cliente não lidos" icon={MessageSquare} />
@@ -352,7 +346,7 @@ export default async function DashboardPage() {
       <Header user={user} now={now} />
 
       <div className="mt-6 grid grid-cols-2 gap-4">
-        <StatCard href="/processos" value={activeProcesses} label="Processos ativos" icon={ClipboardList} />
+        <StatCard href="/processos" value={activeProcesses} label="Tarefas ativas" icon={ClipboardList} />
         <StatCard
           href="/clientes"
           value={activeClients}
@@ -364,11 +358,11 @@ export default async function DashboardPage() {
       <div className="mt-8">
         <SectionHeader icon={AlertTriangle} title="Atenção" subtitle="O que precisa de uma olhada agora" />
         <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
-          <AttentionCard href="/processos" value={overdueProcesses} label="Processos com prazo vencido" icon={AlertTriangle} />
+          <AttentionCard href="/processos" value={overdueProcesses} label="Tarefas com prazo vencido" icon={AlertTriangle} />
           <AttentionCard
             href="/processos"
             value={staleProcessesCount}
-            label="Processos sem mudança de etapa há 5+ dias"
+            label="Tarefas sem mudança de etapa há 5+ dias"
             icon={Clock}
           />
           <AttentionCard href="/processos" value={unreadCommentsCount} label="Comentários do cliente não lidos" icon={MessageSquare} />
@@ -384,7 +378,7 @@ export default async function DashboardPage() {
 
       {stages.length > 0 && (
         <div className="mt-8 rounded-2xl border border-border/70 bg-surface p-6 shadow-sm">
-          <SectionHeader icon={BarChart3} title="Processos por etapa" subtitle="Volume atual do Kanban" />
+          <SectionHeader icon={BarChart3} title="Tarefas por etapa" subtitle="Volume atual do Kanban" />
           <div className="mt-5 space-y-2.5">
             {stages.map((stage) => (
               <div key={stage.id} className="flex items-center gap-3">
@@ -414,7 +408,7 @@ export default async function DashboardPage() {
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
           <div className="rounded-2xl border border-border/70 bg-surface p-6 shadow-sm">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <TrendingUp className="h-4 w-4 text-accent" /> Processos — últimos 6 meses
+              <TrendingUp className="h-4 w-4 text-accent" /> Tarefas — últimos 6 meses
             </h3>
             <p className="text-xs text-muted-soft">Criados vs. concluídos por mês</p>
             <div className="mt-4">
@@ -425,10 +419,10 @@ export default async function DashboardPage() {
             <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
               <PieChart className="h-4 w-4 text-accent" /> Distribuição por tipo de serviço
             </h3>
-            <p className="text-xs text-muted-soft">Processos ativos agora</p>
+            <p className="text-xs text-muted-soft">Tarefas ativas agora</p>
             <div className="mt-4">
               {serviceTypeData.length === 0 ? (
-                <p className="text-sm text-muted-soft">Nenhum processo ativo no momento.</p>
+                <p className="text-sm text-muted-soft">Nenhuma tarefa ativa no momento.</p>
               ) : (
                 <ServiceTypeBarChart data={serviceTypeData} />
               )}

@@ -17,7 +17,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
   const isOperacional = user.role === "OPERACIONAL";
   const isFinanceiro = user.role === "FINANCEIRO";
 
-  const [recurringTasks, processDeadlines, tasks, payments, documentRequests] = await Promise.all([
+  const [recurringTasks, processDeadlines, payments, documentRequests] = await Promise.all([
     isFinanceiro
       ? Promise.resolve([])
       : prisma.recurringTask.findMany({
@@ -38,17 +38,6 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
             ...(isOperacional ? { assignees: { some: { userId: user.id } } } : {}),
           },
           include: { client: { select: { name: true } } },
-        }),
-    isFinanceiro
-      ? Promise.resolve([])
-      : prisma.task.findMany({
-          where: {
-            status: { not: "CONCLUIDA" },
-            dueAt: { gte: start, lte: end },
-            process: { tenantId: user.tenantId },
-            ...(isOperacional ? { assigneeId: user.id } : {}),
-          },
-          include: { process: { select: { number: true, client: { select: { name: true } } } } },
         }),
     isOperacional
       ? Promise.resolve([])
@@ -81,14 +70,6 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
       requestedDeadline: p.requestedDeadline!,
       clientName: p.client.name,
     })),
-    tasks: tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      dueAt: t.dueAt!,
-      processId: t.processId,
-      processNumber: t.process.number,
-      clientName: t.process.client.name,
-    })),
     payments: payments.map((p) => ({
       id: p.id,
       processId: p.processId,
@@ -114,7 +95,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
         <div>
           <h1 className="text-2xl font-bold text-ink">Calendário</h1>
           <p className="text-sm text-muted">
-            Tarefas recorrentes, prazos de processos, pagamentos e documentos pendentes em um só lugar.
+            Tarefas recorrentes, prazos de tarefas, pagamentos e documentos pendentes em um só lugar.
           </p>
         </div>
         <CalendarNav monthKey={monthKey} />

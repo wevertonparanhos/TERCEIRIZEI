@@ -2,8 +2,6 @@ import { z } from "zod";
 
 export const DEMAND_PRIORITIES = ["BAIXA", "MEDIA", "ALTA", "URGENTE"] as const;
 
-export const TASK_STATUSES = ["A_FAZER", "EM_ANDAMENTO", "BLOQUEADA", "CONCLUIDA"] as const;
-
 export const stageSchema = z.object({
   label: z.string().min(1, "Informe o nome da etapa."),
 });
@@ -44,12 +42,3 @@ export const clientCreateProcessSchema = z.object({
   notes: z.string().optional(),
 });
 export type ClientCreateProcessInput = z.infer<typeof clientCreateProcessSchema>;
-
-export const taskSchema = z.object({
-  title: z.string().min(2, "Descreva a tarefa."),
-  assigneeId: z.string().optional().or(z.literal("")),
-  priority: z.enum(DEMAND_PRIORITIES),
-  dueAt: z.string().optional(),
-  notes: z.string().optional(),
-});
-export type TaskInput = z.infer<typeof taskSchema>;

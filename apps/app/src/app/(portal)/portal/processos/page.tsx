@@ -18,13 +18,13 @@ export default async function PortalProcessosPage() {
   return (
     <div className="p-8">
       <RealtimeRefresh table="processes" filterColumn="client_id" filterValue={user.clientId} />
-      <h1 className="text-2xl font-bold text-ink">Meus Processos</h1>
-      <p className="text-sm text-muted">{processes.length} processo(s)</p>
+      <h1 className="text-2xl font-bold text-ink">Minhas Tarefas</h1>
+      <p className="text-sm text-muted">{processes.length} tarefa(s)</p>
 
       <div className="mt-6 space-y-3">
         {processes.length === 0 && (
           <p className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6 text-sm text-muted-soft">
-            Nenhum processo em andamento.
+            Nenhuma tarefa em andamento.
           </p>
         )}
         {processes.map((p) => (
