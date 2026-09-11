@@ -203,6 +203,9 @@ model User {
   id        String   @id @db.Uuid
   tenantId  String?  @map("tenant_id") @db.Uuid
   roleId    String   @map("role_id") @db.Uuid
+  // Preenchido só pra role CLIENT — liga o login do cliente final ao Client
+  // que ele representa (Fase 11, Portal do Cliente). Nulo pra staff.
+  clientId  String?  @map("client_id") @db.Uuid
   name      String
   email     String   @unique
   active    Boolean  @default(true)
@@ -211,6 +214,7 @@ model User {
 
   tenant Tenant? @relation(fields: [tenantId], references: [id])
   role   Role    @relation(fields: [roleId], references: [id])
+  client Client? @relation(fields: [clientId], references: [id])
 
   responsibleProcesses     Process[]     @relation("ProcessResponsible")
   responsibleProcessSteps  ProcessStep[] @relation("ProcessStepResponsible")
@@ -220,6 +224,7 @@ model User {
   auditLogs                AuditLog[]
 
   @@index([tenantId])
+  @@index([clientId])
   @@map("users")
 }
 
@@ -242,6 +247,7 @@ model Client {
   processes        Process[]
   documents        Document[]
   documentRequests DocumentRequest[]
+  portalUsers      User[]
 
   @@unique([tenantId, doc])
   @@index([tenantId])

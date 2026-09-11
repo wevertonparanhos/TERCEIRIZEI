@@ -1,10 +1,13 @@
 "use server";
 
+import { randomBytes, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma, prisma } from "@legaliza/db";
 import { requireRole, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { clientSchema, type ClientInput } from "@/lib/validations/client";
+
+const INSTANCE_ID = "00000000-0000-0000-0000-000000000000";
 
 // A conexão do Prisma usa a role postgres do Supabase (bypassa RLS) — tenant_id
 // explícito em todo where/data abaixo é a real fronteira de isolamento nesta
@@ -92,4 +95,69 @@ export async function updateClient(clientId: string, input: ClientInput) {
 
   revalidatePath(`/clientes/${clientId}`);
   revalidatePath("/clientes");
+}
+
+// ---------- Acesso ao Portal do Cliente ----------
+
+// Sem envio de e-mail (sem SMTP configurado neste projeto Supabase) — senha
+// temporária gerada e exibida uma vez na tela pro operador repassar. Mesma
+// técnica de insert direto em auth.users/auth.identities do seed.ts
+// (ensureAuthUser) — a Admin API do Supabase ignora app_metadata custom
+// nesta stack (achado da Fase 1).
+export async function inviteClientPortalUser(clientId: string, input: { name: string; email: string }) {
+  const user = await requireWriteAccess();
+
+  const client = await prisma.client.findFirst({ where: { id: clientId, tenantId: user.tenantId! } });
+  if (!client) throw new Error("Cliente não encontrado.");
+
+  const existingPortalUser = await prisma.user.findFirst({ where: { clientId } });
+  if (existingPortalUser) throw new Error("Este cliente já tem acesso ao portal.");
+
+  const existingEmail = await prisma.user.findUnique({ where: { email: input.email } });
+  if (existingEmail) throw new Error("Já existe um usuário cadastrado com este e-mail.");
+
+  const clientRole = await prisma.role.findUnique({ where: { name: "CLIENT" } });
+  if (!clientRole) throw new Error("Papel CLIENT não encontrado.");
+
+  const temporaryPassword = randomBytes(9).toString("base64").replace(/[^A-Za-z0-9]/g, "").slice(0, 12);
+  const authUserId = randomUUID();
+
+  await prisma.$executeRawUnsafe(
+    `insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, confirmation_token, recovery_token, email_change_token_new, email_change, raw_app_meta_data, raw_user_meta_data, is_super_admin, created_at, updated_at)
+     values ($1::uuid, $2::uuid, 'authenticated', 'authenticated', $3, crypt($4, gen_salt('bf')), now(), '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, false, now(), now())`,
+    INSTANCE_ID,
+    authUserId,
+    input.email,
+    temporaryPassword
+  );
+  await prisma.$executeRawUnsafe(
+    `insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+     values ($1, $2::uuid, jsonb_build_object('sub', $1, 'email', $3, 'email_verified', true), 'email', now(), now(), now())`,
+    authUserId,
+    authUserId,
+    input.email
+  );
+
+  await prisma.user.create({
+    data: {
+      id: authUserId,
+      tenantId: user.tenantId!,
+      roleId: clientRole.id,
+      clientId,
+      name: input.name,
+      email: input.email,
+    },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId!,
+    userId: user.id,
+    action: "client.portal_access_granted",
+    entityType: "client",
+    entityId: clientId,
+    description: `Acesso ao portal criado pra "${input.name}" (${input.email}).`,
+  });
+
+  revalidatePath(`/clientes/${clientId}`);
+  return { email: input.email, temporaryPassword };
 }

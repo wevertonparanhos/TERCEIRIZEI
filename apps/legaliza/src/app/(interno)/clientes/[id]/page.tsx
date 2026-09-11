@@ -6,6 +6,7 @@ import { ClientForm } from "@/modules/clients/client-form";
 import { updateClient } from "@/modules/clients/actions";
 import { CompanyForm } from "@/modules/companies/company-form";
 import { createCompany } from "@/modules/companies/actions";
+import { PortalAccess } from "@/modules/clients/portal-access";
 import { Badge } from "@/components/ui/badge";
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
@@ -13,7 +14,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   const client = await prisma.client.findFirst({
     where: { id: params.id, tenantId: user.tenantId! },
-    include: { companies: { orderBy: { legalName: "asc" } } },
+    include: {
+      companies: { orderBy: { legalName: "asc" } },
+      portalUsers: { select: { name: true, email: true }, take: 1 },
+    },
   });
   if (!client) notFound();
 
@@ -78,6 +82,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
         <h3 className="mb-3 text-sm font-medium text-ink">Adicionar Empresa</h3>
         <CompanyForm onSubmit={createCompany.bind(null, client.id)} submitLabel="Adicionar Empresa" />
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="mb-4 text-sm font-medium text-ink">Acesso ao Portal</h2>
+        <PortalAccess clientId={client.id} portalUser={client.portalUsers[0] ?? null} />
       </div>
     </div>
   );

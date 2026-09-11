@@ -75,6 +75,67 @@ export async function uploadDocument(processId: string, formData: FormData) {
   revalidatePath(`/processos/${processId}`);
 }
 
+// Cliente enviando um documento pro próprio processo (Fase 11, Portal do
+// Cliente) — mesma lógica de `uploadDocument`, só troca o guard de RBAC e
+// exige que o processo pertença ao cliente logado (a real fronteira de
+// isolamento, já que Prisma bypassa RLS).
+export async function clientUploadDocument(processId: string, formData: FormData) {
+  const user = await requireRole("CLIENT");
+  if (!user.clientId) throw new Error("Acesso negado.");
+
+  const process = await prisma.process.findFirst({ where: { id: processId, clientId: user.clientId } });
+  if (!process) throw new Error("Processo não encontrado.");
+
+  const name = String(formData.get("name") || "").trim();
+  const file = formData.get("file");
+  if (!name) throw new Error("Informe o nome do documento.");
+  if (!(file instanceof File)) throw new Error("Selecione um arquivo.");
+  validateUploadedFile(file);
+
+  const document = await prisma.document.create({
+    data: {
+      tenantId: process.tenantId,
+      clientId: user.clientId,
+      processId,
+      category: parseCategory(formData.get("category")),
+      name,
+      uploadedById: user.id,
+    },
+  });
+
+  const path = `${process.tenantId}/${user.clientId}/${document.id}/v1-${sanitizeFileName(file.name)}`;
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.storage.from(BUCKET).upload(path, file, { contentType: file.type });
+  if (error) {
+    await prisma.document.delete({ where: { id: document.id } });
+    throw new Error(`Falha ao enviar arquivo: ${error.message}`);
+  }
+
+  await prisma.documentVersion.create({
+    data: {
+      documentId: document.id,
+      version: 1,
+      storagePath: path,
+      fileName: file.name,
+      sizeBytes: file.size,
+      mimeType: file.type,
+      uploadedById: user.id,
+    },
+  });
+
+  await logAudit({
+    tenantId: process.tenantId,
+    userId: user.id,
+    action: "document.upload",
+    entityType: "process",
+    entityId: processId,
+    description: `Documento "${document.name}" enviado pelo cliente.`,
+  });
+
+  revalidatePath(`/portal/processos/${processId}`);
+  return { id: document.id };
+}
+
 export async function uploadNewVersion(processId: string, documentId: string, formData: FormData) {
   const user = await requireWriteAccess();
 

@@ -11,8 +11,9 @@ const ROLE_LABELS: Record<string, string> = {
 
 // Clientes/Empresas são páginas escopadas a tenant — sem sentido pro SUPER_ADMIN
 // (admin de plataforma, sem tenant fixo), então o link nem aparece pra ele.
+// CLIENT nunca chega a renderizar este layout (redirect pra /portal acima).
 const NAV_LINKS = [
-  { href: "/", label: "Dashboard", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "OPERATOR", "CLIENT"] },
+  { href: "/", label: "Dashboard", roles: ["SUPER_ADMIN", "TENANT_ADMIN", "OPERATOR"] },
   { href: "/clientes", label: "Clientes", roles: ["TENANT_ADMIN", "OPERATOR"] },
   { href: "/empresas", label: "Empresas", roles: ["TENANT_ADMIN", "OPERATOR"] },
   { href: "/processos", label: "Processos", roles: ["TENANT_ADMIN", "OPERATOR"] },
@@ -23,6 +24,9 @@ const NAV_LINKS = [
 export default async function InternoLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  // Área operacional é só pra staff — cliente final usa o Portal (Fase 11),
+  // que tem seu próprio route group/layout com nav e dados escopados.
+  if (user.role === "CLIENT") redirect("/portal");
 
   const links = NAV_LINKS.filter((link) => link.roles.includes(user.role));
 

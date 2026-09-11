@@ -7,6 +7,7 @@ export type Role = (typeof ROLES)[number];
 export type CurrentUser = {
   id: string;
   tenantId: string | null;
+  clientId: string | null;
   name: string;
   email: string;
   role: Role;
@@ -32,6 +33,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   return {
     id: profile.id,
     tenantId: profile.tenantId,
+    clientId: profile.clientId,
     name: profile.name,
     email: profile.email,
     role: profile.role.name,

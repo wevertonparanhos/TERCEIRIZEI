@@ -7,6 +7,7 @@ import { ProcessStatusSelect } from "@/modules/processes/process-status-select";
 import { ChecklistList } from "@/modules/checklist/checklist-list";
 import { DocumentList } from "@/modules/documents/document-list";
 import { ProtocolList } from "@/modules/protocols/protocol-list";
+import { DocumentRequestList } from "@/modules/document-requests/document-request-list";
 
 const TYPE_LABELS: Record<string, string> = {
   OPENING: "Abertura",
@@ -28,6 +29,7 @@ export default async function ProcessDetailPage({ params }: { params: { id: stri
         steps: { orderBy: { order: "asc" } },
         checklistItems: { orderBy: { createdAt: "asc" } },
         documents: { orderBy: { createdAt: "desc" } },
+        documentRequests: { orderBy: { createdAt: "desc" } },
         protocols: {
           include: { governmentAgency: { select: { name: true, portalUrl: true } } },
           orderBy: { createdAt: "desc" },
@@ -105,6 +107,21 @@ export default async function ProcessDetailPage({ params }: { params: { id: stri
             category: d.category,
             currentVersion: d.currentVersion,
           }))}
+        />
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="mb-4 text-sm font-medium text-ink">Solicitações de Documento</h2>
+        <DocumentRequestList
+          processId={process.id}
+          requests={process.documentRequests.map((r) => ({
+            id: r.id,
+            label: r.label,
+            deadline: r.deadline ? r.deadline.toISOString() : null,
+            status: r.status,
+            documentId: r.documentId,
+          }))}
+          canCreate
         />
       </div>
 
