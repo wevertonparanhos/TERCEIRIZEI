@@ -456,6 +456,13 @@ model Process {
   priority          DemandPriority @default(MEDIA)
   requestedDeadline DateTime?      @map("requested_deadline")
   dueAt             DateTime?      @map("due_at")
+  // Cronograma (inspirado no FreelaPRO) — dueAt já cobre "Prev. conclusão";
+  // os 5 campos abaixo completam os pares previsto/real de início e entrega.
+  plannedStartAt      DateTime? @map("planned_start_at")
+  actualStartAt       DateTime? @map("actual_start_at")
+  actualCompletionAt  DateTime? @map("actual_completion_at")
+  plannedDeliveryAt   DateTime? @map("planned_delivery_at")
+  actualDeliveryAt    DateTime? @map("actual_delivery_at")
   visibleInPortal   Boolean        @default(true) @map("visible_in_portal")
   notes             String?
   createdAt         DateTime       @default(now()) @map("created_at")

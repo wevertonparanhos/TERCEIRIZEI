@@ -211,6 +211,15 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                     assigneeIds: process.assignees.map((a) => a.userId),
                     priority: process.priority,
                     dueAt: process.dueAt ? process.dueAt.toISOString().slice(0, 10) : "",
+                    plannedStartAt: process.plannedStartAt ? process.plannedStartAt.toISOString().slice(0, 10) : "",
+                    actualStartAt: process.actualStartAt ? process.actualStartAt.toISOString().slice(0, 10) : "",
+                    actualCompletionAt: process.actualCompletionAt
+                      ? process.actualCompletionAt.toISOString().slice(0, 10)
+                      : "",
+                    plannedDeliveryAt: process.plannedDeliveryAt
+                      ? process.plannedDeliveryAt.toISOString().slice(0, 10)
+                      : "",
+                    actualDeliveryAt: process.actualDeliveryAt ? process.actualDeliveryAt.toISOString().slice(0, 10) : "",
                     visibleInPortal: process.visibleInPortal,
                     notes: process.notes ?? "",
                   }}

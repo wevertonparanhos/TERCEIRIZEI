@@ -24,6 +24,11 @@ export function ProcessForm({
     assigneeIds: string[];
     priority: string;
     dueAt: string;
+    plannedStartAt: string;
+    actualStartAt: string;
+    actualCompletionAt: string;
+    plannedDeliveryAt: string;
+    actualDeliveryAt: string;
     visibleInPortal: boolean;
     notes: string;
   };
@@ -46,6 +51,11 @@ export function ProcessForm({
         assigneeIds: formData.getAll("assigneeIds") as string[],
         priority: formData.get("priority") as ProcessInput["priority"],
         dueAt: (formData.get("dueAt") as string) ?? "",
+        plannedStartAt: (formData.get("plannedStartAt") as string) ?? "",
+        actualStartAt: (formData.get("actualStartAt") as string) ?? "",
+        actualCompletionAt: (formData.get("actualCompletionAt") as string) ?? "",
+        plannedDeliveryAt: (formData.get("plannedDeliveryAt") as string) ?? "",
+        actualDeliveryAt: (formData.get("actualDeliveryAt") as string) ?? "",
         visibleInPortal,
         notes: (formData.get("notes") as string) ?? "",
       });
@@ -85,20 +95,44 @@ export function ProcessForm({
         )}
       </fieldset>
 
-      <fieldset disabled={readOnly} className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="priority">Prioridade</Label>
-          <Select id="priority" name="priority" defaultValue={defaultValues.priority}>
-            {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="dueAt">Prazo previsto de conclusão</Label>
-          <Input id="dueAt" name="dueAt" type="date" defaultValue={defaultValues.dueAt} />
+      <fieldset disabled={readOnly} className="space-y-1.5">
+        <Label htmlFor="priority">Prioridade</Label>
+        <Select id="priority" name="priority" defaultValue={defaultValues.priority}>
+          {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </fieldset>
+
+      <fieldset disabled={readOnly} className="space-y-3 rounded-2xl border border-border/70 bg-surface-alt shadow-sm p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-soft">Cronograma</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="plannedStartAt">Prev. início</Label>
+            <Input id="plannedStartAt" name="plannedStartAt" type="date" defaultValue={defaultValues.plannedStartAt} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="actualStartAt">Início real</Label>
+            <Input id="actualStartAt" name="actualStartAt" type="date" defaultValue={defaultValues.actualStartAt} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dueAt">Prev. conclusão</Label>
+            <Input id="dueAt" name="dueAt" type="date" defaultValue={defaultValues.dueAt} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="actualCompletionAt">Conclusão real</Label>
+            <Input id="actualCompletionAt" name="actualCompletionAt" type="date" defaultValue={defaultValues.actualCompletionAt} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="plannedDeliveryAt">Prev. entrega</Label>
+            <Input id="plannedDeliveryAt" name="plannedDeliveryAt" type="date" defaultValue={defaultValues.plannedDeliveryAt} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="actualDeliveryAt">Entrega real</Label>
+            <Input id="actualDeliveryAt" name="actualDeliveryAt" type="date" defaultValue={defaultValues.actualDeliveryAt} />
+          </div>
         </div>
       </fieldset>
 

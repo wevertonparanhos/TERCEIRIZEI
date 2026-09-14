@@ -265,6 +265,11 @@ export async function updateProcess(processId: string, input: ProcessInput) {
       data: {
         priority: data.priority,
         dueAt: data.dueAt ? new Date(data.dueAt) : null,
+        plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : null,
+        actualStartAt: data.actualStartAt ? new Date(data.actualStartAt) : null,
+        actualCompletionAt: data.actualCompletionAt ? new Date(data.actualCompletionAt) : null,
+        plannedDeliveryAt: data.plannedDeliveryAt ? new Date(data.plannedDeliveryAt) : null,
+        actualDeliveryAt: data.actualDeliveryAt ? new Date(data.actualDeliveryAt) : null,
         visibleInPortal: data.visibleInPortal,
         notes: data.notes || null,
       },

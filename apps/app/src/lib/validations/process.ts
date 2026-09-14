@@ -11,6 +11,13 @@ export const processSchema = z.object({
   assigneeIds: z.array(z.string()).default([]),
   priority: z.enum(DEMAND_PRIORITIES),
   dueAt: z.string().optional(),
+  // Cronograma — pares previsto/real de início e entrega (dueAt já é a
+  // "Prev. conclusão"); "Conclusão real" também mora aqui.
+  plannedStartAt: z.string().optional(),
+  actualStartAt: z.string().optional(),
+  actualCompletionAt: z.string().optional(),
+  plannedDeliveryAt: z.string().optional(),
+  actualDeliveryAt: z.string().optional(),
   visibleInPortal: z.boolean(),
   notes: z.string().optional(),
 });
