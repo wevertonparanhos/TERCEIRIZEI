@@ -99,6 +99,39 @@ const MG_WORKFLOW_STEPS = [
   { name: "Conclusão", estimatedDays: 1 },
 ];
 
+// 19 etapas reais do processo de Transformação MEI → LTDA em MG (fluxo real
+// passado pelo usuário, com o "visão geral" de 12 nós expandido com o
+// detalhe das seções seguintes: Desenquadramento SIMEI e Diagnóstico do MEI
+// entram como etapas próprias — a JUCEMG/Portal do Empreendedor tratam isso
+// como parte do próprio trâmite de transformação, não como "baixar o MEI"
+// (o CNPJ é mantido). Os 2 pontos de decisão do fluxo original (Viabilidade
+// reprovada→correção; Análise JUCEMG→exigência) não viram branch no motor
+// (WorkflowStep é lista linear, sem condicional) — "Cumprimento de
+// Exigência" fica como etapa sempre presente na sequência, cancelável
+// manualmente quando não houver exigência, mesmo padrão já usado nas etapas
+// condicionais "quando aplicável" do workflow de Abertura — MG.
+const TRANSFORMATION_MEI_LTDA_MG_WORKFLOW_STEPS = [
+  { name: "Triagem", estimatedDays: 1 },
+  { name: "Diagnóstico do MEI (CNPJ ativo, SIMEI ativo, CNAE compatível)", estimatedDays: 1 },
+  { name: "Definição da Nova LTDA (nome, capital, CNAEs, objeto social, sócios, administrador, ME/EPP)", estimatedDays: 2 },
+  { name: "Viabilidade JUCEMG (Eventos 220 e 225)", estimatedDays: 2, requiresProtocol: true, agencyName: "JUCEMG" },
+  { name: "DBE / REDESIM", estimatedDays: 1, requiresDocument: true, agencyName: "REDESIM" },
+  { name: "Desenquadramento do SIMEI", estimatedDays: 1, requiresProtocol: true, agencyName: "Receita Federal" },
+  { name: "Módulo Integrador (Ato 002 / Evento 046)", estimatedDays: 1, agencyName: "REDESIM" },
+  { name: "Elaboração do Ato de Transformação", estimatedDays: 2, requiresDocument: true },
+  { name: "Assinatura", estimatedDays: 1, requiresDocument: true },
+  { name: "DAE", estimatedDays: 1, requiresDocument: true },
+  { name: "Registro Digital JUCEMG", estimatedDays: 1, requiresProtocol: true, agencyName: "JUCEMG" },
+  { name: "Análise JUCEMG", estimatedDays: 5, requiresProtocol: true, agencyName: "JUCEMG" },
+  { name: "Cumprimento de Exigência (se houver)", estimatedDays: 3, requiresDocument: true },
+  { name: "Pós-Registro — Receita Federal (CNPJ, natureza, CNAEs, QSA)", estimatedDays: 2, requiresProtocol: true, agencyName: "Receita Federal" },
+  { name: "Pós-Registro — Simples Nacional", estimatedDays: 1, requiresProtocol: true, agencyName: "Receita Federal" },
+  { name: "Pós-Registro — Prefeitura (inscrição, alvará, NFS-e)", estimatedDays: 3, requiresProtocol: true, agencyName: "Prefeitura" },
+  { name: "Pós-Registro — SEFAZ/MG (se aplicável)", estimatedDays: 3, requiresProtocol: true, agencyName: "SEF/MG" },
+  { name: "Pós-Registro — Licenciamentos específicos (se aplicável)", estimatedDays: 5, requiresProtocol: true, agencyName: "Licenciamento" },
+  { name: "Encerramento", estimatedDays: 1 },
+];
+
 const AMENDMENT_WORKFLOW_STEPS = [
   { name: "Triagem", estimatedDays: 1 },
   { name: "Documentos", estimatedDays: 2, requiresDocument: true },
@@ -329,6 +362,49 @@ async function main() {
           processType: "OPENING",
           state: "MG",
           workflowId: mgWorkflow.id,
+          priority: 0,
+        },
+      });
+    }
+
+    const transformationMgWorkflowName = "Transformação MEI → LTDA — MG";
+    let transformationMgWorkflow = await prisma.workflow.findFirst({
+      where: { tenantId: tenant.id, name: transformationMgWorkflowName },
+    });
+    if (!transformationMgWorkflow) {
+      transformationMgWorkflow = await prisma.workflow.create({
+        data: { tenantId: tenant.id, name: transformationMgWorkflowName, processType: "TRANSFORMATION", state: "MG" },
+      });
+      await prisma.workflowStep.createMany({
+        data: TRANSFORMATION_MEI_LTDA_MG_WORKFLOW_STEPS.map((s, index) => ({
+          workflowId: transformationMgWorkflow!.id,
+          name: s.name,
+          order: index + 1,
+          estimatedDays: s.estimatedDays,
+          agencyName: s.agencyName ?? null,
+          requiresDocument: s.requiresDocument ?? false,
+          requiresProtocol: s.requiresProtocol ?? false,
+        })),
+      });
+    }
+
+    // legalNature: "MEI" — só bate quando a empresa atual está cadastrada com
+    // essa natureza jurídica exata (texto livre, sem enum — convenção
+    // documentada, não validada em schema). Transformação de outras naturezas
+    // (ex: EI → LTDA) continua sem workflow dedicado, cai sem etapas — mesmo
+    // comportamento de "nenhuma regra bate" já existente desde a Fase 3.
+    const existingTransformationMgRule = await prisma.rule.findFirst({
+      where: { tenantId: tenant.id, workflowId: transformationMgWorkflow.id },
+    });
+    if (!existingTransformationMgRule) {
+      await prisma.rule.create({
+        data: {
+          tenantId: tenant.id,
+          name: "Transformação MEI → LTDA — MG",
+          processType: "TRANSFORMATION",
+          state: "MG",
+          legalNature: "MEI",
+          workflowId: transformationMgWorkflow.id,
           priority: 0,
         },
       });
