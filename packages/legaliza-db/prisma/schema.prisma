@@ -160,6 +160,7 @@ model Tenant {
   documentRequests  DocumentRequest[]
   protocols         Protocol[]
   complianceItems   ComplianceItem[]
+  documentTemplates DocumentTemplate[]
   auditLogs         AuditLog[]
 
   @@map("tenants")
@@ -653,6 +654,26 @@ model ComplianceItem {
   @@index([tenantId])
   @@index([companyId])
   @@map("compliance_items")
+}
+
+// Modelo de documento (.docx) enviado pelo próprio tenant, com marcadores de
+// variável tipo {cliente_nome} — LEGALIZA.AI só substitui variável, nunca
+// escreve conteúdo jurídico (Fase 12, princípio 65: nunca inventar dado/texto
+// oficial). category é aplicada automaticamente no Document gerado.
+model DocumentTemplate {
+  id          String           @id @default(uuid()) @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  name        String
+  category    DocumentCategory @default(OUTROS)
+  description String?
+  storagePath String           @map("storage_path")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("document_templates")
 }
 
 // Trilha de auditoria. logAudit() nunca derruba a ação que chamou — falha de

@@ -8,6 +8,7 @@ import { ChecklistList } from "@/modules/checklist/checklist-list";
 import { DocumentList } from "@/modules/documents/document-list";
 import { ProtocolList } from "@/modules/protocols/protocol-list";
 import { DocumentRequestList } from "@/modules/document-requests/document-request-list";
+import { GenerateDocumentForm } from "@/modules/document-templates/generate-document-form";
 
 const TYPE_LABELS: Record<string, string> = {
   OPENING: "Abertura",
@@ -19,7 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
 export default async function ProcessDetailPage({ params }: { params: { id: string } }) {
   const user = await requireRole("TENANT_ADMIN", "OPERATOR");
 
-  const [process, agencies] = await Promise.all([
+  const [process, agencies, templates] = await Promise.all([
     prisma.process.findFirst({
       where: { id: params.id, tenantId: user.tenantId! },
       include: {
@@ -37,6 +38,7 @@ export default async function ProcessDetailPage({ params }: { params: { id: stri
       },
     }),
     prisma.governmentAgency.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.documentTemplate.findMany({ where: { tenantId: user.tenantId! }, orderBy: { name: "asc" } }),
   ]);
   if (!process) notFound();
 
@@ -96,6 +98,16 @@ export default async function ProcessDetailPage({ params }: { params: { id: stri
           items={process.checklistItems.map((i) => ({ id: i.id, label: i.label, required: i.required, done: i.done }))}
         />
       </div>
+
+      {templates.length > 0 && (
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="mb-4 text-sm font-medium text-ink">Gerar Documento</h2>
+          <GenerateDocumentForm
+            processId={process.id}
+            templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+          />
+        </div>
+      )}
 
       <div className="rounded-lg border border-border bg-surface p-6">
         <h2 className="mb-4 text-sm font-medium text-ink">Documentos</h2>
