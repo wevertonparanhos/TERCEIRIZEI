@@ -1,0 +1,44 @@
+name: LEGALIZA.AI CI
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "apps/legaliza/**"
+      - "packages/legaliza-db/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/legaliza-ci.yml"
+  pull_request:
+    paths:
+      - "apps/legaliza/**"
+      - "packages/legaliza-db/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/legaliza-ci.yml"
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Instalar dependências (gera o Prisma Client via postinstall)
+        run: npm ci
+
+      - name: Rodar testes (Vitest, só lógica pura)
+        run: npm run test:legaliza
+
+      - name: Rodar build de produção (Next.js)
+        run: npm run build:legaliza
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.supabase.co"
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "ci-placeholder-key"
+          SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder-key"
