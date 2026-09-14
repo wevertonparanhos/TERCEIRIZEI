@@ -7,6 +7,7 @@ import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/processes/lab
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import { ProcessComments } from "@/modules/processes/process-comments";
+import { Deliverables } from "@/modules/processes/deliverables";
 import { RealtimeRefresh } from "@/modules/portal/realtime-refresh";
 import {
   clientUploadDocument,
@@ -16,7 +17,7 @@ import {
   cancelRequest,
   respondDocumentApproval,
 } from "@/modules/documents/actions";
-import { clientAddProcessComment } from "@/modules/processes/actions";
+import { clientAddProcessComment, respondDeliverable } from "@/modules/processes/actions";
 
 export default async function PortalProcessoDetalhePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -40,6 +41,10 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
           author: { select: { name: true, role: { select: { name: true } } } },
           mentions: { include: { mentionedUser: { select: { name: true } } } },
         },
+      },
+      deliverables: {
+        orderBy: { createdAt: "desc" },
+        include: { document: { select: { id: true, name: true } } },
       },
     },
   });
@@ -85,6 +90,30 @@ export default async function PortalProcessoDetalhePage({ params }: { params: { 
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {process.deliverables.length > 0 && (
+        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
+          <Deliverables
+            processId={process.id}
+            canWrite={false}
+            canRespond
+            deliverables={process.deliverables.map((d) => ({
+              id: d.id,
+              type: d.type,
+              title: d.title,
+              content: d.content,
+              url: d.url,
+              documentId: d.documentId,
+              documentName: d.document?.name ?? null,
+              approvalStatus: d.approvalStatus,
+              approvalNote: d.approvalNote,
+              createdAt: d.createdAt.toISOString(),
+            }))}
+            availableDocuments={[]}
+            respondDeliverable={respondDeliverable}
+          />
         </div>
       )}
 

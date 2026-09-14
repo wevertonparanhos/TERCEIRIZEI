@@ -13,6 +13,7 @@ import {
   ListChecks,
   Paperclip,
   History,
+  PackageCheck,
 } from "lucide-react";
 import {
   PRIORITY_LABELS,
@@ -33,6 +34,7 @@ import { Installments } from "@/modules/processes/installments";
 import { ProcessPresence } from "@/modules/processes/process-presence";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
+import { Deliverables } from "@/modules/processes/deliverables";
 import {
   updateProcess,
   addChecklistItem,
@@ -48,6 +50,8 @@ import {
   reopenImpediment,
   markPresence,
   clearPresence,
+  addDeliverable,
+  deleteDeliverable,
 } from "@/modules/processes/actions";
 import {
   uploadNewDocument,
@@ -95,6 +99,10 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
       },
       installments: { orderBy: { position: "asc" } },
       presence: { include: { user: { select: { id: true, name: true } } } },
+      deliverables: {
+        orderBy: { createdAt: "desc" },
+        include: { document: { select: { id: true, name: true } } },
+      },
     },
   });
 
@@ -358,6 +366,33 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                     cancelRequest={cancelRequest}
                   />
                 </div>
+              ),
+            },
+            {
+              key: "entregaveis",
+              label: "Entregáveis",
+              icon: <PackageCheck className="h-4 w-4" />,
+              content: (
+                <Deliverables
+                  processId={process.id}
+                  canWrite={canWrite}
+                  canRespond={false}
+                  deliverables={process.deliverables.map((d) => ({
+                    id: d.id,
+                    type: d.type,
+                    title: d.title,
+                    content: d.content,
+                    url: d.url,
+                    documentId: d.documentId,
+                    documentName: d.document?.name ?? null,
+                    approvalStatus: d.approvalStatus,
+                    approvalNote: d.approvalNote,
+                    createdAt: d.createdAt.toISOString(),
+                  }))}
+                  availableDocuments={process.documents.map((doc) => ({ id: doc.id, name: doc.name }))}
+                  addDeliverable={addDeliverable}
+                  deleteDeliverable={deleteDeliverable}
+                />
               ),
             },
               ]

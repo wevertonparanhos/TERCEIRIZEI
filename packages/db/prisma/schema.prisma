@@ -68,6 +68,14 @@ enum DocumentApprovalStatus {
   @@map("document_approval_status")
 }
 
+enum DeliverableType {
+  TEXTO
+  LINK
+  ARQUIVO
+
+  @@map("deliverable_type")
+}
+
 enum InvoiceStatus {
   PENDENTE
   PAGA
@@ -184,6 +192,7 @@ model User {
   processPresence    ProcessPresence[]
   createdImpediments  ProcessImpediment[] @relation("ImpedimentCreatedBy")
   resolvedImpediments ProcessImpediment[] @relation("ImpedimentResolvedBy")
+  createdDeliverables ProcessDeliverable[] @relation("DeliverableCreatedBy")
   assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
   recurringTaskCompletions RecurringTaskCompletion[]
   clientNotes              ClientNote[]
@@ -486,6 +495,7 @@ model Process {
   assignees    ProcessAssignee[]
   installments ProcessInstallment[]
   presence     ProcessPresence[]
+  deliverables ProcessDeliverable[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -628,17 +638,42 @@ model Document {
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  tenant     Tenant            @relation(fields: [tenantId], references: [id])
-  client     Client            @relation(fields: [clientId], references: [id])
-  process    Process?          @relation(fields: [processId], references: [id])
-  uploadedBy User              @relation(fields: [uploadedById], references: [id])
-  versions   DocumentVersion[]
-  requests   DocumentRequest[]
+  tenant      Tenant               @relation(fields: [tenantId], references: [id])
+  client      Client               @relation(fields: [clientId], references: [id])
+  process     Process?             @relation(fields: [processId], references: [id])
+  uploadedBy  User                 @relation(fields: [uploadedById], references: [id])
+  versions    DocumentVersion[]
+  requests    DocumentRequest[]
+  deliverables ProcessDeliverable[]
 
   @@index([tenantId])
   @@index([clientId])
   @@index([processId])
   @@map("documents")
+}
+
+// Entregável enviado numa tarefa — texto, link ou arquivo (reaproveita um
+// Document já enviado, sem duplicar upload) — o cliente aprova ou recusa
+// pelo portal, mesmo padrão de aprovação já usado em Document.
+model ProcessDeliverable {
+  id             String                 @id @default(uuid()) @db.Uuid
+  processId      String                 @map("process_id") @db.Uuid
+  type           DeliverableType
+  title          String
+  content        String?
+  url            String?
+  documentId     String?                @map("document_id") @db.Uuid
+  approvalStatus DocumentApprovalStatus @default(PENDENTE) @map("approval_status")
+  approvalNote   String?                @map("approval_note")
+  createdById    String                 @map("created_by_id") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at")
+
+  process   Process   @relation(fields: [processId], references: [id], onDelete: Cascade)
+  document  Document? @relation(fields: [documentId], references: [id])
+  createdBy User      @relation("DeliverableCreatedBy", fields: [createdById], references: [id])
+
+  @@index([processId])
+  @@map("process_deliverables")
 }
 
 model DocumentVersion {

@@ -745,3 +745,76 @@ export async function reopenImpediment(processId: string, impedimentId: string) 
   revalidatePath(`/processos/${processId}`);
   revalidatePath("/processos");
 }
+
+// --- Entregáveis (texto, link ou arquivo já enviado) com aprovação do cliente ---
+
+export type DeliverableInput = {
+  type: "TEXTO" | "LINK" | "ARQUIVO";
+  title: string;
+  content?: string;
+  url?: string;
+  documentId?: string;
+};
+
+export async function addDeliverable(processId: string, input: DeliverableInput) {
+  const user = await requireStaff();
+  const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
+  if (!process) throw new Error("Tarefa não encontrada.");
+
+  if (!input.title.trim()) throw new Error("Informe um título para o entregável.");
+  if (input.type === "LINK" && !input.url?.trim()) throw new Error("Informe o link do entregável.");
+  if (input.type === "TEXTO" && !input.content?.trim()) throw new Error("Informe o conteúdo do entregável.");
+  if (input.type === "ARQUIVO") {
+    if (!input.documentId) throw new Error("Selecione um arquivo já enviado nesta tarefa.");
+    const doc = await prisma.document.findFirst({ where: { id: input.documentId, processId } });
+    if (!doc) throw new Error("Arquivo não encontrado nesta tarefa.");
+  }
+
+  await prisma.processDeliverable.create({
+    data: {
+      processId,
+      type: input.type,
+      title: input.title.trim(),
+      content: input.content?.trim() || null,
+      url: input.url?.trim() || null,
+      documentId: input.documentId || null,
+      createdById: user.id,
+    },
+  });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath(`/portal/processos/${processId}`);
+}
+
+export async function deleteDeliverable(processId: string, deliverableId: string) {
+  const user = await requireStaff();
+  const deliverable = await prisma.processDeliverable.findFirst({
+    where: { id: deliverableId, processId, process: { tenantId: user.tenantId } },
+  });
+  if (!deliverable) throw new Error("Entregável não encontrado.");
+
+  await prisma.processDeliverable.delete({ where: { id: deliverableId } });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath(`/portal/processos/${processId}`);
+}
+
+/** Cliente aprova/recusa um entregável pelo portal — só enquanto estiver pendente. */
+export async function respondDeliverable(processId: string, deliverableId: string, approved: boolean, note: string) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "CLIENTE" || !user.clientId) throw new Error("Acesso negado.");
+
+  const deliverable = await prisma.processDeliverable.findFirst({
+    where: { id: deliverableId, processId, process: { clientId: user.clientId } },
+  });
+  if (!deliverable) throw new Error("Entregável não encontrado.");
+  if (deliverable.approvalStatus !== "PENDENTE") throw new Error("Este entregável já foi respondido.");
+
+  await prisma.processDeliverable.update({
+    where: { id: deliverableId },
+    data: { approvalStatus: approved ? "APROVADO" : "RECUSADO", approvalNote: note.trim() || null },
+  });
+
+  revalidatePath(`/portal/processos/${processId}`);
+  revalidatePath(`/processos/${processId}`);
+}
