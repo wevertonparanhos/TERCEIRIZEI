@@ -8,7 +8,8 @@
     "generate": "prisma generate",
     "postinstall": "prisma generate",
     "migrate:dev": "prisma migrate dev",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "provision-tenant": "tsx prisma/provision-tenant.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.16.1",

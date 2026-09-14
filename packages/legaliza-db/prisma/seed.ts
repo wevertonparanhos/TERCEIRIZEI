@@ -1,5 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { PrismaClient, RoleName } from "../generated/client";
+import {
+  OPENING_WORKFLOW_STEPS,
+  MG_OPENING_WORKFLOW_STEPS,
+  AMENDMENT_WORKFLOW_STEPS,
+  CLOSURE_WORKFLOW_STEPS,
+  TRANSFORMATION_MEI_LTDA_MG_WORKFLOW_STEPS,
+  GOVERNMENT_AGENCIES,
+} from "./workflow-templates";
 
 const prisma = new PrismaClient();
 
@@ -63,118 +71,6 @@ const DEMO_TENANTS = [
       address: { cep: "01310100", street: "Avenida Paulista", number: "500", neighborhood: "Bela Vista", city: "São Paulo", state: "SP" },
     },
     process: { state: "SP", municipality: "São Paulo" },
-  },
-];
-
-const DEMO_WORKFLOW_STEPS = [
-  { name: "Triagem", estimatedDays: 1 },
-  { name: "Documentos", estimatedDays: 2, requiresDocument: true },
-  { name: "Viabilidade", estimatedDays: 3 },
-  { name: "Registro", estimatedDays: 5, requiresProtocol: true },
-  { name: "Conclusão", estimatedDays: 1 },
-];
-
-// 17 etapas reais da seção 25 do briefing (Abertura de Empresa — MG). As 3
-// marcadas "quando aplicável" no briefing (Inscrição Estadual, Licenciamento,
-// Alvará) entram sempre — sem base oficial de qual CNAE exige o quê em MG
-// (princípio 65), o operador cancela manualmente a ProcessStep quando não
-// se aplicar a um processo específico.
-const MG_WORKFLOW_STEPS = [
-  { name: "Triagem", estimatedDays: 1 },
-  { name: "Dados", estimatedDays: 1 },
-  { name: "Documentos", estimatedDays: 2, requiresDocument: true },
-  { name: "Viabilidade", estimatedDays: 2 },
-  { name: "Análise da Viabilidade", estimatedDays: 1 },
-  { name: "Coleta/DBE", estimatedDays: 3 },
-  { name: "Ato Constitutivo", estimatedDays: 2, requiresDocument: true },
-  { name: "Assinatura", estimatedDays: 1 },
-  { name: "Registro na Junta", estimatedDays: 5, requiresProtocol: true },
-  { name: "Análise", estimatedDays: 3 },
-  { name: "CNPJ", estimatedDays: 3, requiresProtocol: true },
-  { name: "Inscrição Municipal", estimatedDays: 3, requiresProtocol: true },
-  { name: "Inscrição Estadual", estimatedDays: 3, requiresProtocol: true },
-  { name: "Licenciamento", estimatedDays: 5, requiresProtocol: true },
-  { name: "Alvará", estimatedDays: 5, requiresProtocol: true },
-  { name: "Conferência", estimatedDays: 1 },
-  { name: "Conclusão", estimatedDays: 1 },
-];
-
-// 19 etapas reais do processo de Transformação MEI → LTDA em MG (fluxo real
-// passado pelo usuário, com o "visão geral" de 12 nós expandido com o
-// detalhe das seções seguintes: Desenquadramento SIMEI e Diagnóstico do MEI
-// entram como etapas próprias — a JUCEMG/Portal do Empreendedor tratam isso
-// como parte do próprio trâmite de transformação, não como "baixar o MEI"
-// (o CNPJ é mantido). Os 2 pontos de decisão do fluxo original (Viabilidade
-// reprovada→correção; Análise JUCEMG→exigência) não viram branch no motor
-// (WorkflowStep é lista linear, sem condicional) — "Cumprimento de
-// Exigência" fica como etapa sempre presente na sequência, cancelável
-// manualmente quando não houver exigência, mesmo padrão já usado nas etapas
-// condicionais "quando aplicável" do workflow de Abertura — MG.
-const TRANSFORMATION_MEI_LTDA_MG_WORKFLOW_STEPS = [
-  { name: "Triagem", estimatedDays: 1 },
-  { name: "Diagnóstico do MEI (CNPJ ativo, SIMEI ativo, CNAE compatível)", estimatedDays: 1 },
-  { name: "Definição da Nova LTDA (nome, capital, CNAEs, objeto social, sócios, administrador, ME/EPP)", estimatedDays: 2 },
-  { name: "Viabilidade JUCEMG (Eventos 220 e 225)", estimatedDays: 2, requiresProtocol: true, agencyName: "JUCEMG" },
-  { name: "DBE / REDESIM", estimatedDays: 1, requiresDocument: true, agencyName: "REDESIM" },
-  { name: "Desenquadramento do SIMEI", estimatedDays: 1, requiresProtocol: true, agencyName: "Receita Federal" },
-  { name: "Módulo Integrador (Ato 002 / Evento 046)", estimatedDays: 1, agencyName: "REDESIM" },
-  { name: "Elaboração do Ato de Transformação", estimatedDays: 2, requiresDocument: true },
-  { name: "Assinatura", estimatedDays: 1, requiresDocument: true },
-  { name: "DAE", estimatedDays: 1, requiresDocument: true },
-  { name: "Registro Digital JUCEMG", estimatedDays: 1, requiresProtocol: true, agencyName: "JUCEMG" },
-  { name: "Análise JUCEMG", estimatedDays: 5, requiresProtocol: true, agencyName: "JUCEMG" },
-  { name: "Cumprimento de Exigência (se houver)", estimatedDays: 3, requiresDocument: true },
-  { name: "Pós-Registro — Receita Federal (CNPJ, natureza, CNAEs, QSA)", estimatedDays: 2, requiresProtocol: true, agencyName: "Receita Federal" },
-  { name: "Pós-Registro — Simples Nacional", estimatedDays: 1, requiresProtocol: true, agencyName: "Receita Federal" },
-  { name: "Pós-Registro — Prefeitura (inscrição, alvará, NFS-e)", estimatedDays: 3, requiresProtocol: true, agencyName: "Prefeitura" },
-  { name: "Pós-Registro — SEFAZ/MG (se aplicável)", estimatedDays: 3, requiresProtocol: true, agencyName: "SEF/MG" },
-  { name: "Pós-Registro — Licenciamentos específicos (se aplicável)", estimatedDays: 5, requiresProtocol: true, agencyName: "Licenciamento" },
-  { name: "Encerramento", estimatedDays: 1 },
-];
-
-const AMENDMENT_WORKFLOW_STEPS = [
-  { name: "Triagem", estimatedDays: 1 },
-  { name: "Documentos", estimatedDays: 2, requiresDocument: true },
-  { name: "Elaboração da Alteração", estimatedDays: 2, requiresDocument: true },
-  { name: "Assinatura", estimatedDays: 1 },
-  { name: "Registro na Junta", estimatedDays: 5, requiresProtocol: true },
-  { name: "Averbação", estimatedDays: 3, requiresProtocol: true },
-  { name: "Conclusão", estimatedDays: 1 },
-];
-
-const CLOSURE_WORKFLOW_STEPS = [
-  { name: "Solicitação", estimatedDays: 1 },
-  { name: "Consulta de Débitos", estimatedDays: 3 },
-  { name: "Documentos", estimatedDays: 2, requiresDocument: true },
-  { name: "Distrato/Ato de Encerramento", estimatedDays: 2, requiresDocument: true },
-  { name: "Baixa Federal", estimatedDays: 5, requiresProtocol: true },
-  { name: "Baixa Estadual", estimatedDays: 5, requiresProtocol: true },
-  { name: "Baixa Municipal", estimatedDays: 5, requiresProtocol: true },
-  { name: "Conclusão", estimatedDays: 1 },
-];
-
-// portalUrl só pros órgãos reais e específicos (dado público verificável,
-// não procedimento inventado — princípio 65). "Prefeitura"/"Licenciamento"
-// são nomes genéricos sem órgão específico, ficam sem portalUrl.
-const DEMO_AGENCIES = [
-  { name: "Receita Federal", sphere: "FEDERAL" as const, portalUrl: "https://www.gov.br/receitafederal" },
-  { name: "REDESIM", sphere: "FEDERAL" as const, portalUrl: "https://www.redesim.gov.br" },
-  { name: "JUCEMG", sphere: "ESTADUAL" as const, state: "MG", portalUrl: "https://jucemg.mg.gov.br" },
-  // Link direto pra emissão da CDT (mais útil que a home da Fazenda/MG).
-  { name: "SEF/MG", sphere: "ESTADUAL" as const, state: "MG", portalUrl: "https://cdt.fazenda.mg.gov.br/cdt-emitida" },
-  { name: "Prefeitura", sphere: "MUNICIPAL" as const },
-  { name: "Licenciamento", sphere: "MUNICIPAL" as const },
-  // Emissão de CND municipal depende da prefeitura do CNPJ — BH é só o
-  // exemplo real que o usuário passou (Fase 10); outros municípios ficam
-  // sem portalUrl até serem pedidos.
-  { name: "Prefeitura de Belo Horizonte", sphere: "MUNICIPAL" as const, portalUrl: "https://cnd.pbh.gov.br/CNDOnline/" },
-  { name: "Justiça do Trabalho (CNDT)", sphere: "FEDERAL" as const, portalUrl: "https://cndt-certidao.tst.jus.br/gerarCertidao" },
-  { name: "Caixa Econômica Federal (FGTS)", sphere: "FEDERAL" as const, portalUrl: "https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf" },
-  {
-    name: "TJMG (Falência e Concordata)",
-    sphere: "ESTADUAL" as const,
-    state: "MG",
-    portalUrl: "https://rupe.tjmg.jus.br/rupe/justica/publico/certidoes/criarSolicitacaoCertidao.rupe?solicitacaoPublica=true",
   },
 ];
 
@@ -311,7 +207,7 @@ async function main() {
         data: { tenantId: tenant.id, name: workflowName, processType: "OPENING" },
       });
       await prisma.workflowStep.createMany({
-        data: DEMO_WORKFLOW_STEPS.map((s, index) => ({
+        data: OPENING_WORKFLOW_STEPS.map((s, index) => ({
           workflowId: workflow!.id,
           name: s.name,
           order: index + 1,
@@ -342,7 +238,7 @@ async function main() {
         data: { tenantId: tenant.id, name: mgWorkflowName, processType: "OPENING", state: "MG" },
       });
       await prisma.workflowStep.createMany({
-        data: MG_WORKFLOW_STEPS.map((s, index) => ({
+        data: MG_OPENING_WORKFLOW_STEPS.map((s, index) => ({
           workflowId: mgWorkflow!.id,
           name: s.name,
           order: index + 1,
@@ -525,7 +421,7 @@ async function main() {
   // Sem @@unique([name]) no schema — upsert manual por nome (não createMany
   // condicional) pra que portalUrl chegue nos registros já seedados antes
   // desta fase, sem precisar apagar o catálogo.
-  for (const agency of DEMO_AGENCIES) {
+  for (const agency of GOVERNMENT_AGENCIES) {
     const existing = await prisma.governmentAgency.findFirst({ where: { name: agency.name } });
     if (existing) {
       await prisma.governmentAgency.update({ where: { id: existing.id }, data: { portalUrl: agency.portalUrl ?? null } });
@@ -533,7 +429,7 @@ async function main() {
       await prisma.governmentAgency.create({ data: agency });
     }
   }
-  console.log(`Catálogo de órgãos seedado: ${DEMO_AGENCIES.map((a) => a.name).join(", ")}`);
+  console.log(`Catálogo de órgãos seedado: ${GOVERNMENT_AGENCIES.map((a) => a.name).join(", ")}`);
 
   console.log(`\nLogin de demonstração (todos): senha "${DEMO_PASSWORD}"`);
 }
