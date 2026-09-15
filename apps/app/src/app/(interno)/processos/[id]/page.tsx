@@ -14,6 +14,7 @@ import {
   Paperclip,
   History,
   PackageCheck,
+  Building2,
 } from "lucide-react";
 import {
   PRIORITY_LABELS,
@@ -35,6 +36,7 @@ import { ProcessPresence } from "@/modules/processes/process-presence";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import { Deliverables } from "@/modules/processes/deliverables";
+import { ClientInfoTab } from "@/modules/processes/client-info";
 import {
   updateProcess,
   addChecklistItem,
@@ -70,8 +72,25 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
   const process = await prisma.process.findFirst({
     where: { id: params.id, tenantId: user.tenantId },
     include: {
-      client: { select: { name: true, phone: true, whatsapp: true } },
-      company: { select: { razaoSocial: true } },
+      client: {
+        select: {
+          id: true,
+          name: true,
+          fantasyName: true,
+          type: true,
+          doc: true,
+          email: true,
+          phone: true,
+          whatsapp: true,
+          address: true,
+          city: true,
+          state: true,
+          contacts: { orderBy: { createdAt: "asc" }, select: { id: true, name: true, role: true, email: true, phone: true } },
+        },
+      },
+      company: {
+        select: { id: true, razaoSocial: true, nomeFantasia: true, cnpj: true, address: true, city: true, state: true },
+      },
       serviceType: { select: { name: true } },
       assignees: { select: { userId: true } },
       stage: { select: { label: true, color: true } },
@@ -313,6 +332,30 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
                   addItem={addChecklistItem}
                   toggleItem={toggleChecklistItem}
                   deleteItem={deleteChecklistItem}
+                />
+              ),
+            },
+            {
+              key: "cliente",
+              label: "Cliente",
+              icon: <Building2 className="h-4 w-4" />,
+              content: (
+                <ClientInfoTab
+                  client={{
+                    id: process.client.id,
+                    name: process.client.name,
+                    fantasyName: process.client.fantasyName,
+                    type: process.client.type,
+                    doc: process.client.doc,
+                    email: process.client.email,
+                    phone: process.client.phone,
+                    whatsapp: process.client.whatsapp,
+                    address: process.client.address,
+                    city: process.client.city,
+                    state: process.client.state,
+                    contacts: process.client.contacts,
+                  }}
+                  company={process.company}
                 />
               ),
             },
