@@ -15,6 +15,7 @@ import {
   Activity,
   ShieldCheck,
   UserCircle,
+  FileClock,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/rbac";
@@ -48,6 +49,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/clientes", label: "Clientes", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Handshake },
       { href: "/clientes/portal", label: "Portal de Clientes", roles: ["ADMIN", "GESTOR"], icon: ExternalLink },
       { href: "/servicos", label: "Modelos de Processo", roles: ["ADMIN", "GESTOR"], icon: LayoutTemplate },
+      {
+        href: "/licencas",
+        label: "Licenças e Certidões",
+        roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"],
+        icon: FileClock,
+      },
     ],
   },
   {

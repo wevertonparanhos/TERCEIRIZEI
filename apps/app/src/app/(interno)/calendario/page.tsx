@@ -17,7 +17,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
   const isOperacional = user.role === "OPERACIONAL";
   const isFinanceiro = user.role === "FINANCEIRO";
 
-  const [recurringTasks, processDeadlines, payments, documentRequests] = await Promise.all([
+  const [recurringTasks, processDeadlines, payments, documentRequests, licenseDeadlines] = await Promise.all([
     isFinanceiro
       ? Promise.resolve([])
       : prisma.recurringTask.findMany({
@@ -59,6 +59,14 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
           },
           include: { client: { select: { name: true } } },
         }),
+    prisma.licenseDocument.findMany({
+      where: {
+        tenantId: user.tenantId,
+        expiresAt: { gte: start, lte: end },
+        ...(isOperacional ? { responsibleId: user.id } : {}),
+      },
+      include: { client: { select: { name: true } } },
+    }),
   ]);
 
   const events = buildCalendarEvents({
@@ -85,6 +93,12 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
       clientName: d.client.name,
       processId: d.processId,
     })),
+    licenseDeadlines: licenseDeadlines.map((l) => ({
+      id: l.id,
+      name: l.name,
+      expiresAt: l.expiresAt,
+      clientName: l.client.name,
+    })),
   });
 
   const eventsByDay = Object.fromEntries(groupEventsByDay(events));
@@ -95,7 +109,8 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
         <div>
           <h1 className="text-2xl font-bold text-ink">Calendário</h1>
           <p className="text-sm text-muted">
-            Tarefas recorrentes, prazos de tarefas, pagamentos e documentos pendentes em um só lugar.
+            Tarefas recorrentes, prazos de tarefas, pagamentos, documentos pendentes e vencimento de licenças/certidões
+            em um só lugar.
           </p>
         </div>
         <CalendarNav monthKey={monthKey} />

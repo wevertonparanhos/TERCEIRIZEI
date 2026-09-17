@@ -103,6 +103,16 @@ enum ProposalStatus {
   @@map("proposal_status")
 }
 
+enum LicenseDocumentType {
+  ALVARA
+  CERTIDAO
+  CERTIFICADO
+  LICENCA
+  OUTRO
+
+  @@map("license_document_type")
+}
+
 model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -128,6 +138,7 @@ model Tenant {
   clientNotes      ClientNote[]
   proposals        Proposal[]
   clientMessages   ClientMessage[]
+  licenseDocuments LicenseDocument[]
 
   @@map("tenants")
 }
@@ -199,6 +210,8 @@ model User {
   createdProposals         Proposal[]
   clientMessages           ClientMessage[]
   clientMessageReads       ClientMessageRead[]
+  licenseDocumentsResponsible LicenseDocument[] @relation("LicenseResponsible")
+  createdLicenseDocuments     LicenseDocument[] @relation("LicenseCreatedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -239,6 +252,7 @@ model Client {
   proposals        Proposal[]
   messages         ClientMessage[]
   messageReads     ClientMessageRead[]
+  licenseDocuments LicenseDocument[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -287,6 +301,7 @@ model Company {
   client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   processes Process[]
   invoices  Invoice[]
+  licenseDocuments LicenseDocument[]
 
   @@unique([tenantId, cnpj])
   @@index([clientId])
@@ -496,6 +511,7 @@ model Process {
   installments ProcessInstallment[]
   presence     ProcessPresence[]
   deliverables ProcessDeliverable[]
+  licenseAutoTaskFor LicenseDocument? @relation("LicenseAutoTask")
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -645,6 +661,7 @@ model Document {
   versions    DocumentVersion[]
   requests    DocumentRequest[]
   deliverables ProcessDeliverable[]
+  licenseDocuments LicenseDocument[]
 
   @@index([tenantId])
   @@index([clientId])
@@ -823,6 +840,45 @@ model RecurringTaskCompletion {
 
   @@index([recurringTaskId])
   @@map("recurring_task_completions")
+}
+
+// Controle de vencimento de alvarás, certidões e certificados por cliente
+// (opcionalmente por empresa/CNPJ específico). Sem job/cron: a tarefa de
+// renovação é criada automaticamente (autoTaskId) na primeira leitura desta
+// lista depois que o vencimento entra na janela de aviso — mesmo padrão
+// "computado a cada leitura" já usado por presença e tarefas recorrentes.
+model LicenseDocument {
+  id                 String              @id @default(uuid()) @db.Uuid
+  tenantId           String              @map("tenant_id") @db.Uuid
+  clientId           String              @map("client_id") @db.Uuid
+  companyId          String?             @map("company_id") @db.Uuid
+  type               LicenseDocumentType @default(OUTRO)
+  name               String
+  issuingBody        String?             @map("issuing_body")
+  documentNumber     String?             @map("document_number")
+  issuedAt           DateTime?           @map("issued_at")
+  expiresAt          DateTime            @map("expires_at")
+  reminderDaysBefore Int                 @default(30) @map("reminder_days_before")
+  responsibleId      String?             @map("responsible_id") @db.Uuid
+  documentId         String?             @map("document_id") @db.Uuid
+  autoTaskId         String?             @unique @map("auto_task_id") @db.Uuid
+  notes              String?
+  createdById        String              @map("created_by_id") @db.Uuid
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  company     Company? @relation(fields: [companyId], references: [id])
+  responsible User?    @relation("LicenseResponsible", fields: [responsibleId], references: [id])
+  document    Document? @relation(fields: [documentId], references: [id])
+  autoTask    Process? @relation("LicenseAutoTask", fields: [autoTaskId], references: [id])
+  createdBy   User     @relation("LicenseCreatedBy", fields: [createdById], references: [id])
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([expiresAt])
+  @@map("license_documents")
 }
 
 // Anotação interna da equipe sobre um cliente — nunca visível no portal do

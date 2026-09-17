@@ -1,6 +1,6 @@
 import { dayKeyFromDate } from "@/modules/calendar/month";
 
-export const EVENT_TYPES = ["recorrente", "prazo_processo", "pagamento", "documento"] as const;
+export const EVENT_TYPES = ["recorrente", "prazo_processo", "pagamento", "documento", "vencimento_licenca"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
@@ -8,6 +8,7 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   prazo_processo: "Prazo de tarefa",
   pagamento: "Pagamento",
   documento: "Documento solicitado",
+  vencimento_licenca: "Vencimento de licença/certidão",
 };
 
 // classes Tailwind completas (não geradas dinamicamente) para o dot + badge de cada tipo
@@ -16,6 +17,7 @@ export const EVENT_TYPE_DOT: Record<EventType, string> = {
   prazo_processo: "bg-blue-500",
   pagamento: "bg-emerald-500",
   documento: "bg-rose-500",
+  vencimento_licenca: "bg-amber-500",
 };
 
 export type CalendarEvent = {
@@ -34,6 +36,7 @@ export function buildCalendarEvents(
     processDeadlines: { id: string; number: number; description: string; requestedDeadline: Date; clientName: string }[];
     payments: { id: string; processId: string; number: number; description: string; paymentDueDate: Date; clientName: string }[];
     documentRequests: { id: string; label: string; deadline: Date; clientName: string; processId: string | null }[];
+    licenseDeadlines?: { id: string; name: string; expiresAt: Date; clientName: string }[];
   },
   now: Date = new Date()
 ): CalendarEvent[] {
@@ -72,6 +75,18 @@ export function buildCalendarEvents(
       clientName: p.clientName,
       href: `/processos/${p.processId}`,
       overdue: p.paymentDueDate.getTime() < now.getTime(),
+    });
+  }
+
+  for (const l of input.licenseDeadlines ?? []) {
+    events.push({
+      id: `vencimento_licenca-${l.id}`,
+      type: "vencimento_licenca",
+      date: l.expiresAt,
+      title: l.name,
+      clientName: l.clientName,
+      href: "/licencas",
+      overdue: l.expiresAt.getTime() < now.getTime(),
     });
   }
 

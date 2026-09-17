@@ -13,6 +13,7 @@ import {
   TrendingUp,
   PieChart,
   Wallet,
+  FileClock,
   type LucideIcon,
 } from "lucide-react";
 import { prisma } from "@terceirizei/db";
@@ -21,6 +22,8 @@ import { isProcessStale, hasUnreadClientComment } from "@/modules/processes/labe
 import { resolvePeriod, summarizePayments } from "@/modules/finance/period";
 import { getLastMonths, sumByMonth, countByMonth, countByLabel } from "@/modules/dashboard/analytics";
 import { RevenueChart, ProcessesTrendChart, ServiceTypeBarChart } from "@/modules/dashboard/charts";
+import { isWithinReminderWindow } from "@/modules/licenses/labels";
+import { ensureAutoRenewalTasks } from "@/modules/licenses/actions";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -116,6 +119,8 @@ export default async function DashboardPage() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+  await ensureAutoRenewalTasks(user.tenantId);
+
   if (user.role === "OPERACIONAL") {
     const [
       myActiveProcesses,
@@ -125,6 +130,7 @@ export default async function DashboardPage() {
       myProcessesForUnread,
       myOverdueRecurringTasks,
       myUnreadMentions,
+      myLicenseDocuments,
     ] = await Promise.all([
       prisma.process.count({
         where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
@@ -173,8 +179,13 @@ export default async function DashboardPage() {
       prisma.processCommentMention.count({
         where: { mentionedUserId: user.id, readAt: null, comment: { process: { tenantId: user.tenantId } } },
       }),
+      prisma.licenseDocument.findMany({
+        where: { tenantId: user.tenantId, responsibleId: user.id },
+        select: { expiresAt: true, reminderDaysBefore: true },
+      }),
     ]);
 
+    const myLicensesDue = myLicenseDocuments.filter((l) => isWithinReminderWindow(l.expiresAt, l.reminderDaysBefore)).length;
     const myStaleProcesses = myProcessesForStale.filter(
       (p) => p.stageHistory[0] && isProcessStale(p.stage.label, p.stageHistory[0].changedAt)
     ).length;
@@ -208,6 +219,7 @@ export default async function DashboardPage() {
             label="Minhas tarefas recorrentes atrasadas"
             icon={Repeat}
           />
+          <AttentionCard href="/licencas" value={myLicensesDue} label="Meus documentos vencendo/vencidos" icon={FileClock} />
         </div>
 
         <DeadlinesList title="Meus prazos nos próximos 7 dias" deadlines={myDeadlines} />
@@ -234,6 +246,7 @@ export default async function DashboardPage() {
     installmentsForChart,
     processesCreatedForChart,
     stageChangesConcludedForChart,
+    licenseDocumentsForCount,
   ] = await Promise.all([
       prisma.client.count({ where: { tenantId: user.tenantId, status: "ativo" } }),
       prisma.client.count({ where: { tenantId: user.tenantId, createdAt: { gte: startOfMonth } } }),
@@ -293,8 +306,15 @@ export default async function DashboardPage() {
         where: { process: { tenantId: user.tenantId }, changedAt: { gte: sixMonthsStart }, toStage: { label: "Concluído" } },
         select: { changedAt: true },
       }),
+      prisma.licenseDocument.findMany({
+        where: { tenantId: user.tenantId },
+        select: { expiresAt: true, reminderDaysBefore: true },
+      }),
     ]);
 
+  const licenseDocumentsDue = licenseDocumentsForCount.filter((l) =>
+    isWithinReminderWindow(l.expiresAt, l.reminderDaysBefore)
+  ).length;
   const activeProcesses = activeProcessesDetail.length;
   const paymentsThisMonth = installmentsForChart.filter(
     (i) => i.paymentDueDate && i.paymentDueDate >= monthStart && i.paymentDueDate <= monthEnd
@@ -373,6 +393,7 @@ export default async function DashboardPage() {
             label="Tarefas recorrentes atrasadas"
             icon={Repeat}
           />
+          <AttentionCard href="/licencas" value={licenseDocumentsDue} label="Documentos vencendo/vencidos" icon={FileClock} />
         </div>
       </div>
 
