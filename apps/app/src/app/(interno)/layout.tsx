@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import {
   LayoutDashboard,
   Calendar,
@@ -16,11 +15,13 @@ import {
   ShieldCheck,
   UserCircle,
   FileClock,
+  LogOut,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/rbac";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -30,6 +31,13 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 type NavItem = { href: string; label: string; roles: string[]; icon: LucideIcon };
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
@@ -81,49 +89,45 @@ export default async function InternoLayout({ children }: { children: React.Reac
   if (!user) redirect("/login");
   if (user.role === "CLIENTE") redirect("/");
 
-  const navGroups = NAV_GROUPS.map((group) => ({
+  const navGroups: NavGroup[] = NAV_GROUPS.map((group) => ({
     label: group.label,
-    items: group.items.filter((item) => item.roles.includes(user.role)),
+    items: group.items
+      .filter((item) => item.roles.includes(user.role))
+      .map((item) => ({ href: item.href, label: item.label, icon: <item.icon className="h-4 w-4" /> })),
   })).filter((group) => group.items.length > 0);
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <aside className="flex w-60 flex-none flex-col border-r border-border bg-surface">
-        <div className="flex items-center justify-between border-b border-border px-5 py-5">
-          <span className="font-sans text-base font-extrabold tracking-tight text-ink">Terceirizei OS</span>
-          <ThemeToggle />
+      <aside className="sticky top-0 flex h-screen w-64 flex-none flex-col bg-brand-navy">
+        <div className="flex items-center justify-between px-5 py-5">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-white/10 text-brand-cyan">
+              <Building2 className="h-4.5 w-4.5" />
+            </span>
+            <span className="font-sans text-[15px] font-extrabold leading-tight tracking-tight text-white">
+              Terceirizei OS
+            </span>
+          </div>
+          <ThemeToggle className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/50 transition-colors hover:bg-white/10 hover:text-white" />
         </div>
-        <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
-          {navGroups.map((group) => (
-            <div key={group.label}>
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-soft">
-                {group.label}
-              </p>
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-muted hover:bg-surface-alt hover:text-ink"
-                    >
-                      <Icon className="h-4 w-4 flex-none" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-        <div className="border-t border-border px-4 py-4">
-          <p className="truncate text-sm font-medium text-ink">{user.name}</p>
-          <p className="text-xs text-muted">{ROLE_LABELS[user.role]}</p>
-          <form action="/logout" method="post" className="mt-3">
-            <Button type="submit" variant="outline" size="sm" className="w-full">
-              Sair
-            </Button>
+        <SidebarNav groups={navGroups} />
+        <div className="flex items-center gap-2.5 border-t border-white/10 px-4 py-4">
+          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-cyan/20 text-sm font-bold text-brand-cyan">
+            {initials(user.name)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white">{user.name}</p>
+            <p className="truncate text-xs text-white/50">{ROLE_LABELS[user.role]}</p>
+          </div>
+          <form action="/logout" method="post">
+            <button
+              type="submit"
+              title="Sair"
+              aria-label="Sair"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </form>
         </div>
       </aside>

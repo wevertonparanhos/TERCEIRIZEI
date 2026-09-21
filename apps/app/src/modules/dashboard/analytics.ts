@@ -35,6 +35,38 @@ export function countByMonth(rows: { date: Date }[], buckets: MonthBucket[]): nu
   );
 }
 
+export type DayBucket = { year: number; month: number; day: number; label: string };
+
+function dayKey(year: number, month: number, day: number): string {
+  return `${year}-${month}-${day}`;
+}
+
+/** Últimos `n` dias (UTC), incluindo hoje, do mais antigo pro mais recente —
+ * label é o nome do dia da semana por extenso, minúsculo (ex.: "quarta-feira"). */
+export function getLastDays(n: number, now: Date = new Date()): DayBucket[] {
+  const buckets: DayBucket[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
+    buckets.push({
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth(),
+      day: d.getUTCDate(),
+      label: d.toLocaleDateString("pt-BR", { weekday: "long", timeZone: "UTC" }),
+    });
+  }
+  return buckets;
+}
+
+/** Conta ocorrências por dia (UTC) dos buckets informados; datas fora do intervalo são ignoradas. */
+export function countByDay(rows: { date: Date }[], buckets: DayBucket[]): number[] {
+  const totals = new Map(buckets.map((b) => [dayKey(b.year, b.month, b.day), 0]));
+  for (const row of rows) {
+    const key = dayKey(row.date.getUTCFullYear(), row.date.getUTCMonth(), row.date.getUTCDate());
+    if (totals.has(key)) totals.set(key, (totals.get(key) ?? 0) + 1);
+  }
+  return buckets.map((b) => totals.get(dayKey(b.year, b.month, b.day)) ?? 0);
+}
+
 export type LabelCount = { label: string; count: number };
 
 /** Conta ocorrências por rótulo, ordenado do maior pro menor, agrupando o excedente

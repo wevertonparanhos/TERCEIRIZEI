@@ -14,14 +14,16 @@ import {
   PieChart,
   Wallet,
   FileClock,
+  Zap,
+  CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { isProcessStale, hasUnreadClientComment } from "@/modules/processes/labels";
 import { resolvePeriod, summarizePayments } from "@/modules/finance/period";
-import { getLastMonths, sumByMonth, countByMonth, countByLabel } from "@/modules/dashboard/analytics";
-import { RevenueChart, ProcessesTrendChart, ServiceTypeBarChart } from "@/modules/dashboard/charts";
+import { getLastMonths, sumByMonth, countByMonth, countByLabel, getLastDays, countByDay } from "@/modules/dashboard/analytics";
+import { RevenueChart, ProcessesTrendChart, ServiceTypeBarChart, CompletionsTrendChart } from "@/modules/dashboard/charts";
 import { isWithinReminderWindow } from "@/modules/licenses/labels";
 import { ensureAutoRenewalTasks } from "@/modules/licenses/actions";
 
@@ -41,10 +43,12 @@ function greeting(hour: number): string {
   return "Boa noite";
 }
 
-const TONE_BADGE: Record<"accent" | "danger" | "neutral", string> = {
+const TONE_BADGE: Record<"accent" | "danger" | "neutral" | "success" | "violet", string> = {
   accent: "bg-accent-soft text-accent",
   danger: "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400",
   neutral: "bg-surface-alt text-muted-soft",
+  success: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400",
+  violet: "bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400",
 };
 
 function StatCard({
@@ -58,20 +62,21 @@ function StatCard({
   value: string | number;
   label: string;
   icon: LucideIcon;
-  tone?: "accent" | "danger" | "neutral";
+  tone?: "accent" | "danger" | "neutral" | "success" | "violet";
 }) {
   const content = (
     <>
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-soft">{label}</p>
-        <span className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${TONE_BADGE[tone]}`}>
+        <span className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${TONE_BADGE[tone]}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
       <p className={`mt-3 text-2xl font-bold ${tone === "danger" ? "text-red-600" : "text-ink"}`}>{value}</p>
     </>
   );
-  const className = "rounded-2xl border border-border/70 bg-surface p-5 shadow-sm transition-shadow hover:shadow-md";
+  const className =
+    "rounded-2xl border border-border/70 bg-surface p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md";
   if (href) {
     return (
       <Link href={href} className={className}>
@@ -131,6 +136,7 @@ export default async function DashboardPage() {
       myOverdueRecurringTasks,
       myUnreadMentions,
       myLicenseDocuments,
+      myCompletionsForChart,
     ] = await Promise.all([
       prisma.process.count({
         where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
@@ -183,9 +189,24 @@ export default async function DashboardPage() {
         where: { tenantId: user.tenantId, responsibleId: user.id },
         select: { expiresAt: true, reminderDaysBefore: true },
       }),
+      prisma.processStage.findMany({
+        where: {
+          process: { tenantId: user.tenantId, assignees: { some: { userId: user.id } } },
+          changedAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+          toStage: { label: "Concluído" },
+        },
+        select: { changedAt: true },
+      }),
     ]);
 
     const myLicensesDue = myLicenseDocuments.filter((l) => isWithinReminderWindow(l.expiresAt, l.reminderDaysBefore)).length;
+    const myLast7Days = getLastDays(7, now);
+    const myCompletionsCounts = countByDay(
+      myCompletionsForChart.map((r) => ({ date: r.changedAt })),
+      myLast7Days
+    );
+    const myCompletionsData = myLast7Days.map((d, i) => ({ day: d.label, concluidas: myCompletionsCounts[i] }));
+    const myCompletions7d = myCompletionsForChart.length;
     const myStaleProcesses = myProcessesForStale.filter(
       (p) => p.stageHistory[0] && isProcessStale(p.stage.label, p.stageHistory[0].changedAt)
     ).length;
@@ -200,6 +221,7 @@ export default async function DashboardPage() {
         <h2 className="mt-8 text-base font-semibold text-ink">Minha carga de trabalho</h2>
         <div className="mt-3 grid grid-cols-2 gap-4">
           <StatCard href="/processos" value={myActiveProcesses} label="Tarefas atribuídas a mim" icon={ClipboardList} />
+          <StatCard value={myCompletions7d} label="Concluídas por mim (7 dias)" icon={CheckCircle2} tone="success" />
         </div>
 
         <h2 className="mt-6 text-base font-semibold text-ink">Atenção</h2>
@@ -220,6 +242,13 @@ export default async function DashboardPage() {
             icon={Repeat}
           />
           <AttentionCard href="/licencas" value={myLicensesDue} label="Meus documentos vencendo/vencidos" icon={FileClock} />
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-border/70 bg-surface p-6 shadow-sm">
+          <SectionHeader icon={TrendingUp} title="Minha produtividade" subtitle="Tarefas concluídas por você nos últimos 7 dias" />
+          <div className="mt-4">
+            <CompletionsTrendChart data={myCompletionsData} />
+          </div>
         </div>
 
         <DeadlinesList title="Meus prazos nos próximos 7 dias" deadlines={myDeadlines} />
@@ -361,18 +390,29 @@ export default async function DashboardPage() {
     (p) => p.stageHistory[0] && isProcessStale(p.stage.label, p.stageHistory[0].changedAt)
   ).length;
 
+  const last7Days = getLastDays(7, now);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const completionsCounts = countByDay(
+    stageChangesConcludedForChart.filter((r) => r.changedAt >= sevenDaysAgo).map((r) => ({ date: r.changedAt })),
+    last7Days
+  );
+  const completionsData = last7Days.map((d, i) => ({ day: d.label, concluidas: completionsCounts[i] }));
+  const completions7d = completionsData.reduce((sum, d) => sum + d.concluidas, 0);
+
   return (
     <div className="p-8">
       <Header user={user} now={now} />
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
+      <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatCard href="/processos" value={activeProcesses} label="Tarefas ativas" icon={ClipboardList} />
         <StatCard
           href="/clientes"
           value={activeClients}
           label={`Clientes ativos (${newClientsThisMonth} novos este mês)`}
           icon={Users}
+          tone="violet"
         />
+        <StatCard value={completions7d} label="Concluídas nos últimos 7 dias" icon={CheckCircle2} tone="success" />
       </div>
 
       <div className="mt-8">
@@ -394,6 +434,13 @@ export default async function DashboardPage() {
             icon={Repeat}
           />
           <AttentionCard href="/licencas" value={licenseDocumentsDue} label="Documentos vencendo/vencidos" icon={FileClock} />
+        </div>
+      </div>
+
+      <div className="mt-8 rounded-2xl border border-border/70 bg-surface p-6 shadow-sm">
+        <SectionHeader icon={TrendingUp} title="Produtividade" subtitle="Tarefas concluídas pela equipe nos últimos 7 dias" />
+        <div className="mt-4">
+          <CompletionsTrendChart data={completionsData} />
         </div>
       </div>
 
@@ -502,15 +549,20 @@ function Header({ user, now }: { user: { name: string; role: string }; now: Date
     .toUpperCase();
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-accent-soft/70 via-surface to-surface p-6 shadow-sm">
-      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-accent">
-        <Sparkles className="h-3.5 w-3.5" />
-        {dateLabel}
-      </p>
-      <h1 className="mt-2 text-2xl font-bold text-ink">
-        {greeting(now.getHours())}, <span className="text-accent">{user.name}</span>
-      </h1>
-      <p className="mt-1 text-sm text-muted">{ROLE_LABELS[user.role]} · aqui está o resumo de hoje.</p>
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/70 bg-gradient-to-br from-accent-soft/70 via-surface to-surface p-6 shadow-sm">
+      <div>
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-accent">
+          <Sparkles className="h-3.5 w-3.5" />
+          {dateLabel}
+        </p>
+        <h1 className="mt-2 text-2xl font-bold text-ink">
+          {greeting(now.getHours())}, <span className="text-accent">{user.name.split(" ")[0]}</span>
+        </h1>
+        <p className="mt-1 text-sm text-muted">{ROLE_LABELS[user.role]} · aqui está o resumo de hoje.</p>
+      </div>
+      <span className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent text-white shadow-md">
+        <Zap className="h-5 w-5" fill="currentColor" />
+      </span>
     </div>
   );
 }

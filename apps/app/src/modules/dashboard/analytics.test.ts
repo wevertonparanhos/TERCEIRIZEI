@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getLastMonths, sumByMonth, countByMonth, countByLabel } from "./analytics";
+import { getLastMonths, sumByMonth, countByMonth, countByLabel, getLastDays, countByDay } from "./analytics";
 
 describe("getLastMonths", () => {
   it("retorna os últimos N meses (UTC), do mais antigo pro mais recente, incluindo o atual", () => {
@@ -44,6 +44,34 @@ describe("countByMonth", () => {
       { date: new Date(Date.UTC(2026, 1, 1)) },
     ];
     expect(countByMonth(rows, buckets)).toEqual([2, 1]);
+  });
+});
+
+describe("getLastDays", () => {
+  it("retorna os últimos N dias (UTC), do mais antigo pro mais recente, incluindo hoje", () => {
+    const now = new Date(Date.UTC(2026, 8, 16)); // quarta-feira, 16/09/2026
+    const buckets = getLastDays(3, now);
+    expect(buckets.map((b) => `${b.year}-${b.month}-${b.day}`)).toEqual(["2026-8-14", "2026-8-15", "2026-8-16"]);
+    expect(buckets[2].label).toBe("quarta-feira");
+  });
+
+  it("atravessa a virada de mês corretamente", () => {
+    const now = new Date(Date.UTC(2026, 9, 1)); // 01/10/2026
+    const buckets = getLastDays(2, now);
+    expect(buckets.map((b) => `${b.year}-${b.month}-${b.day}`)).toEqual(["2026-8-30", "2026-9-1"]);
+  });
+});
+
+describe("countByDay", () => {
+  it("conta ocorrências no dia correto e ignora datas fora do intervalo", () => {
+    const buckets = getLastDays(2, new Date(Date.UTC(2026, 8, 16)));
+    const rows = [
+      { date: new Date(Date.UTC(2026, 8, 15, 10)) },
+      { date: new Date(Date.UTC(2026, 8, 15, 20)) },
+      { date: new Date(Date.UTC(2026, 8, 16, 1)) },
+      { date: new Date(Date.UTC(2026, 8, 1)) },
+    ];
+    expect(countByDay(rows, buckets)).toEqual([2, 1]);
   });
 });
 

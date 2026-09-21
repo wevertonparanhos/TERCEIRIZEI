@@ -117,6 +117,37 @@ export function ProcessesTrendChart({ data }: { data: { month: string; criados: 
   );
 }
 
+export function CompletionsTrendChart({ data }: { data: { day: string; concluidas: number }[] }) {
+  const gradientId = useId().replace(/:/g, "");
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={SERIES_GOOD} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={SERIES_GOOD} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke={GRID_COLOR} />
+        <XAxis dataKey="day" tick={{ fill: AXIS_COLOR, fontSize: 12 }} axisLine={{ stroke: GRID_COLOR }} tickLine={false} />
+        <YAxis tick={{ fill: AXIS_COLOR, fontSize: 12 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+        <Tooltip content={<ChartTooltip formatter={(v) => String(v)} />} cursor={{ stroke: GRID_COLOR }} />
+        <Area
+          type="monotone"
+          dataKey="concluidas"
+          name="Concluídas"
+          stroke={SERIES_GOOD}
+          strokeWidth={2.5}
+          fill={`url(#${gradientId})`}
+          dot={{ r: 3, fill: SERIES_GOOD, strokeWidth: 0 }}
+          activeDot={{ r: 5 }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function ServiceTypeBarChart({ data }: { data: { label: string; count: number }[] }) {
   const height = Math.max(160, data.length * 36 + 40);
   return (
