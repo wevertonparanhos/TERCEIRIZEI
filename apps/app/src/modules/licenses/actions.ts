@@ -6,6 +6,9 @@ import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { licenseDocumentSchema, type LicenseDocumentInput } from "@/lib/validations/license";
 import { isWithinReminderWindow } from "@/modules/licenses/labels";
+import { sendEmail } from "@/lib/email";
+import { licenseReminderEmail } from "@/lib/email-templates";
+import { tryClaimNotification } from "@/modules/notifications/actions";
 
 // A conexão do Prisma bypassa RLS (role postgres) — tenant_id explícito em
 // todo where/data abaixo é a real fronteira de isolamento nesta camada.
@@ -95,7 +98,7 @@ export async function ensureAutoRenewalTasks(tenantId: string): Promise<void> {
 
   const candidates = await prisma.licenseDocument.findMany({
     where: { tenantId, autoTaskId: null },
-    include: { client: { select: { name: true } } },
+    include: { client: { select: { name: true } }, responsible: { select: { email: true } } },
   });
   const due = candidates.filter((l) => isWithinReminderWindow(l.expiresAt, l.reminderDaysBefore, now));
   if (due.length === 0) return;
@@ -111,7 +114,19 @@ export async function ensureAutoRenewalTasks(tenantId: string): Promise<void> {
     update: {},
   });
 
+  // Quando não há responsável, avisa os gestores — não deixa o aviso cair no vazio.
+  const managers = await prisma.user.findMany({
+    where: { tenantId, role: { name: { in: ["ADMIN", "GESTOR"] } }, active: true },
+    select: { email: true },
+  });
+
   for (const license of due) {
+    // Trava de concorrência: se duas requisições chegarem aqui pra o mesmo
+    // documento ao mesmo tempo (ex.: duas abas carregando o Dashboard), só
+    // uma ganha a reivindicação e segue pra criar a tarefa/enviar o aviso.
+    const claimed = await tryClaimNotification(tenantId, `license-auto-task:${license.id}`);
+    if (!claimed) continue;
+
     const number = await nextProcessNumber(tenantId);
     const process = await prisma.process.create({
       data: {
@@ -147,6 +162,17 @@ export async function ensureAutoRenewalTasks(tenantId: string): Promise<void> {
       entityId: license.id,
       description: `Tarefa #${process.number} criada automaticamente para renovar "${license.name}".`,
     });
+
+    const recipients = license.responsible ? [license.responsible.email] : managers.map((m) => m.email);
+    const { subject, html } = licenseReminderEmail({
+      name: license.name,
+      clientName: license.client.name,
+      expiresAt: license.expiresAt,
+      taskNumber: process.number,
+    });
+    for (const to of recipients) {
+      await sendEmail({ to, subject, html });
+    }
   }
   // Sem revalidatePath aqui: esta função roda durante a renderização da
   // página (não é uma mutação disparada pelo cliente), e as páginas deste

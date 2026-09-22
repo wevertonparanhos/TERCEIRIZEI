@@ -13,6 +13,8 @@ import {
   type ClientCreateProcessInput,
 } from "@/lib/validations/process";
 import { addDays } from "@/modules/processes/labels";
+import { sendEmail } from "@/lib/email";
+import { deliverableRespondedEmail } from "@/lib/email-templates";
 
 // A conexão do Prisma bypassa RLS (role postgres) — tenant_id/process_id explícitos
 // em todo where/data abaixo são a real fronteira de isolamento nesta camada.
@@ -806,6 +808,11 @@ export async function respondDeliverable(processId: string, deliverableId: strin
 
   const deliverable = await prisma.processDeliverable.findFirst({
     where: { id: deliverableId, processId, process: { clientId: user.clientId } },
+    include: {
+      process: {
+        select: { number: true, assignees: { select: { user: { select: { email: true } } } } },
+      },
+    },
   });
   if (!deliverable) throw new Error("Entregável não encontrado.");
   if (deliverable.approvalStatus !== "PENDENTE") throw new Error("Este entregável já foi respondido.");
@@ -817,4 +824,15 @@ export async function respondDeliverable(processId: string, deliverableId: strin
 
   revalidatePath(`/portal/processos/${processId}`);
   revalidatePath(`/processos/${processId}`);
+
+  const { subject, html } = deliverableRespondedEmail({
+    processId,
+    processNumber: deliverable.process.number,
+    deliverableTitle: deliverable.title,
+    approved,
+    note: note.trim() || null,
+  });
+  for (const assignee of deliverable.process.assignees) {
+    await sendEmail({ to: assignee.user.email, subject, html });
+  }
 }

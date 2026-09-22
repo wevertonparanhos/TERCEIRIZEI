@@ -139,6 +139,7 @@ model Tenant {
   proposals        Proposal[]
   clientMessages   ClientMessage[]
   licenseDocuments LicenseDocument[]
+  notificationLogs NotificationLog[]
 
   @@map("tenants")
 }
@@ -879,6 +880,23 @@ model LicenseDocument {
   @@index([clientId])
   @@index([expiresAt])
   @@map("license_documents")
+}
+
+// Registro de "já avisei sobre isso" pra avisos lazy (computados a cada
+// leitura, sem job/cron) que não têm um evento de criação único pra marcar
+// contra — ex.: lembrete de prazo de tarefa. A constraint única em
+// (tenant_id, key) é o mecanismo de dedupe: um insert que colide já foi
+// enviado, sem precisar de select-then-insert.
+model NotificationLog {
+  id       String   @id @default(uuid()) @db.Uuid
+  tenantId String   @map("tenant_id") @db.Uuid
+  key      String
+  sentAt   DateTime @default(now()) @map("sent_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, key])
+  @@map("notification_logs")
 }
 
 // Anotação interna da equipe sobre um cliente — nunca visível no portal do

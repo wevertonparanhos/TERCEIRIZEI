@@ -26,6 +26,7 @@ import { getLastMonths, sumByMonth, countByMonth, countByLabel, getLastDays, cou
 import { RevenueChart, ProcessesTrendChart, ServiceTypeBarChart, CompletionsTrendChart } from "@/modules/dashboard/charts";
 import { isWithinReminderWindow } from "@/modules/licenses/labels";
 import { ensureAutoRenewalTasks } from "@/modules/licenses/actions";
+import { sendDeadlineReminders } from "@/modules/notifications/actions";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -125,6 +126,7 @@ export default async function DashboardPage() {
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   await ensureAutoRenewalTasks(user.tenantId);
+  await sendDeadlineReminders(user.tenantId);
 
   if (user.role === "OPERACIONAL") {
     const [

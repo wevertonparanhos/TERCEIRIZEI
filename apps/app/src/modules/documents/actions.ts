@@ -12,6 +12,8 @@ import {
   ALLOWED_MIME_TYPES,
   type DocumentRequestInput,
 } from "@/lib/validations/document-upload";
+import { sendEmail } from "@/lib/email";
+import { documentRequestedEmail, documentReceivedEmail } from "@/lib/email-templates";
 
 const BUCKET = "documents";
 
@@ -110,6 +112,8 @@ async function performUpload(params: {
   revalidatePath(`/clientes/${clientId}`);
   revalidatePath("/portal/processos");
   revalidatePath("/portal/documentos");
+
+  return { id: document.id, name: data.name };
 }
 
 async function performNewVersion(params: { document: NonNullable<Awaited<ReturnType<typeof prisma.document.findFirst>>>; uploaderId: string; formData: FormData }) {
@@ -187,11 +191,29 @@ export async function clientUploadDocument(
 ) {
   const user = await requireOwnClient();
   if (clientId !== user.clientId) throw new Error("Acesso negado.");
+
+  let process: { number: number; assignees: { user: { email: string } }[] } | null = null;
   if (processId) {
-    const process = await prisma.process.findFirst({ where: { id: processId, clientId: user.clientId } });
+    process = await prisma.process.findFirst({
+      where: { id: processId, clientId: user.clientId },
+      select: { number: true, assignees: { select: { user: { select: { email: true } } } } },
+    });
     if (!process) throw new Error("Tarefa não encontrada.");
   }
-  await performUpload({ tenantId: user.tenantId, clientId, processId, requestId, uploaderId: user.id, formData });
+
+  const { name } = await performUpload({ tenantId: user.tenantId, clientId, processId, requestId, uploaderId: user.id, formData });
+
+  if (process) {
+    const { subject, html } = documentReceivedEmail({
+      processId,
+      processNumber: process.number,
+      clientName: user.name,
+      documentName: name,
+    });
+    for (const assignee of process.assignees) {
+      await sendEmail({ to: assignee.user.email, subject, html });
+    }
+  }
 }
 
 export async function clientUploadNewVersion(documentId: string, formData: FormData) {
@@ -203,7 +225,8 @@ export async function clientUploadNewVersion(documentId: string, formData: FormD
 
 export async function requestDocument(clientId: string, processId: string | null, input: DocumentRequestInput) {
   const user = await requireStaff();
-  await assertClientInTenant(clientId, user.tenantId);
+  const client = await prisma.client.findFirst({ where: { id: clientId, tenantId: user.tenantId }, select: { email: true } });
+  if (!client) throw new Error("Cliente não encontrado.");
   const data = documentRequestSchema.parse(input);
 
   const request = await prisma.documentRequest.create({
@@ -229,6 +252,9 @@ export async function requestDocument(clientId: string, processId: string | null
 
   if (processId) revalidatePath(`/processos/${processId}`);
   revalidatePath(`/clientes/${clientId}`);
+
+  const { subject, html } = documentRequestedEmail({ label: data.label, deadline: request.deadline });
+  await sendEmail({ to: client.email, subject, html });
 }
 
 export async function markRequestReceived(requestId: string) {
