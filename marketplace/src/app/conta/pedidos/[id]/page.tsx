@@ -13,13 +13,17 @@ import { formatDateTime, formatMinutes } from "@/lib/utils";
 import { requirePageRole } from "@/server/auth";
 import { db } from "@/server/db";
 import { expireStaleHolds } from "@/server/scheduling";
-import { cancelUnpaidBookingAction } from "../../actions";
+import { Input, Textarea } from "@/components/ui/form";
+import { AUTO_CONFIRM_HOURS, canCustomerConfirm } from "@/domain/completion";
+import { evidenceUrls } from "@/server/completion";
+import { cancellationPreview } from "@/server/payments/service";
+import { cancelPaidBookingAction, cancelUnpaidBookingAction, confirmCompletionAction, reportProblemAction } from "../../actions";
 
 const longDate = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Sao_Paulo" });
 
-export default async function CustomerBookingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ novo?: string }> }) {
+export default async function CustomerBookingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ novo?: string; pago?: string }> }) {
   const { id } = await params;
-  const { novo } = await searchParams;
+  const { novo, pago } = await searchParams;
   const user = await requirePageRole(["CUSTOMER"], `/conta/pedidos/${id}`);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   await expireStaleHolds();
@@ -28,7 +32,8 @@ export default async function CustomerBookingPage({ params, searchParams }: { pa
   const b = await db.booking.findFirst({
     where: { id, customerId: user.id },
     include: {
-      service: { select: { name: true, slug: true } },
+      service: { select: { name: true, slug: true, cancellationPolicy: { select: { tiers: true } } } },
+      _count: { select: { evidence: true } },
       provider: { select: { id: true, displayName: true, phone: true, whatsapp: true } },
       address: true,
       items: true,
@@ -42,6 +47,11 @@ export default async function CustomerBookingPage({ params, searchParams }: { pa
   const awaiting = b.status === "AWAITING_PAYMENT" && b.holdExpiresAt && b.holdExpiresAt > new Date();
   const awaitingProvider = b.status === "AWAITING_PROVIDER";
   const snapshot = b.snapshot as { durationMinutes?: number };
+  const now = new Date();
+  const refundPreview = b.status === "CONFIRMED" ? await cancellationPreview(b.id, "CUSTOMER") : null;
+  const canConfirm = canCustomerConfirm({ status: b.status, scheduledStart: b.scheduledStart, evidenceCount: b._count.evidence, providerFinishedAt: b.providerFinishedAt }, now).ok;
+  const autoConfirmAt = b.providerFinishedAt ? new Date(b.providerFinishedAt.getTime() + AUTO_CONFIRM_HOURS * 3_600_000) : null;
+  const evidence = b._count.evidence > 0 ? await evidenceUrls(b.id) : [];
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -53,6 +63,10 @@ export default async function CustomerBookingPage({ params, searchParams }: { pa
         </div>
         <Badge tone={["CANCELLED", "EXPIRED", "DECLINED"].includes(b.status) ? "neutral" : "brand"} className="px-3 py-1 text-sm">{STATUS_LABEL[b.status]}</Badge>
       </div>
+
+      {pago === "credito" && b.status === "CONFIRMED" ? (
+        <div className="mt-6"><Notice title="Pago com crédito!">Pedido confirmado. O contato do profissional já está liberado abaixo.</Notice></div>
+      ) : null}
 
       {novo && awaitingProvider ? (
         <div className="mt-6">
@@ -90,13 +104,90 @@ export default async function CustomerBookingPage({ params, searchParams }: { pa
             <Clock className="size-5 text-warning" aria-hidden /> Pedido aceito! Pague em até <HoldCountdown expiresAt={b.holdExpiresAt!.toISOString()} />
           </p>
           <p className="mt-2 text-sm text-ink-soft">
-            O pagamento online (PIX e cartão) chega na próxima etapa da plataforma. Por enquanto, o prazo expira sozinho e o horário volta a
-            ficar livre — nenhuma cobrança é feita.
+            {b.provider?.displayName.split(" ")[0]} aceitou seu pedido. Pague por PIX ou cartão para confirmar; o contato do profissional é
+            liberado logo após a confirmação. Se o prazo acabar, o horário é liberado sem cobrança.
           </p>
-          <ActionForm action={cancelUnpaidBookingAction} submitLabel="Cancelar pedido" variant="secondary" confirm="Cancelar este pedido e liberar o horário?" className="mt-4">
-            <input type="hidden" name="bookingId" value={b.id} />
-          </ActionForm>
+          <div className="mt-4 flex flex-wrap items-start gap-3">
+            <LinkButton href={`/conta/pedidos/${b.id}/pagar`}>Pagar agora</LinkButton>
+            <ActionForm action={cancelUnpaidBookingAction} submitLabel="Cancelar pedido" variant="ghost" confirm="Cancelar este pedido e liberar o horário?">
+              <input type="hidden" name="bookingId" value={b.id} />
+            </ActionForm>
+          </div>
         </Card>
+      ) : null}
+
+      {b.status === "CONFIRMED" && refundPreview ? (
+        <Card className="mt-6 p-5">
+          <p className="font-semibold">Pedido confirmado e pago</p>
+          <p className="mt-1 text-sm text-muted">No dia, o profissional registra o início do serviço e, ao final, envia fotos/vídeos do trabalho.</p>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm font-medium text-danger">Preciso cancelar</summary>
+            <div className="mt-3 rounded-xl bg-canvas p-4 text-sm">
+              {refundPreview.ok ? <p>{refundPreview.rule}</p> : <p>{refundPreview.reason}</p>}
+              {refundPreview.ok ? (
+                <ActionForm action={cancelPaidBookingAction} submitLabel="Confirmar cancelamento" variant="danger" confirm="Confirmar o cancelamento deste pedido?" className="mt-3">
+                  <input type="hidden" name="bookingId" value={b.id} />
+                  <fieldset className="space-y-2">
+                    <legend className="sr-only">Como deseja receber o valor</legend>
+                    {refundPreview.options.map((o, i) => (
+                      <label key={o.kind} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-3">
+                        <input type="radio" name="choice" value={o.kind} defaultChecked={i === 0} className="mt-1 accent-[var(--color-brand)]" />
+                        <span>
+                          <span className="block font-semibold">{o.label}</span>
+                          <span className="text-muted">
+                            {[
+                              o.refundToPaymentCents > 0 ? `${formatBRL(o.refundToPaymentCents)} de volta no seu PIX/cartão` : null,
+                              o.creditCents > 0 ? `${formatBRL(o.creditCents)} em crédito para usar na plataforma` : null,
+                              o.retainedFeeCents > 0 ? `taxa de serviço de ${formatBRL(o.retainedFeeCents)} retida` : null,
+                            ].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <Input name="reason" maxLength={300} placeholder="Motivo do cancelamento" aria-label="Motivo do cancelamento" required />
+                </ActionForm>
+              ) : null}
+            </div>
+          </details>
+        </Card>
+      ) : null}
+
+      {canConfirm ? (
+        <Card className="mt-6 border-brand/40 p-5">
+          <p className="font-semibold">{b.status === "COMPLETION_PENDING" ? "O profissional finalizou o serviço" : "O serviço já foi feito?"}</p>
+          <p className="mt-1 text-sm text-muted">
+            {b.status === "COMPLETION_PENDING"
+              ? `Confira as fotos/vídeos abaixo. Confirme a conclusão ou relate um problema${autoConfirmAt ? ` até ${formatDateTime(autoConfirmAt)}` : ""}; sem resposta, o serviço é concluído automaticamente.`
+              : "Confirme quando o serviço estiver concluído. O pagamento ao profissional só é liberado depois disso (ou das fotos/vídeos dele)."}
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
+            <ActionForm action={confirmCompletionAction} submitLabel="Confirmar conclusão" confirm="Confirmar que o serviço foi concluído?">
+              <input type="hidden" name="bookingId" value={b.id} />
+            </ActionForm>
+            {b.status !== "CONFIRMED" ? (
+              <details className="flex-1">
+                <summary className="cursor-pointer py-2.5 text-sm font-semibold text-danger">Relatar problema</summary>
+                <ActionForm action={reportProblemAction} submitLabel="Enviar relato" variant="danger" className="mt-2">
+                  <input type="hidden" name="bookingId" value={b.id} />
+                  <Textarea name="message" rows={3} maxLength={2000} placeholder="O que aconteceu? Seja específico (ex.: o banheiro não foi limpo)." aria-label="Descrição do problema" required />
+                </ActionForm>
+              </details>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
+
+      {b.status === "DISPUTED" ? (
+        <div className="mt-6"><Notice tone="warning" title="Pedido em análise">Recebemos seu relato. A equipe vai mediar com o profissional; o pagamento a ele fica retido até a conclusão da análise.</Notice></div>
+      ) : null}
+
+      {["REFUND_PENDING", "REFUNDED"].includes(b.status) ? (
+        <div className="mt-6">
+          <Notice title={b.status === "REFUNDED" ? "Reembolso concluído" : "Reembolso em processamento"}>
+            {b.refundedCents ? `Estornado ao meio de pagamento: ${formatBRL(b.refundedCents)}. ` : ""}Créditos aparecem em Minha carteira. O prazo do estorno depende do meio de pagamento.
+          </Notice>
+        </div>
       ) : null}
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -140,6 +231,28 @@ export default async function CustomerBookingPage({ params, searchParams }: { pa
           ) : (
             <><span className="text-sm font-medium">Como foi o serviço?</span><LinkButton href={`/conta/pedidos/${b.id}/avaliar`} size="sm">Avaliar</LinkButton></>
           )}
+        </Card>
+      ) : null}
+
+      {evidence.length > 0 ? (
+        <Card className="mt-6 p-5">
+          <h2 className="font-semibold">Fotos e vídeos do serviço</h2>
+          <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {evidence.map((e) => (
+              <li key={e.id} className="overflow-hidden rounded-xl bg-canvas">
+                {e.url ? (
+                  e.mediaType === "VIDEO" ? (
+                    <video src={e.url} controls className="aspect-square w-full object-cover" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <a href={e.url} target="_blank" rel="noreferrer"><img src={e.url} alt="Foto do serviço finalizado" className="aspect-square w-full object-cover" /></a>
+                  )
+                ) : (
+                  <p className="p-4 text-xs text-muted">Arquivo indisponível</p>
+                )}
+              </li>
+            ))}
+          </ul>
         </Card>
       ) : null}
 

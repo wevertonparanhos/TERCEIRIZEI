@@ -73,12 +73,14 @@ const TRANSITIONS: Record<BookingStatus, Rule[]> = {
     { to: "COMPLETION_PENDING", by: ["PROVIDER", "ADMIN"] },
     { to: "COMPLETED", by: ["CUSTOMER", "ADMIN"] },
     { to: "DISPUTED", by: ["CUSTOMER", "PROVIDER", "ADMIN", "SUPPORT"] },
+    { to: "REFUND_PENDING", by: ["ADMIN"] },
   ],
   COMPLETION_PENDING: [
     // Cliente confirma, ou o sistema confirma após o prazo sem contestação
     // (somente com foto/vídeo enviados — ver completion.ts).
     { to: "COMPLETED", by: ["CUSTOMER", "ADMIN", "SYSTEM"] },
     { to: "DISPUTED", by: ["CUSTOMER", "ADMIN", "SUPPORT"] },
+    { to: "REFUND_PENDING", by: ["ADMIN"] },
   ],
   COMPLETED: [
     // Contestação/chargeback após a conclusão.

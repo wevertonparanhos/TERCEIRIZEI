@@ -11,6 +11,7 @@ export default async function ProviderLayout({ children }: { children: React.Rea
         { href: "/profissional/perfil", label: "Perfil profissional", icon: "user" },
         { href: "/profissional/pedidos", label: "Pedidos", icon: "inbox" },
         { href: "/profissional/agenda", label: "Agenda e regiões", icon: "calendar" },
+        { href: "/profissional/financeiro", label: "Financeiro", icon: "wallet" },
         { href: "/profissional/servicos", label: "Serviços e preços", icon: "tags" },
         { href: "/profissional/avaliacoes", label: "Avaliações", icon: "star" },
       ]}

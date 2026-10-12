@@ -11,6 +11,8 @@ import { providerReplySchema } from "@/domain/reviews";
 import { fieldErrors, providerProfileSchema } from "@/lib/validation";
 import { AuthorizationError, requirePermission } from "@/server/auth";
 import { acceptBooking, BookingError, declineBooking } from "@/server/booking";
+import { finishService, startService, uploadEvidence } from "@/server/completion";
+import { PaymentError, requestRefund } from "@/server/payments/service";
 import { db } from "@/server/db";
 
 /** Perfil do prestador SEMPRE resolvido pela sessão — nunca por id enviado pelo navegador. */
@@ -358,5 +360,61 @@ export async function declineBookingAction(_: FormState, formData: FormData): Pr
   } catch (error) {
     if (error instanceof BookingError || error instanceof InvalidTransitionError) return { message: error.message };
     return failure(error);
+  }
+}
+
+// ── Execução do serviço ────────────────────────────────────────────────────
+
+function execError(error: unknown): FormState {
+  if (error instanceof BookingError || error instanceof InvalidTransitionError || error instanceof PaymentError) return { message: error.message };
+  return failure(error);
+}
+
+export async function startServiceAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { user } = await currentProvider("provider:bookings:read:own");
+    await startService(user, bookingIdSchema.parse(formData.get("bookingId")));
+    revalidatePath("/profissional/pedidos");
+    return { ok: true, message: "Atendimento iniciado. Ao terminar, envie fotos/vídeos e finalize." };
+  } catch (error) {
+    return execError(error);
+  }
+}
+
+export async function uploadEvidenceAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { user } = await currentProvider("provider:bookings:read:own");
+    const files = formData.getAll("files").filter((f): f is File => f instanceof File);
+    const n = await uploadEvidence(user, bookingIdSchema.parse(formData.get("bookingId")), files);
+    revalidatePath("/profissional/pedidos");
+    return { ok: true, message: `${n} arquivo(s) enviado(s).` };
+  } catch (error) {
+    return execError(error);
+  }
+}
+
+export async function finishServiceAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { user } = await currentProvider("provider:bookings:read:own");
+    await finishService(user, bookingIdSchema.parse(formData.get("bookingId")));
+    revalidatePath("/profissional/pedidos");
+    return { ok: true, message: "Serviço finalizado! O cliente tem 48h para confirmar ou relatar problema; depois disso o repasse é liberado." };
+  } catch (error) {
+    return execError(error);
+  }
+}
+
+/** Profissional não poderá comparecer: cancela com reembolso INTEGRAL ao cliente. */
+export async function providerCancelAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { user, provider } = await currentProvider("provider:bookings:read:own");
+    const bookingId = bookingIdSchema.parse(formData.get("bookingId"));
+    const reason = String(formData.get("reason") ?? "").trim();
+    if (reason.length < 5) return { message: "Explique o motivo ao cliente." };
+    await requestRefund({ bookingId, actor: { id: user.id, type: "PROVIDER" }, reason, where: { providerId: provider.id } });
+    revalidatePath("/profissional/pedidos");
+    return { ok: true, message: "Pedido cancelado. O cliente recebe reembolso integral." };
+  } catch (error) {
+    return execError(error);
   }
 }

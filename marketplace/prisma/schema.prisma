@@ -60,6 +60,7 @@ model User {
   auditLogs       AuditLog[]
   quoteRequests   QuoteRequest[]
   evidence        BookingEvidence[]
+  credits         CustomerCredit[]
 
   @@index([role])
   @@map("users")
@@ -554,29 +555,29 @@ enum CostBearer {
 }
 
 model Booking {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code            String        @unique
-  customerId      String        @map("customer_id") @db.Uuid
-  providerId      String?       @map("provider_id") @db.Uuid
-  serviceId       String        @map("service_id") @db.Uuid
-  packageId       String?       @map("package_id") @db.Uuid
-  addressId       String        @map("address_id") @db.Uuid
-  couponId        String?       @map("coupon_id") @db.Uuid
-  status          BookingStatus @default(DRAFT)
-  scheduledStart  DateTime      @map("scheduled_start") @db.Timestamptz(6)
-  scheduledEnd    DateTime      @map("scheduled_end") @db.Timestamptz(6)
+  id                       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                     String        @unique
+  customerId               String        @map("customer_id") @db.Uuid
+  providerId               String?       @map("provider_id") @db.Uuid
+  serviceId                String        @map("service_id") @db.Uuid
+  packageId                String?       @map("package_id") @db.Uuid
+  addressId                String        @map("address_id") @db.Uuid
+  couponId                 String?       @map("coupon_id") @db.Uuid
+  status                   BookingStatus @default(DRAFT)
+  scheduledStart           DateTime      @map("scheduled_start") @db.Timestamptz(6)
+  scheduledEnd             DateTime      @map("scheduled_end") @db.Timestamptz(6)
   /// Fim + intervalo do prestador; usado pela restrição anti-sobreposição.
-  blockedUntil    DateTime      @map("blocked_until") @db.Timestamptz(6)
+  blockedUntil             DateTime      @map("blocked_until") @db.Timestamptz(6)
   /// Prazo para o profissional aceitar/recusar a solicitação.
-  providerResponseDeadline DateTime? @map("provider_response_deadline") @db.Timestamptz(6)
-  providerRespondedAt      DateTime? @map("provider_responded_at") @db.Timestamptz(6)
-  declineReason            String?   @map("decline_reason")
+  providerResponseDeadline DateTime?     @map("provider_response_deadline") @db.Timestamptz(6)
+  providerRespondedAt      DateTime?     @map("provider_responded_at") @db.Timestamptz(6)
+  declineReason            String?       @map("decline_reason")
   /// Reserva temporária do horário enquanto aguarda pagamento.
-  holdExpiresAt   DateTime?     @map("hold_expires_at") @db.Timestamptz(6)
-  propertyDetails Json?         @map("property_details")
-  notes           String?
+  holdExpiresAt            DateTime?     @map("hold_expires_at") @db.Timestamptz(6)
+  propertyDetails          Json?         @map("property_details")
+  notes                    String?
   /// Snapshot imutável do serviço/pacote/adicionais/política no momento da contratação.
-  snapshot        Json
+  snapshot                 Json
 
   /// Soma dos preços do prestador (antes da comissão).
   providerSubtotalCents Int            @map("provider_subtotal_cents")
@@ -592,6 +593,8 @@ model Booking {
   discountBearer        CostBearer     @map("discount_bearer")
   feeBearer             CostBearer     @map("fee_bearer")
   refundedCents         Int            @default(0) @map("refunded_cents")
+  /// Parte do total paga com crédito da plataforma (o restante vai ao provedor de pagamento).
+  creditAppliedCents    Int            @default(0) @map("credit_applied_cents")
 
   termsVersion       String?   @map("terms_version")
   termsAcceptedAt    DateTime? @map("terms_accepted_at") @db.Timestamptz(6)
@@ -620,6 +623,7 @@ model Booking {
   review        Review?
   tickets       SupportTicket[]
   evidence      BookingEvidence[]
+  credits       CustomerCredit[]
 
   @@index([customerId, createdAt])
   @@index([providerId, scheduledStart])
@@ -752,6 +756,10 @@ model PaymentTransaction {
   /// true = adaptador de SIMULAÇÃO (desenvolvimento). Nunca é dinheiro real.
   isSimulated       Boolean       @map("is_simulated")
   pixQrCode         String?       @map("pix_qr_code")
+  pixCopyPaste      String?       @map("pix_copy_paste")
+  checkoutUrl       String?       @map("checkout_url")
+  /// Status bruto devolvido pelo provedor (diagnóstico/conciliação).
+  providerStatus    String?       @map("provider_status")
   expiresAt         DateTime?     @map("expires_at") @db.Timestamptz(6)
   approvedAt        DateTime?     @map("approved_at") @db.Timestamptz(6)
   failureReason     String?       @map("failure_reason")
@@ -817,6 +825,9 @@ model ProviderPayout {
   netCents           Int          @map("net_cents")
   status             PayoutStatus @default(ON_HOLD)
   providerTransferId String?      @map("provider_transfer_id")
+  /// SERVICE = serviço concluído; CANCELLATION_FEE = compensação de cancelamento tardio.
+  kind               String       @default("SERVICE")
+  note               String?
   isSimulated        Boolean      @map("is_simulated")
   scheduledFor       DateTime?    @map("scheduled_for") @db.Timestamptz(6)
   paidAt             DateTime?    @map("paid_at") @db.Timestamptz(6)
@@ -988,4 +999,39 @@ model AdministrativeSetting {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("administrative_settings")
+}
+
+/// Estado do "sistema externo" do provedor de SIMULAÇÃO (só desenvolvimento).
+/// A aplicação só confia no webhook assinado + reconsulta, como num provedor real.
+model SimGatewayCharge {
+  id                String   @id
+  externalReference String   @map("external_reference")
+  method            String
+  amountCents       Int      @map("amount_cents")
+  refundedCents     Int      @default(0) @map("refunded_cents")
+  status            String   @default("PENDING")
+  expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("sim_gateway_charges")
+}
+
+/// Extrato de créditos do cliente (imutável; saldo = soma; nunca negativo — gatilho no banco).
+model CustomerCredit {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  bookingId   String?  @map("booking_id") @db.Uuid
+  amountCents Int      @map("amount_cents")
+  /// CANCELLATION_CREDIT | PAYMENT | PAYMENT_REVERSAL | REFUND_TO_CREDIT | ADMIN_ADJUSTMENT
+  kind        String
+  description String
+  createdBy   String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@map("customer_credits")
 }

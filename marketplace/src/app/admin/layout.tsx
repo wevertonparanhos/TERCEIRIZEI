@@ -8,6 +8,7 @@ const NAV: (NavItem & { permission: Permission })[] = [
   { href: "/admin/profissionais", label: "Profissionais", icon: "verified", permission: "admin:providers:approve" },
   { href: "/admin/categorias", label: "Categorias", icon: "tags", permission: "admin:catalog:manage" },
   { href: "/admin/servicos", label: "Serviços e pacotes", icon: "briefcase", permission: "admin:catalog:manage" },
+  { href: "/admin/financeiro", label: "Financeiro", icon: "wallet", permission: "admin:finance:read" },
   { href: "/admin/comissoes", label: "Comissões", icon: "percent", permission: "admin:commission:manage" },
   { href: "/admin/avaliacoes", label: "Avaliações", icon: "star", permission: "admin:reviews:moderate" },
   { href: "/admin/usuarios", label: "Usuários", icon: "users", permission: "support:users:read" },

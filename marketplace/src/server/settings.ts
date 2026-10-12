@@ -15,6 +15,7 @@ export type PlatformSettings = {
   slotStepMinutes: number;
   termsVersion: string;
   cdcWithdrawalDays: number;
+  fullRefundMinHours: number;
 };
 
 const DEFAULTS: PlatformSettings = {
@@ -28,6 +29,7 @@ const DEFAULTS: PlatformSettings = {
   slotStepMinutes: 30,
   termsVersion: "2026-10-minuta",
   cdcWithdrawalDays: 7,
+  fullRefundMinHours: 24,
 };
 
 const BEARERS = ["PLATFORM", "PROVIDER", "PROPORTIONAL"] as const;
@@ -53,5 +55,6 @@ export const getSettings = cache(async (): Promise<PlatformSettings> => {
     slotStepMinutes: isInt(map.get("booking.slotStepMinutes")) ? (map.get("booking.slotStepMinutes") as number) : DEFAULTS.slotStepMinutes,
     termsVersion: typeof map.get("legal.termsVersion") === "string" ? (map.get("legal.termsVersion") as string) : DEFAULTS.termsVersion,
     cdcWithdrawalDays: isInt(map.get("cancellation.cdcWithdrawalDays")) ? (map.get("cancellation.cdcWithdrawalDays") as number) : DEFAULTS.cdcWithdrawalDays,
+    fullRefundMinHours: isInt(map.get("cancellation.fullRefundMinHours")) ? (map.get("cancellation.fullRefundMinHours") as number) : DEFAULTS.fullRefundMinHours,
   };
 });

@@ -13,6 +13,7 @@ import type { SessionUser } from "./auth";
 import { getActiveCommissionRules, LIVE_OFFER } from "./catalog";
 import { db } from "./db";
 import { expireStaleHolds, getProviderSlots } from "./scheduling";
+import { notify } from "./notifications";
 import { getSettings } from "./settings";
 
 export class BookingError extends Error {}
@@ -197,6 +198,7 @@ export async function createBooking(user: SessionUser, input: BookingInput) {
             },
           },
         });
+        await notify(tx, provider.userId, "BOOKING_REQUEST", "Nova solicitação de serviço", `Pedido ${code}: responda até ${booking.providerResponseDeadline?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) ?? "o prazo"}.`, "/profissional/pedidos");
         return booking;
       });
     } catch (error) {
@@ -214,8 +216,7 @@ function isOverlapError(error: unknown): boolean {
   return text.includes("bookings_no_overlap") || text.includes("23P01");
 }
 
-/** Muda o status validando a máquina de estados e grava histórico (+ auditoria quando admin). */
-export async function transitionBooking(params: {
+type TransitionParams = {
   bookingId: string;
   to: BookingStatus;
   actor: { id: string | null; type: "CUSTOMER" | "PROVIDER" | "ADMIN" | "SUPPORT" | "SYSTEM" };
@@ -223,8 +224,16 @@ export async function transitionBooking(params: {
   where?: Prisma.BookingWhereInput;
   /** Campos extras gravados junto com a mudança de status. */
   data?: Prisma.BookingUpdateManyMutationInput;
-}) {
-  return db.$transaction(async (tx) => {
+};
+
+/** Muda o status validando a máquina de estados e grava histórico (+ auditoria quando admin). */
+export async function transitionBooking(params: TransitionParams) {
+  return db.$transaction((tx) => transitionBookingTx(tx, params));
+}
+
+/** Mesma operação, dentro de uma transação já aberta (ex.: confirmação de pagamento). */
+export async function transitionBookingTx(tx: Prisma.TransactionClient, params: TransitionParams) {
+  {
     const booking = await tx.booking.findFirst({ where: { id: params.bookingId, ...params.where } });
     if (!booking) throw new BookingError("Pedido não encontrado.");
     assertTransition(booking.status, params.to, params.actor.type);
@@ -251,7 +260,7 @@ export async function transitionBooking(params: {
       );
     }
     return { ...booking, status: params.to };
-  });
+  }
 }
 
 export { PricingError };
@@ -267,7 +276,7 @@ export async function acceptBooking(providerId: string, actorUserId: string, boo
   const now = new Date();
   if (booking.providerResponseDeadline && booking.providerResponseDeadline < now) throw new BookingError("O prazo para responder terminou.");
   const payBy = new Date(Math.min(now.getTime() + settings.holdMinutes * 60_000, booking.scheduledStart.getTime()));
-  return transitionBooking({
+  const result = await transitionBooking({
     bookingId,
     to: "AWAITING_PAYMENT",
     actor: { id: actorUserId, type: "PROVIDER" },
@@ -275,13 +284,15 @@ export async function acceptBooking(providerId: string, actorUserId: string, boo
     where: { providerId },
     data: { providerRespondedAt: now, holdExpiresAt: payBy },
   });
+  await notify(db, booking.customerId, "BOOKING_ACCEPTED", "Pedido aceito!", `O profissional aceitou o pedido ${booking.code}. Pague até ${payBy.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} para confirmar.`, `/conta/pedidos/${booking.id}`);
+  return result;
 }
 
 /** Profissional recusa (motivo obrigatório, visível ao cliente). Nada foi cobrado. */
 export async function declineBooking(providerId: string, actorUserId: string, bookingId: string, reason: string) {
   const text = reason.trim();
   if (text.length < 5) throw new BookingError("Explique brevemente o motivo da recusa.");
-  return transitionBooking({
+  const result = await transitionBooking({
     bookingId,
     to: "DECLINED",
     actor: { id: actorUserId, type: "PROVIDER" },
@@ -289,4 +300,6 @@ export async function declineBooking(providerId: string, actorUserId: string, bo
     where: { providerId, status: "AWAITING_PROVIDER" },
     data: { providerRespondedAt: new Date(), declineReason: text.slice(0, 300), cancelledAt: new Date() },
   });
+  await notify(db, result.customerId, "BOOKING_DECLINED", "Pedido não aceito", `O profissional não pôde aceitar o pedido ${result.code}. Nada foi cobrado.`, `/conta/pedidos/${result.id}`);
+  return result;
 }

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PROTECTED = ["/conta", "/profissional", "/admin", "/contratar"];
+const PROTECTED = ["/conta", "/profissional", "/admin", "/contratar", "/notificacoes"];
 
 /** Renova a sessão do Supabase e barra áreas privadas sem login. O papel é checado em cada página/ação. */
 export async function middleware(request: NextRequest) {

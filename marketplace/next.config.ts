@@ -9,6 +9,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Upload de fotos/vídeos do serviço (limite por arquivo validado no servidor: 50 MB).
+  experimental: { serverActions: { bodySizeLimit: "60mb" } },
   // Projeto independente dentro do repositório: não usar o lockfile da raiz.
   outputFileTracingRoot: process.cwd(),
   async headers() {

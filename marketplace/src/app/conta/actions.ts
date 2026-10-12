@@ -10,7 +10,11 @@ import { canReview, reviewInputSchema } from "@/domain/reviews";
 import { echoValues } from "@/lib/form-state";
 import { addressSchema, fieldErrors, profileSchema } from "@/lib/validation";
 import { getSessionUser } from "@/server/auth";
-import { BookingError, transitionBooking } from "@/server/booking";
+import { BookingError } from "@/server/booking";
+import { confirmCompletion, reportProblem } from "@/server/completion";
+import { activeGateway } from "@/server/payments";
+import { cancelUnpaidBooking, handleWebhook, PaymentError, requestRefund, startPayment } from "@/server/payments/service";
+import { setSimulatedChargeOutcome, signSimulatedWebhook } from "@/server/payments/simulated";
 import { db } from "@/server/db";
 
 /** Atualiza nome/telefone do PRÓPRIO usuário (o id vem da sessão, nunca do formulário). */
@@ -119,15 +123,9 @@ export async function cancelUnpaidBookingAction(_: FormState, formData: FormData
   const id = z.uuid().safeParse(formData.get("bookingId"));
   if (!id.success) return { message: "Pedido inválido." };
   try {
-    await transitionBooking({
-      bookingId: id.data,
-      to: "CANCELLED",
-      actor: { id: user.id, type: "CUSTOMER" },
-      reason: "Cancelado pelo cliente antes do pagamento",
-      where: { customerId: user.id, status: { in: ["AWAITING_PROVIDER", "AWAITING_PAYMENT"] } },
-    });
+    await cancelUnpaidBooking(user, id.data);
   } catch (error) {
-    if (error instanceof BookingError) return { message: error.message };
+    if (error instanceof BookingError || error instanceof PaymentError) return { message: error.message };
     if (error instanceof InvalidTransitionError) return { message: "Este pedido não pode mais ser cancelado por aqui. Fale com o suporte." };
     console.error("[cancel]", error);
     return { message: "Não foi possível cancelar agora." };
@@ -135,4 +133,97 @@ export async function cancelUnpaidBookingAction(_: FormState, formData: FormData
   revalidatePath(`/conta/pedidos/${id.data}`);
   revalidatePath("/conta");
   return { ok: true, message: "Pedido cancelado e horário liberado." };
+}
+
+// ── Pagamento, cancelamento com reembolso e conclusão ──────────────────────
+
+async function customerOrFail() {
+  const user = await getSessionUser();
+  if (!user || !can(user.role, "booking:read:own")) throw new BookingError("Entre com sua conta de cliente.");
+  return user;
+}
+
+function actionError(error: unknown): FormState {
+  if (error instanceof BookingError || error instanceof PaymentError || error instanceof InvalidTransitionError) return { message: error.message };
+  console.error("[conta]", error);
+  return { message: "Não foi possível concluir agora. Tente novamente." };
+}
+
+export async function startPaymentAction(_: FormState, formData: FormData): Promise<FormState> {
+  let paidWithCredit: string | null = null;
+  try {
+    const user = await customerOrFail();
+    const bookingId = z.uuid().parse(formData.get("bookingId"));
+    const method = z.enum(["PIX", "CARD"]).parse(formData.get("method"));
+    const useCredit = formData.get("useCredit") === "on";
+    const r = await startPayment(user, bookingId, method, useCredit);
+    revalidatePath(`/conta/pedidos/${bookingId}/pagar`);
+    if (r.paidWithCredit) paidWithCredit = bookingId;
+  } catch (error) {
+    return actionError(error);
+  }
+  // redirect fora do try: o Next sinaliza o redirecionamento lançando uma exceção própria.
+  if (paidWithCredit) redirect(`/conta/pedidos/${paidWithCredit}?pago=credito`);
+  return { ok: true };
+}
+
+/**
+ * SOMENTE MODO SIMULAÇÃO: faz o papel do cliente pagando/recusando no
+ * "provedor" e entrega o webhook ASSINADO pelo mesmo caminho de produção.
+ */
+export async function simulatePaymentAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    if (!activeGateway().isSimulated) return { message: "Simulação indisponível neste ambiente." };
+    const user = await customerOrFail();
+    const paymentId = z.uuid().parse(formData.get("paymentId"));
+    const outcome = z.enum(["RECEIVED", "DECLINED"]).parse(formData.get("outcome"));
+    const payment = await db.paymentTransaction.findFirst({ where: { id: paymentId, booking: { customerId: user.id }, status: "PENDING", isSimulated: true } });
+    if (!payment?.providerPaymentId) return { message: "Cobrança simulada não encontrada." };
+    await setSimulatedChargeOutcome(payment.providerPaymentId, outcome);
+    const { body, headers } = signSimulatedWebhook({ type: outcome === "RECEIVED" ? "PAYMENT_RECEIVED" : "PAYMENT_DECLINED", chargeId: payment.providerPaymentId });
+    await handleWebhook("simulated", headers, body);
+    revalidatePath(`/conta/pedidos/${payment.bookingId}`);
+    return { ok: true, message: outcome === "RECEIVED" ? "Pagamento SIMULADO aprovado." : "Pagamento SIMULADO recusado." };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function cancelPaidBookingAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const user = await customerOrFail();
+    const bookingId = z.uuid().parse(formData.get("bookingId"));
+    const reason = z.string().trim().min(3, "Conte o motivo do cancelamento.").max(300).parse(formData.get("reason"));
+    const choice = z.enum(["REFUND_FULL", "CREDIT", "REFUND_MINUS_FEE"]).parse(formData.get("choice"));
+    const rule = await requestRefund({ bookingId, actor: { id: user.id, type: "CUSTOMER" }, reason, where: { customerId: user.id }, choice });
+    revalidatePath(`/conta/pedidos/${bookingId}`);
+    return { ok: true, message: `Pedido cancelado. ${rule}` };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { message: error.issues[0]?.message };
+    return actionError(error);
+  }
+}
+
+export async function confirmCompletionAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const user = await customerOrFail();
+    const bookingId = z.uuid().parse(formData.get("bookingId"));
+    await confirmCompletion(user, bookingId);
+    revalidatePath(`/conta/pedidos/${bookingId}`);
+    return { ok: true, message: "Obrigado! Serviço concluído. Que tal avaliar o profissional?" };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function reportProblemAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const user = await customerOrFail();
+    const bookingId = z.uuid().parse(formData.get("bookingId"));
+    await reportProblem(user, bookingId, String(formData.get("message") ?? ""));
+    revalidatePath(`/conta/pedidos/${bookingId}`);
+    return { ok: true, message: "Recebemos seu relato. Nossa equipe vai analisar; o pagamento ao profissional fica retido." };
+  } catch (error) {
+    return actionError(error);
+  }
 }

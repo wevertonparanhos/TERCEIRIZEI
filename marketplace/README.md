@@ -74,7 +74,7 @@ administrador define quem as suporta.
 3. Pagamento confirmado pelo provedor → `CONFIRMED` (Fase 3) → contatos liberados.
 4. **Repasse ao profissional só após foto/vídeo do serviço finalizado e/ou o cliente marcar como concluído** (`src/domain/completion.ts`; com evidência e sem resposta do cliente em 48h o sistema conclui). O banco bloqueia finalizar sem evidência e repasse de pedido não concluído.
 
-Verificação ponta a ponta contra o banco: `npm run check:booking` (usa uma cliente fictícia; cancela os pedidos de teste).
+Verificações ponta a ponta contra o banco (contas fictícias): `npm run check:booking` e `npm run check:payments`.
 
 ## Rodando localmente
 
@@ -137,7 +137,7 @@ Aplique os arquivos de `prisma/sql/` **em ordem** (SQL Editor do Supabase ou
 
 - [x] **Fase 1 — Fundação**: banco, migrações, auth, RBAC, catálogo, preços dos profissionais, motor de preço, máquina de estados, painel admin.
 - [x] **Fase 2 — Marketplace**: busca (`/buscar`), endereços com ViaCEP, agenda e regiões do profissional, contratação (`/contratar/[slug]`), **aceite do profissional** antes do pagamento, pedidos do cliente e do profissional, expiração automática (pg_cron).
-- [ ] **Fase 3 — Pagamentos**: adaptador de provedor (avaliar Mercado Pago/Asaas com split), adaptador SIMULADO para dev, webhooks idempotentes, reembolsos, repasses.
+- [x] **Fase 3 — Pagamentos** (simulado): camada de provedores + adaptador SIMULADO, webhooks assinados e idempotentes, liberação de contato, execução com foto/vídeo, conclusão e repasse, cancelamento com regra das 24h, carteira de créditos, financeiro do admin e do profissional, conciliação, CSV. Asaas real pendente de conta sandbox — ver [docs/pagamentos.md](docs/pagamentos.md).
 - [ ] **Fase 4 — Operação**: liberação de contato, notificações, avaliações, suporte, documentos, relatórios.
 - [ ] **Fase 5 — Lançamento**: Playwright (18 cenários do briefing), monitoramento, backups, checklist jurídico, deploy.
 

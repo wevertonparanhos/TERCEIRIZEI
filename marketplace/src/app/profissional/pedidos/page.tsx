@@ -13,7 +13,8 @@ import { requirePageRole } from "@/server/auth";
 import { db } from "@/server/db";
 import { expireStaleHolds } from "@/server/scheduling";
 import { formatDateTime } from "@/lib/utils";
-import { acceptBookingAction, declineBookingAction } from "../actions";
+import { EVIDENCE_MAX_FILES } from "@/server/completion";
+import { acceptBookingAction, declineBookingAction, finishServiceAction, providerCancelAction, startServiceAction, uploadEvidenceAction } from "../actions";
 
 const day = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", timeZone: "America/Sao_Paulo" });
 
@@ -50,6 +51,7 @@ export default async function ProviderBookingsPage({ searchParams }: { searchPar
       items: { select: { name: true, quantity: true } },
       customer: { select: { name: true, phone: true } },
       address: { select: { street: true, number: true, complement: true, neighborhood: true, city: true, state: true, notes: true } },
+      _count: { select: { evidence: true } },
     },
   });
 
@@ -142,6 +144,49 @@ export default async function ProviderBookingsPage({ searchParams }: { searchPar
                   <p className="mt-3 text-xs text-muted">Você aceitou. O cliente tem até {formatDateTime(b.holdExpiresAt)} para pagar.</p>
                 ) : null}
                 {b.status === "DECLINED" && b.declineReason ? <p className="mt-3 text-xs text-muted">Você recusou: {b.declineReason}</p> : null}
+
+                {b.status === "CONFIRMED" ? (
+                  <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-start">
+                    <ActionForm action={startServiceAction} submitLabel="Iniciar atendimento" pendingText="Iniciando…">
+                      <input type="hidden" name="bookingId" value={b.id} />
+                    </ActionForm>
+                    <details className="flex-1">
+                      <summary className="cursor-pointer py-2.5 text-sm font-semibold text-danger">Não poderei atender</summary>
+                      <ActionForm action={providerCancelAction} submitLabel="Cancelar e reembolsar o cliente" variant="danger" confirm="Cancelar este serviço? O cliente recebe reembolso integral." className="mt-2">
+                        <input type="hidden" name="bookingId" value={b.id} />
+                        <Input name="reason" maxLength={300} placeholder="Motivo (o cliente verá)" aria-label="Motivo do cancelamento" required />
+                      </ActionForm>
+                    </details>
+                  </div>
+                ) : null}
+
+                {b.status === "IN_PROGRESS" ? (
+                  <div className="mt-4 space-y-4 border-t border-line pt-4">
+                    <Notice title="Para finalizar, envie fotos ou vídeos do serviço pronto">
+                      O pagamento só é liberado depois das fotos/vídeos e/ou da confirmação do cliente. Até {EVIDENCE_MAX_FILES} arquivos de até 50 MB.
+                    </Notice>
+                    <ActionForm action={uploadEvidenceAction} submitLabel="Enviar arquivos" pendingText="Enviando…" variant="secondary">
+                      <input type="hidden" name="bookingId" value={b.id} />
+                      <input
+                        type="file"
+                        name="files"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/quicktime,video/webm"
+                        capture="environment"
+                        className="block w-full text-sm file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:font-semibold file:text-brand-strong"
+                        aria-label="Fotos ou vídeos do serviço finalizado"
+                      />
+                    </ActionForm>
+                    <p className="text-sm">{b._count.evidence} arquivo(s) enviado(s).</p>
+                    <ActionForm action={finishServiceAction} submitLabel="Finalizar serviço" confirm="Finalizar o serviço? O cliente será avisado para confirmar.">
+                      <input type="hidden" name="bookingId" value={b.id} />
+                    </ActionForm>
+                  </div>
+                ) : null}
+
+                {b.status === "COMPLETION_PENDING" ? (
+                  <p className="mt-3 text-xs text-muted">Aguardando o cliente confirmar. Sem contestação em 48h, o serviço é concluído automaticamente e seu repasse liberado.</p>
+                ) : null}
               </Card>
             );
           })}

@@ -8,6 +8,10 @@ import type { Permission } from "@/domain/permissions";
 import { audit } from "@/server/audit";
 import { AuthorizationError, requirePermission, type SessionUser } from "@/server/auth";
 import { db } from "@/server/db";
+import { InvalidTransitionError } from "@/domain/booking-state";
+import { parseBRLToCents } from "@/domain/money";
+import { BookingError, transitionBooking } from "@/server/booking";
+import { PaymentError, reconcilePendingPayments, releasePayout, requestRefund } from "@/server/payments/service";
 
 /**
  * Envelope de toda ação administrativa: checa a permissão no servidor,
@@ -369,4 +373,74 @@ export async function moderateReviewAction(_: FormState, formData: FormData) {
     );
     return "Avaliação moderada.";
   }, ["/admin/avaliacoes", `/profissionais`]);
+}
+
+// ── Financeiro ─────────────────────────────────────────────────────────────
+
+function finError(error: unknown): FormState {
+  if (error instanceof AuthorizationError || error instanceof AdminRuleError || error instanceof PaymentError || error instanceof BookingError || error instanceof InvalidTransitionError) {
+    return { message: error.message };
+  }
+  console.error("[admin/financeiro]", error);
+  return { message: "Não foi possível concluir a operação." };
+}
+
+export async function releasePayoutAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const actor = await requirePermission("admin:finance:read");
+    if (actor.role !== "ADMIN") throw new AuthorizationError("Somente administradores liberam repasses.");
+    await releasePayout(actor, z.uuid().parse(formData.get("payoutId")));
+    revalidatePath("/admin/financeiro");
+    return { ok: true, message: "Repasse enviado." };
+  } catch (error) {
+    return finError(error);
+  }
+}
+
+export async function reconcilePaymentsAction(): Promise<FormState> {
+  try {
+    await requirePermission("admin:finance:read");
+    const r = await reconcilePendingPayments();
+    revalidatePath("/admin/financeiro");
+    return { ok: true, message: `Conciliação: ${r.checked} cobrança(s) pendente(s) consultada(s), ${r.updated} atualizada(s).` };
+  } catch (error) {
+    return finError(error);
+  }
+}
+
+const adminRefundSchema = z.object({
+  bookingId: z.uuid(),
+  amount: z.string().trim().optional().default(""),
+  reason: z.string().trim().min(5, "Informe o motivo.").max(300),
+});
+
+/** Mediação: reembolso total (vazio) ou parcial (valor em R$). */
+export async function adminRefundAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const actor = await requirePermission("admin:refunds:manage");
+    const input = adminRefundSchema.parse(Object.fromEntries(formData));
+    const override = input.amount ? parseBRLToCents(input.amount) : undefined;
+    if (input.amount && (override === null || override === undefined || override <= 0)) return { message: "Valor inválido." };
+    const rule = await requestRefund({ bookingId: input.bookingId, actor: { id: actor.id, type: "ADMIN" }, reason: input.reason, amountOverrideCents: override ?? undefined });
+    revalidatePath("/admin/financeiro");
+    return { ok: true, message: `Reembolso iniciado. ${rule}` };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { message: error.issues[0]?.message };
+    return finError(error);
+  }
+}
+
+/** Mediação a favor do profissional: pedido em análise → concluído (libera o repasse). */
+export async function resolveDisputeCompletedAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const actor = await requirePermission("admin:refunds:manage");
+    const bookingId = z.uuid().parse(formData.get("bookingId"));
+    const note = z.string().trim().min(5, "Registre a conclusão da análise.").max(300).parse(formData.get("note"));
+    await transitionBooking({ bookingId, to: "COMPLETED", actor: { id: actor.id, type: "ADMIN" }, reason: `Análise concluída: ${note}` });
+    revalidatePath("/admin/financeiro");
+    return { ok: true, message: "Pedido concluído; repasse liberado." };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { message: error.issues[0]?.message };
+    return finError(error);
+  }
 }
