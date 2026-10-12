@@ -7,7 +7,8 @@ import { formatBps, formatBRL } from "@/domain/money";
 import { requirePageRole } from "@/server/auth";
 import { db } from "@/server/db";
 import { activeGateway } from "@/server/payments";
-import { creditBalance } from "@/server/payments/service";
+import { creditBalance, syncBookingPayments } from "@/server/payments/service";
+import { maskCpfCnpj } from "@/domain/documents";
 import { expireStaleHolds } from "@/server/scheduling";
 import { PaymentPanel } from "./payment-panel";
 
@@ -16,6 +17,8 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
   const user = await requirePageRole(["CUSTOMER"], `/conta/pedidos/${id}/pagar`);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   await expireStaleHolds();
+  // Sem webhook (ex.: rodando localmente), consulta o provedor ao abrir a página.
+  if (!activeGateway().isSimulated) await syncBookingPayments(id);
 
   const b = await db.booking.findFirst({
     where: { id, customerId: user.id },
@@ -32,6 +35,7 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
   const gateway = activeGateway();
   const payment = b.payments[0] ?? null;
   const balance = b.creditAppliedCents > 0 ? 0 : await creditBalance(user.id);
+  const profile = await db.customerProfile.findUnique({ where: { userId: user.id }, select: { cpfCnpj: true } });
   const remaining = b.totalCents - b.creditAppliedCents;
 
   return (
@@ -68,8 +72,10 @@ export default async function PayPage({ params }: { params: Promise<{ id: string
           bookingId={b.id}
           simulated={gateway.isSimulated}
           creditBalanceCents={balance}
+          needsDocument={gateway.requiresPayerDocument}
+          savedDocument={profile?.cpfCnpj ? maskCpfCnpj(profile.cpfCnpj) : null}
           remainingCents={remaining}
-          payment={payment ? { id: payment.id, method: payment.method, pixCopyPaste: payment.pixCopyPaste, isSimulated: payment.isSimulated } : null}
+          payment={payment ? { id: payment.id, method: payment.method, pixCopyPaste: payment.pixCopyPaste, pixQrImage: payment.pixQrCode, checkoutUrl: payment.checkoutUrl, isSimulated: payment.isSimulated } : null}
         />
       </Card>
 

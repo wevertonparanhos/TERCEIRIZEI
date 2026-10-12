@@ -8,9 +8,25 @@ import { formatBRL } from "@/domain/money";
 import { cn } from "@/lib/utils";
 import { simulatePaymentAction, startPaymentAction } from "../../../actions";
 
-type Payment = { id: string; method: "PIX" | "CARD"; pixCopyPaste: string | null; isSimulated: boolean } | null;
+type Payment = { id: string; method: "PIX" | "CARD"; pixCopyPaste: string | null; pixQrImage: string | null; checkoutUrl: string | null; isSimulated: boolean } | null;
 
-export function PaymentPanel({ bookingId, payment, simulated, creditBalanceCents, remainingCents }: { bookingId: string; payment: Payment; simulated: boolean; creditBalanceCents: number; remainingCents: number }) {
+export function PaymentPanel({
+  bookingId,
+  payment,
+  simulated,
+  creditBalanceCents,
+  remainingCents,
+  needsDocument,
+  savedDocument,
+}: {
+  bookingId: string;
+  payment: Payment;
+  simulated: boolean;
+  creditBalanceCents: number;
+  remainingCents: number;
+  needsDocument: boolean;
+  savedDocument: string | null;
+}) {
   const router = useRouter();
   const [startState, start] = useActionState(startPaymentAction, {} as FormState);
   const [simState, simulate] = useActionState(simulatePaymentAction, {} as FormState);
@@ -34,6 +50,20 @@ export function PaymentPanel({ bookingId, payment, simulated, creditBalanceCents
         <input type="hidden" name="bookingId" value={bookingId} />
         <input type="hidden" name="method" value={method} />
         <FormMessage state={startState} />
+        {needsDocument ? (
+          <label className="block text-sm font-medium">
+            CPF ou CNPJ de quem paga
+            <input
+              name="payerDocument"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder={savedDocument ? `Salvo: ${savedDocument} (deixe em branco para manter)` : "000.000.000-00"}
+              required={!savedDocument}
+              className="mt-1 h-11 w-full rounded-xl border border-line-strong bg-surface px-3.5 text-[15px] focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/10"
+            />
+            <span className="mt-1 block text-xs font-normal text-muted">Exigido pelo provedor de pagamento para emitir a cobrança. Usado só para isso.</span>
+          </label>
+        ) : null}
         {creditBalanceCents > 0 ? (
           <label className="flex items-start gap-3 rounded-2xl border border-brand/40 bg-brand-soft/50 p-4 text-sm">
             <input type="checkbox" name="useCredit" defaultChecked className="mt-0.5 size-4 accent-[var(--color-brand)]" />
@@ -72,6 +102,10 @@ export function PaymentPanel({ bookingId, payment, simulated, creditBalanceCents
 
       {payment && payment.method === "PIX" && payment.pixCopyPaste ? (
         <div className="rounded-2xl border border-line p-4">
+          {payment.pixQrImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={`data:image/png;base64,${payment.pixQrImage}`} alt="QR Code PIX para pagamento" className="mx-auto mb-4 size-56 rounded-xl border border-line" />
+          ) : null}
           <p className="text-sm font-semibold">PIX copia e cola</p>
           <div className="mt-2 flex gap-2">
             <code className="flex-1 truncate rounded-xl bg-canvas px-3 py-2.5 text-xs">{payment.pixCopyPaste}</code>
@@ -90,8 +124,13 @@ export function PaymentPanel({ bookingId, payment, simulated, creditBalanceCents
         </div>
       ) : null}
 
-      {payment && payment.method === "CARD" && !payment.isSimulated ? (
-        <p className="text-sm text-muted">Você será direcionado ao ambiente seguro do provedor para digitar os dados do cartão.</p>
+      {payment && payment.method === "CARD" && !payment.isSimulated && payment.checkoutUrl ? (
+        <div className="space-y-2">
+          <a href={payment.checkoutUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 w-full items-center justify-center rounded-full bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-strong">
+            Pagar com cartão no ambiente seguro do Asaas
+          </a>
+          <p className="text-xs text-muted">Os dados do cartão são digitados na página do provedor; a plataforma não tem acesso a eles. Volte a esta página após pagar.</p>
+        </div>
       ) : null}
 
       {payment && simulated ? (

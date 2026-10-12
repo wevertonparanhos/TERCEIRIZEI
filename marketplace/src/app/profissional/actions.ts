@@ -6,6 +6,7 @@ import type { FormState } from "@/components/ui/form";
 import { echoValues } from "@/lib/form-state";
 import { addDays, hhmmToMinutes, isValidLocalDate, localToUtc, WEEKDAYS } from "@/domain/availability";
 import { InvalidTransitionError } from "@/domain/booking-state";
+import { normalizePixKey, PIX_KEY_TYPES } from "@/domain/documents";
 import { parseBRLToCents } from "@/domain/money";
 import { providerReplySchema } from "@/domain/reviews";
 import { fieldErrors, providerProfileSchema } from "@/lib/validation";
@@ -13,7 +14,9 @@ import { AuthorizationError, requirePermission } from "@/server/auth";
 import { acceptBooking, BookingError, declineBooking } from "@/server/booking";
 import { finishService, startService, uploadEvidence } from "@/server/completion";
 import { PaymentError, requestRefund } from "@/server/payments/service";
+import { audit } from "@/server/audit";
 import { db } from "@/server/db";
+import { notify } from "@/server/notifications";
 
 /** Perfil do prestador SEMPRE resolvido pela sessão — nunca por id enviado pelo navegador. */
 async function currentProvider(
@@ -416,5 +419,28 @@ export async function providerCancelAction(_: FormState, formData: FormData): Pr
     return { ok: true, message: "Pedido cancelado. O cliente recebe reembolso integral." };
   } catch (error) {
     return execError(error);
+  }
+}
+
+// ── Chave PIX para repasses ────────────────────────────────────────────────
+
+/** Troca de destino do dinheiro: validada, auditada e notificada ao próprio profissional. */
+export async function savePixKeyAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { user, provider } = await currentProvider("provider:profile:manage:own");
+    const type = z.enum(PIX_KEY_TYPES).safeParse(formData.get("pixKeyType"));
+    if (!type.success) return { errors: { pixKeyType: ["Escolha o tipo de chave."] } };
+    const key = normalizePixKey(type.data, String(formData.get("pixKey") ?? ""));
+    if (!key) return { errors: { pixKey: ["Chave PIX inválida para o tipo escolhido."] }, values: echoValues(formData) };
+
+    await db.$transaction(async (tx) => {
+      await tx.providerProfile.update({ where: { id: provider.id }, data: { payoutPixKeyType: type.data, payoutPixKey: key } });
+      await audit({ actorId: user.id, action: "provider.pix_key_update", entityType: "provider_profile", entityId: provider.id, description: `Chave PIX de repasse alterada (tipo ${type.data})` }, tx);
+      await notify(tx, user.id, "PIX_KEY_CHANGED", "Chave PIX alterada", "A chave PIX que recebe seus repasses foi alterada. Se não foi você, fale com o suporte imediatamente.", "/profissional/financeiro");
+    });
+    revalidatePath("/profissional/financeiro");
+    return { ok: true, message: "Chave PIX salva. Os próximos repasses irão para ela." };
+  } catch (error) {
+    return failure(error);
   }
 }

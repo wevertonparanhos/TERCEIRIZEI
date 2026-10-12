@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { canReleasePayout } from "@/domain/completion";
 import { formatBRL } from "@/domain/money";
+import { normalizeCpfCnpj } from "@/domain/documents";
 import { cancellationOptions, type CancelledBy, type CancellationOption } from "@/domain/refund";
 import { audit } from "../audit";
 import type { SessionUser } from "../auth";
@@ -35,7 +36,7 @@ async function lockBooking(tx: Prisma.TransactionClient, bookingId: string): Pro
  * crédito primeiro: se cobrir tudo, o pedido é confirmado na hora; se não,
  * o restante é cobrado no provedor.
  */
-export async function startPayment(user: SessionUser, bookingId: string, method: PaymentMethod, useCredit = false) {
+export async function startPayment(user: SessionUser, bookingId: string, method: PaymentMethod, useCredit = false, payerDocument?: string | null) {
   await expireStaleHolds();
   const gateway = activeGateway();
 
@@ -80,6 +81,19 @@ export async function startPayment(user: SessionUser, bookingId: string, method:
     await db.paymentTransaction.update({ where: { id: pending.id }, data: { status: "CANCELLED", failureReason: "Substituída por nova tentativa" } });
   }
 
+  // Pagador: CPF/CNPJ (exigido por provedores reais) e cliente já criado no provedor.
+  const profile = await db.customerProfile.upsert({ where: { userId: user.id }, create: { userId: user.id }, update: {} });
+  let cpfCnpj = profile.cpfCnpj;
+  if (payerDocument) {
+    const normalized = normalizeCpfCnpj(payerDocument);
+    if (!normalized) throw new PaymentError("CPF ou CNPJ inválido.");
+    if (normalized !== cpfCnpj) {
+      await db.customerProfile.update({ where: { userId: user.id }, data: { cpfCnpj: normalized, asaasCustomerId: null } });
+      cpfCnpj = normalized;
+    }
+  }
+  if (gateway.requiresPayerDocument && !cpfCnpj) throw new PaymentError("Informe seu CPF ou CNPJ para pagar.");
+
   const attempt = booking.payments.length + 1;
   const idempotencyKey = `${booking.id}:${method}:${attempt}`;
   const charge = await gateway.createCharge({
@@ -88,9 +102,18 @@ export async function startPayment(user: SessionUser, bookingId: string, method:
     method,
     description: `${booking.service.name} — pedido ${booking.code}`,
     idempotencyKey,
-    customer: { name: user.name, email: user.email },
+    customer: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      cpfCnpj,
+      gatewayCustomerId: gateway.name === "asaas" && cpfCnpj === profile.cpfCnpj ? profile.asaasCustomerId : null,
+    },
     expiresAt: booking.holdExpiresAt,
   });
+  if (gateway.name === "asaas" && charge.gatewayCustomerId && charge.gatewayCustomerId !== profile.asaasCustomerId) {
+    await db.customerProfile.update({ where: { userId: user.id }, data: { asaasCustomerId: charge.gatewayCustomerId } });
+  }
 
   const payment = await db.paymentTransaction.create({
     data: {
@@ -156,7 +179,8 @@ export async function handleWebhook(providerName: string, headers: Headers, rawB
   }
 
   try {
-    await syncCharge(gateway, event.chargeId);
+    if (event.transferId) await syncTransfer(gateway, event.transferId);
+    else if (event.chargeId) await syncCharge(gateway, event.chargeId);
     await db.paymentWebhookEvent.update({ where: { id: record.id }, data: { processedAt: new Date() } });
     return { status: 200, body: "ok" };
   } catch (error) {
@@ -415,7 +439,10 @@ async function settleRefund(paymentId: string, refundedCents: number, status: "R
 export async function releasePayout(admin: SessionUser, payoutId: string) {
   const payout = await db.providerPayout.findUnique({
     where: { id: payoutId },
-    include: { booking: { select: { status: true, code: true } }, provider: { select: { displayName: true, payoutAccountRef: true, userId: true } } },
+    include: {
+      booking: { select: { status: true, code: true } },
+      provider: { select: { displayName: true, payoutAccountRef: true, payoutPixKeyType: true, payoutPixKey: true, userId: true } },
+    },
   });
   if (!payout) throw new PaymentError("Repasse não encontrado.");
   if (payout.status !== "SCHEDULED") throw new PaymentError("Este repasse não está liberado para pagamento.");
@@ -424,23 +451,67 @@ export async function releasePayout(admin: SessionUser, payoutId: string) {
     if (!rule.ok) throw new PaymentError(rule.reason);
   }
   const gateway = activeGateway();
-  if (!gateway.isSimulated && !payout.provider.payoutAccountRef) throw new PaymentError("Profissional sem conta de recebimento cadastrada no provedor.");
+  const destination = payout.provider.payoutPixKeyType && payout.provider.payoutPixKey
+    ? `PIX:${payout.provider.payoutPixKeyType}:${payout.provider.payoutPixKey}`
+    : payout.provider.payoutAccountRef;
+  if (!gateway.isSimulated && !destination) throw new PaymentError("Profissional sem chave PIX cadastrada para receber.");
 
   const claimed = await db.providerPayout.updateMany({ where: { id: payout.id, status: "SCHEDULED", note: { not: "Transferência em andamento" } }, data: { note: "Transferência em andamento" } });
   if (claimed.count === 0) throw new PaymentError("Repasse já em processamento.");
 
-  const result = await gateway.transfer({ destinationRef: payout.provider.payoutAccountRef, amountCents: payout.netCents, idempotencyKey: `payout:${payout.id}`, description: `Repasse pedido ${payout.booking.code}` });
+  let result: { transferId: string; status: "DONE" | "PENDING" };
+  try {
+    result = await gateway.transfer({ destinationRef: destination, amountCents: payout.netCents, idempotencyKey: `payout:${payout.id}`, description: `Repasse pedido ${payout.booking.code}` });
+  } catch (error) {
+    // Libera a trava para nova tentativa; o erro do provedor é exibido ao admin.
+    await db.providerPayout.update({ where: { id: payout.id }, data: { note: "Falha na última tentativa de transferência" } });
+    throw error;
+  }
   await db.$transaction(async (tx) => {
     await tx.providerPayout.update({
       where: { id: payout.id },
-      data: { status: result.status === "DONE" ? "PAID" : "SCHEDULED", paidAt: result.status === "DONE" ? new Date() : null, providerTransferId: result.transferId, note: gateway.isSimulated ? "Transferência SIMULADA" : null },
+      data: {
+        status: result.status === "DONE" ? "PAID" : "SCHEDULED",
+        paidAt: result.status === "DONE" ? new Date() : null,
+        providerTransferId: result.transferId,
+        note: gateway.isSimulated ? "Transferência SIMULADA" : result.status === "DONE" ? null : "Transferência em processamento no provedor (pode exigir autorização no painel do Asaas)",
+      },
     });
     await audit({ actorId: admin.id, action: "payout.release", entityType: "provider_payout", entityId: payout.id, description: `Repasse de ${formatBRL(payout.netCents)} para ${payout.provider.displayName} (pedido ${payout.booking.code})${gateway.isSimulated ? " — SIMULADO" : ""}` }, tx);
     await notify(tx, payout.provider.userId, "PAYOUT_PAID", "Repasse enviado", `Repasse do pedido ${payout.booking.code} enviado${gateway.isSimulated ? " (simulação)" : ""}.`, "/profissional/financeiro");
   });
 }
 
-/** Conciliação: reconsulta cobranças pendentes no provedor e aplica o status oficial. */
+/** Aplica o status oficial de uma transferência (repasse) do provedor. */
+export async function syncTransfer(gateway: PaymentGateway, transferId: string) {
+  const payout = await db.providerPayout.findFirst({ where: { providerTransferId: transferId }, include: { booking: { select: { code: true } }, provider: { select: { userId: true } } } });
+  if (!payout || payout.status === "PAID") return;
+  const t = await gateway.getTransfer(transferId);
+  if (t.status === "DONE") {
+    await db.$transaction(async (tx) => {
+      const done = await tx.providerPayout.updateMany({ where: { id: payout.id, status: { not: "PAID" } }, data: { status: "PAID", paidAt: new Date(), note: null } });
+      if (done.count) await notify(tx, payout.provider.userId, "PAYOUT_PAID", "Repasse enviado", `Repasse do pedido ${payout.booking.code} concluído.`, "/profissional/financeiro");
+    });
+  } else if (t.status === "FAILED" || t.status === "CANCELLED") {
+    await db.providerPayout.update({ where: { id: payout.id }, data: { status: "SCHEDULED", providerTransferId: null, note: `Transferência ${t.status === "FAILED" ? "falhou" : "cancelada"}${t.failReason ? `: ${t.failReason}` : ""}. Verifique a chave PIX e tente de novo.` } });
+  }
+}
+
+/** Reconsulta as cobranças pendentes de um pedido (útil sem webhook, ex.: ambiente local). */
+export async function syncBookingPayments(bookingId: string) {
+  const pending = await db.paymentTransaction.findMany({ where: { bookingId, status: "PENDING" } });
+  for (const p of pending) {
+    const gateway = gatewayByName(p.provider);
+    if (!gateway || gateway.isSimulated || !p.providerPaymentId) continue;
+    try {
+      await syncCharge(gateway, p.providerPaymentId);
+    } catch (error) {
+      console.error("[sync] falha ao consultar cobrança", p.id, error instanceof Error ? error.message : error);
+    }
+  }
+}
+
+/** Conciliação: reconsulta cobranças pendentes e transferências em andamento no provedor. */
 export async function reconcilePendingPayments() {
   const pending = await db.paymentTransaction.findMany({ where: { status: "PENDING" }, take: 100 });
   let updated = 0;
@@ -451,5 +522,10 @@ export async function reconcilePendingPayments() {
     const after = await db.paymentTransaction.findUnique({ where: { id: p.id }, select: { status: true } });
     if (after?.status !== "PENDING") updated++;
   }
-  return { checked: pending.length, updated };
+  const transfers = await db.providerPayout.findMany({ where: { status: "SCHEDULED", providerTransferId: { not: null } }, take: 100 });
+  for (const t of transfers) {
+    const gateway = activeGateway();
+    await syncTransfer(gateway, t.providerTransferId!);
+  }
+  return { checked: pending.length + transfers.length, updated };
 }

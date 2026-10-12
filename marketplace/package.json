@@ -15,7 +15,8 @@
     "admin:promote": "tsx --env-file=.env.local scripts/promote-admin.ts",
     "postinstall": "prisma generate",
     "check:booking": "tsx --conditions=react-server --env-file=.env.local --tsconfig tsconfig.json scripts/checks/booking-flow.ts",
-    "check:payments": "tsx --conditions=react-server --env-file=.env.local --tsconfig tsconfig.json scripts/checks/payment-flow.ts"
+    "check:payments": "tsx --conditions=react-server --env-file=.env.local --tsconfig tsconfig.json scripts/checks/payment-flow.ts",
+    "check:asaas": "tsx --env-file=.env.local scripts/checks/asaas-connection.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

@@ -44,6 +44,7 @@ function toCharge(row: { id: string; status: string; amountCents: number; refund
 export class SimulatedGateway implements PaymentGateway {
   readonly name = "simulated";
   readonly isSimulated = true;
+  readonly requiresPayerDocument = false;
 
   async createCharge(input: CreateChargeInput): Promise<Charge> {
     // Id determinístico pela chave de idempotência: repetir a chamada devolve a mesma cobrança.
@@ -77,6 +78,10 @@ export class SimulatedGateway implements PaymentGateway {
 
   async transfer() {
     return { transferId: `sim_tr_${randomUUID()}`, status: "DONE" as const };
+  }
+
+  async getTransfer() {
+    return { status: "DONE" as const };
   }
 
   async verifyWebhook(headers: Headers, rawBody: string): Promise<WebhookEvent> {

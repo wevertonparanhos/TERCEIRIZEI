@@ -156,7 +156,8 @@ export async function startPaymentAction(_: FormState, formData: FormData): Prom
     const bookingId = z.uuid().parse(formData.get("bookingId"));
     const method = z.enum(["PIX", "CARD"]).parse(formData.get("method"));
     const useCredit = formData.get("useCredit") === "on";
-    const r = await startPayment(user, bookingId, method, useCredit);
+    const payerDocument = String(formData.get("payerDocument") ?? "").trim() || null;
+    const r = await startPayment(user, bookingId, method, useCredit, payerDocument);
     revalidatePath(`/conta/pedidos/${bookingId}/pagar`);
     if (r.paidWithCredit) paidWithCredit = bookingId;
   } catch (error) {

@@ -67,9 +67,12 @@ model User {
 }
 
 model CustomerProfile {
-  userId    String   @id @map("user_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String   @id @map("user_id") @db.Uuid
+  /// CPF/CNPJ (só dígitos) — exigido pelo provedor de pagamento. Exibir mascarado.
+  cpfCnpj         String?  @map("cpf_cnpj") @db.VarChar(14)
+  asaasCustomerId String?  @unique @map("asaas_customer_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("customer_profiles")
 }
@@ -102,6 +105,9 @@ model ProviderProfile {
   approvedAt       DateTime?      @map("approved_at") @db.Timestamptz(6)
   /// Referência da conta de recebimento NO PROVEDOR de pagamento (nunca dados bancários crus).
   payoutAccountRef String?        @map("payout_account_ref")
+  /// Chave PIX para receber repasses (CPF | CNPJ | EMAIL | PHONE | EVP).
+  payoutPixKeyType String?        @map("payout_pix_key_type")
+  payoutPixKey     String?        @map("payout_pix_key")
   ratingSum        Int            @default(0) @map("rating_sum")
   ratingCount      Int            @default(0) @map("rating_count")
   bufferMinutes    Int            @default(30) @map("buffer_minutes")

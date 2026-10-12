@@ -23,6 +23,8 @@ export type Charge = {
   expiresAt: Date | null;
   pix?: { copyPaste: string; qrImageBase64?: string };
   checkoutUrl?: string;
+  /** Id do cliente criado no provedor (para reaproveitar nas próximas cobranças). */
+  gatewayCustomerId?: string;
 };
 
 export type CreateChargeInput = {
@@ -31,11 +33,14 @@ export type CreateChargeInput = {
   method: PaymentMethod;
   description: string;
   idempotencyKey: string;
-  customer: { name: string; email: string };
+  customer: { id: string; name: string; email: string; cpfCnpj: string | null; gatewayCustomerId: string | null };
   expiresAt: Date;
 };
 
-export type WebhookEvent = { eventId: string; type: string; chargeId: string };
+/** Evento autenticado: de cobrança (`chargeId`) ou de transferência (`transferId`). */
+export type WebhookEvent = { eventId: string; type: string; chargeId?: string; transferId?: string };
+
+export type TransferStatus = { status: "DONE" | "PENDING" | "FAILED" | "CANCELLED"; failReason?: string | null };
 
 export interface PaymentGateway {
   readonly name: string;
@@ -45,6 +50,9 @@ export interface PaymentGateway {
   getCharge(chargeId: string): Promise<Charge>;
   refund(chargeId: string, amountCents: number, idempotencyKey: string): Promise<{ refundId: string; status: "SUCCEEDED" | "PROCESSING" }>;
   transfer(input: { destinationRef: string | null; amountCents: number; idempotencyKey: string; description: string }): Promise<{ transferId: string; status: "DONE" | "PENDING" }>;
+  getTransfer(transferId: string): Promise<TransferStatus>;
+  /** true quando a cobrança exige CPF/CNPJ do pagador. */
+  readonly requiresPayerDocument: boolean;
   /** Lança WebhookAuthError se a requisição não vier comprovadamente do provedor. */
   verifyWebhook(headers: Headers, rawBody: string): Promise<WebhookEvent>;
 }
