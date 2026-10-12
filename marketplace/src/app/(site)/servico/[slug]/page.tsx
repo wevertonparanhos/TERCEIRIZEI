@@ -228,17 +228,14 @@ export default async function ServicePage({ params }: Props) {
                 : `A taxa da plataforma (${formatBps(service.commissionRateBps)}) já está incluída no valor.`}{" "}
               Os valores exibidos acima já incluem a taxa.
             </p>
-            <div className="rounded-xl bg-canvas p-4 text-sm">
-              <p className="font-medium">Agendamento online</p>
-              <p className="mt-1 text-muted">
-                A escolha de profissional, data e pagamento estará disponível na próxima etapa da plataforma.
-              </p>
-            </div>
-            {user ? null : (
-              <LinkButton href={`/cadastro?redirect=/servico/${service.slug}`} className="w-full">
-                Criar conta grátis
-              </LinkButton>
+            {service.pricingModel !== "QUOTE" && providers.length > 0 ? (
+              <LinkButton href={`/contratar/${service.slug}`} className="w-full">Escolher horário</LinkButton>
+            ) : service.pricingModel === "QUOTE" ? (
+              <p className="rounded-xl bg-canvas p-4 text-sm text-muted">A solicitação de orçamento online chega numa próxima etapa da plataforma.</p>
+            ) : (
+              <p className="rounded-xl bg-canvas p-4 text-sm text-muted">Ainda não há profissionais disponíveis para este serviço.</p>
             )}
+            {user ? null : <p className="text-center text-xs text-muted">Você vai criar uma conta grátis ou entrar antes de confirmar.</p>}
           </Card>
         </aside>
       </div>

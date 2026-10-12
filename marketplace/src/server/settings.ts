@@ -8,7 +8,9 @@ export type PlatformSettings = {
   discountBearer: CostBearer;
   feeBearer: CostBearer;
   estimatedFee: { pix: FeeConfig; card: FeeConfig };
+  /** Prazo para pagar depois do aceite do profissional. */
   holdMinutes: number;
+  providerResponseHours: number;
   minLeadHours: number;
   slotStepMinutes: number;
   termsVersion: string;
@@ -20,7 +22,8 @@ const DEFAULTS: PlatformSettings = {
   discountBearer: "PLATFORM",
   feeBearer: "PLATFORM",
   estimatedFee: { pix: { bps: 0, fixedCents: 0 }, card: { bps: 0, fixedCents: 0 } },
-  holdMinutes: 15,
+  holdMinutes: 120,
+  providerResponseHours: 12,
   minLeadHours: 12,
   slotStepMinutes: 30,
   termsVersion: "2026-10-minuta",
@@ -45,6 +48,7 @@ export const getSettings = cache(async (): Promise<PlatformSettings> => {
       card: { bps: isInt(fee?.cardBps) ? fee.cardBps : 0, fixedCents: isInt(fee?.cardFixedCents) ? fee.cardFixedCents : 0 },
     },
     holdMinutes: isInt(map.get("booking.holdMinutes")) ? (map.get("booking.holdMinutes") as number) : DEFAULTS.holdMinutes,
+    providerResponseHours: isInt(map.get("booking.providerResponseHours")) ? (map.get("booking.providerResponseHours") as number) : DEFAULTS.providerResponseHours,
     minLeadHours: isInt(map.get("booking.minLeadHours")) ? (map.get("booking.minLeadHours") as number) : DEFAULTS.minLeadHours,
     slotStepMinutes: isInt(map.get("booking.slotStepMinutes")) ? (map.get("booking.slotStepMinutes") as number) : DEFAULTS.slotStepMinutes,
     termsVersion: typeof map.get("legal.termsVersion") === "string" ? (map.get("legal.termsVersion") as string) : DEFAULTS.termsVersion,

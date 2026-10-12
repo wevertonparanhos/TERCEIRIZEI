@@ -14,6 +14,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         <div className="container-page flex h-16 items-center justify-between gap-4">
           <BrandMark />
           <nav className="hidden items-center gap-6 text-sm font-medium text-ink-soft md:flex" aria-label="Principal">
+            <Link href="/buscar" className="hover:text-ink">Buscar</Link>
             <Link href="/servicos" className="hover:text-ink">Serviços</Link>
             <Link href="/como-funciona" className="hover:text-ink">Como funciona</Link>
             <Link href="/seguranca" className="hover:text-ink">Segurança</Link>
@@ -31,6 +32,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           </div>
         </div>
         <nav className="container-page flex gap-5 overflow-x-auto pb-3 text-sm font-medium text-ink-soft [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden" aria-label="Principal (celular)">
+          <Link href="/buscar" className="shrink-0">Buscar</Link>
           <Link href="/servicos" className="shrink-0">Serviços</Link>
           <Link href="/como-funciona" className="shrink-0">Como funciona</Link>
           <Link href="/seguranca" className="shrink-0">Segurança</Link>

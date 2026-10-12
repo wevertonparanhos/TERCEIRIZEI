@@ -1,5 +1,6 @@
 import { BadgeCheck, CalendarCheck, CreditCard, Lock, Receipt, Search, ShieldCheck } from "lucide-react";
 import { CategoryCard } from "@/components/category-card";
+import { SearchBar } from "@/components/search-bar";
 import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/surface";
 import { brand } from "@/lib/brand";
@@ -35,10 +36,13 @@ export default async function HomePage() {
             Limpeza, reparos, pintura e muito mais com profissionais avaliados. Você vê exatamente o que está
             contratando e quanto vai pagar antes de confirmar.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <LinkButton href="/servicos" size="lg">Ver serviços</LinkButton>
-            <LinkButton href="/cadastro?perfil=profissional" variant="secondary" size="lg">Quero oferecer serviços</LinkButton>
+          <div className="mt-8">
+            <SearchBar />
           </div>
+          <p className="mt-4 text-sm text-muted">
+            É profissional?{" "}
+            <LinkButton href="/cadastro?perfil=profissional" variant="link">Ofereça seus serviços</LinkButton>
+          </p>
         </div>
 
         <Card className="relative overflow-hidden p-6 sm:p-8">

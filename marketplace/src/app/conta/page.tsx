@@ -7,10 +7,12 @@ import { formatBRL } from "@/domain/money";
 import { formatDateTime } from "@/lib/utils";
 import { requirePageRole } from "@/server/auth";
 import { db } from "@/server/db";
+import { expireStaleHolds } from "@/server/scheduling";
 
 export default async function CustomerHome({ searchParams }: { searchParams: Promise<{ avaliado?: string }> }) {
   const { avaliado } = await searchParams;
   const user = await requirePageRole(["CUSTOMER"], "/conta");
+  await expireStaleHolds();
   const bookings = await db.booking.findMany({
     where: { customerId: user.id },
     orderBy: { createdAt: "desc" },
@@ -52,7 +54,7 @@ export default async function CustomerHome({ searchParams }: { searchParams: Pro
           {bookings.map((b) => (
             <div key={b.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm">
               <div>
-                <p className="font-semibold">{b.service.name}</p>
+                <Link href={`/conta/pedidos/${b.id}`} className="font-semibold hover:text-brand">{b.service.name}</Link>
                 <p className="text-muted">{b.code} · {formatDateTime(b.scheduledStart)}</p>
               </div>
               <div className="flex items-center gap-3">

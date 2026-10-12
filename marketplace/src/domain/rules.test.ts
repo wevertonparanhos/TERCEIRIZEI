@@ -6,6 +6,7 @@ import {
   canTransition,
   InvalidTransitionError,
   isTerminal,
+  providerResponseDeadline,
 } from "./booking-state";
 import { resolveCommission, type CommissionRuleLike } from "./commission";
 import { can, ROLES } from "./permissions";
@@ -22,13 +23,14 @@ describe("máquina de estados do pedido", () => {
   it("bloqueia saltos inválidos", () => {
     expect(() => assertTransition("DRAFT", "COMPLETED", "ADMIN")).toThrow(InvalidTransitionError);
     expect(() => assertTransition("AWAITING_PAYMENT", "IN_PROGRESS", "PROVIDER")).toThrow();
-    expect(() => assertTransition("CONFIRMED", "COMPLETED", "CUSTOMER")).toThrow();
+    expect(() => assertTransition("CONFIRMED", "COMPLETED", "PROVIDER")).toThrow();
     expect(() => assertTransition("CANCELLED", "CONFIRMED", "SYSTEM")).toThrow();
   });
 
   it("segue o fluxo feliz completo", () => {
     const path = [
-      ["DRAFT", "AWAITING_PAYMENT", "CUSTOMER"],
+      ["DRAFT", "AWAITING_PROVIDER", "CUSTOMER"],
+      ["AWAITING_PROVIDER", "AWAITING_PAYMENT", "PROVIDER"],
       ["AWAITING_PAYMENT", "CONFIRMED", "SYSTEM"],
       ["CONFIRMED", "IN_PROGRESS", "PROVIDER"],
       ["IN_PROGRESS", "COMPLETION_PENDING", "PROVIDER"],
@@ -51,6 +53,25 @@ describe("máquina de estados do pedido", () => {
 
   it("todo estado tem regra definida", () => {
     for (const s of BOOKING_STATUSES) expect(() => isTerminal(s)).not.toThrow();
+  });
+});
+
+describe("aceite do profissional", () => {
+  it("só o profissional (ou admin) aceita ou recusa; cliente não se autoaceita", () => {
+    expect(canTransition("AWAITING_PROVIDER", "AWAITING_PAYMENT", "PROVIDER")).toBe(true);
+    expect(canTransition("AWAITING_PROVIDER", "DECLINED", "PROVIDER")).toBe(true);
+    expect(canTransition("AWAITING_PROVIDER", "AWAITING_PAYMENT", "CUSTOMER")).toBe(false);
+    expect(canTransition("AWAITING_PROVIDER", "CONFIRMED", "SYSTEM")).toBe(false); // não paga sem aceite
+    expect(canTransition("AWAITING_PROVIDER", "CANCELLED", "CUSTOMER")).toBe(true);
+    expect(canTransition("AWAITING_PROVIDER", "EXPIRED", "SYSTEM")).toBe(true);
+    expect(isTerminal("DECLINED")).toBe(true);
+  });
+
+  it("prazo de resposta: 12h, mas termina 3h antes do serviço e nunca em menos de 30 min", () => {
+    const now = new Date("2026-10-12T12:00:00Z");
+    expect(providerResponseDeadline(now, new Date("2026-10-20T12:00:00Z"), 12).toISOString()).toBe("2026-10-13T00:00:00.000Z");
+    expect(providerResponseDeadline(now, new Date("2026-10-13T02:00:00Z"), 12).toISOString()).toBe("2026-10-12T23:00:00.000Z");
+    expect(providerResponseDeadline(now, new Date("2026-10-12T13:00:00Z"), 12).toISOString()).toBe("2026-10-12T12:30:00.000Z");
   });
 });
 

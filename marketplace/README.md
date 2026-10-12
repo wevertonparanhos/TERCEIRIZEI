@@ -67,6 +67,15 @@ administrador define quem as suporta.
 - Só o cliente de um pedido **concluído** avalia, uma vez, em até 14 dias. Nota e comentário são imutáveis; o profissional responde uma vez; admin/suporte moderam (ocultar/sinalizar) com auditoria. O banco garante essas regras e recalcula a média do profissional.
 - Nome do avaliador exibido minimizado ("Maria L.").
 
+## Fluxo do pedido (regras do negócio)
+
+1. Cliente **solicita** (escolhe profissional, pacote, endereço e horário) → `AWAITING_PROVIDER`; o horário fica segurado.
+2. Profissional **aceita** (→ `AWAITING_PAYMENT`, prazo para pagar) ou **recusa** com motivo (→ `DECLINED`). Sem resposta em 12h (ou até 3h antes do serviço) → `EXPIRED`. Nada é cobrado antes do aceite.
+3. Pagamento confirmado pelo provedor → `CONFIRMED` (Fase 3) → contatos liberados.
+4. **Repasse ao profissional só após foto/vídeo do serviço finalizado e/ou o cliente marcar como concluído** (`src/domain/completion.ts`; com evidência e sem resposta do cliente em 48h o sistema conclui). O banco bloqueia finalizar sem evidência e repasse de pedido não concluído.
+
+Verificação ponta a ponta contra o banco: `npm run check:booking` (usa uma cliente fictícia; cancela os pedidos de teste).
+
 ## Rodando localmente
 
 ```bash
@@ -127,7 +136,7 @@ Aplique os arquivos de `prisma/sql/` **em ordem** (SQL Editor do Supabase ou
 ## Roadmap
 
 - [x] **Fase 1 — Fundação**: banco, migrações, auth, RBAC, catálogo, preços dos profissionais, motor de preço, máquina de estados, painel admin.
-- [ ] **Fase 2 — Marketplace**: busca por região, endereços, disponibilidade/agenda, escolha de profissional, criação do pedido com reserva temporária.
+- [x] **Fase 2 — Marketplace**: busca (`/buscar`), endereços com ViaCEP, agenda e regiões do profissional, contratação (`/contratar/[slug]`), **aceite do profissional** antes do pagamento, pedidos do cliente e do profissional, expiração automática (pg_cron).
 - [ ] **Fase 3 — Pagamentos**: adaptador de provedor (avaliar Mercado Pago/Asaas com split), adaptador SIMULADO para dev, webhooks idempotentes, reembolsos, repasses.
 - [ ] **Fase 4 — Operação**: liberação de contato, notificações, avaliações, suporte, documentos, relatórios.
 - [ ] **Fase 5 — Lançamento**: Playwright (18 cenários do briefing), monitoramento, backups, checklist jurídico, deploy.

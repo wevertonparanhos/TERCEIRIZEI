@@ -15,13 +15,15 @@ export async function providerChecklist(providerId: string) {
   const p = await db.providerProfile.findUniqueOrThrow({
     where: { id: providerId },
     include: {
-      _count: { select: { categories: true, offers: { where: { active: true } } } },
+      _count: { select: { categories: true, offers: { where: { active: true } }, availability: true, serviceAreas: true } },
     },
   });
   const items = [
     { key: "profile", label: "Perfil com nome, cidade, telefone e apresentação", done: !!(p.displayName && p.baseCity && p.phone && p.bio) },
     { key: "categories", label: "Pelo menos uma categoria escolhida", done: p._count.categories > 0 },
     { key: "offers", label: "Preços publicados para os serviços", done: p._count.offers > 0 },
+    { key: "schedule", label: "Dias e horários de atendimento", done: p._count.availability > 0 },
+    { key: "areas", label: "Cidades atendidas", done: p._count.serviceAreas > 0 },
   ];
   return { provider: p, items, complete: items.every((i) => i.done) };
 }

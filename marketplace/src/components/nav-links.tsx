@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BadgeCheck,
+  CalendarDays,
+  Inbox,
+  MapPin,
   Briefcase,
   House,
   LayoutDashboard,
@@ -30,6 +33,9 @@ const ICONS = {
   audit: ScrollText,
   wallet: Wallet,
   star: Star,
+  calendar: CalendarDays,
+  inbox: Inbox,
+  pin: MapPin,
 } satisfies Record<string, LucideIcon>;
 
 export type NavItem = { href: string; label: string; icon: keyof typeof ICONS; exact?: boolean };

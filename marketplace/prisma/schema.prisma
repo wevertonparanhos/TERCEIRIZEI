@@ -52,13 +52,14 @@ model User {
   customerProfile CustomerProfile?
   providerProfile ProviderProfile?
   addresses       Address[]
-  bookings        Booking[]        @relation("CustomerBookings")
+  bookings        Booking[]         @relation("CustomerBookings")
   reviews         Review[]
   tickets         SupportTicket[]
   notifications   Notification[]
   consents        ConsentRecord[]
   auditLogs       AuditLog[]
   quoteRequests   QuoteRequest[]
+  evidence        BookingEvidence[]
 
   @@index([role])
   @@map("users")
@@ -518,6 +519,7 @@ model Address {
 
 enum BookingStatus {
   DRAFT
+  AWAITING_PROVIDER
   AWAITING_PAYMENT
   PAYMENT_PROCESSING
   CONFIRMED
@@ -525,6 +527,7 @@ enum BookingStatus {
   COMPLETION_PENDING
   COMPLETED
   CANCELLED
+  DECLINED
   EXPIRED
   REFUND_PENDING
   REFUNDED
@@ -564,6 +567,10 @@ model Booking {
   scheduledEnd    DateTime      @map("scheduled_end") @db.Timestamptz(6)
   /// Fim + intervalo do prestador; usado pela restrição anti-sobreposição.
   blockedUntil    DateTime      @map("blocked_until") @db.Timestamptz(6)
+  /// Prazo para o profissional aceitar/recusar a solicitação.
+  providerResponseDeadline DateTime? @map("provider_response_deadline") @db.Timestamptz(6)
+  providerRespondedAt      DateTime? @map("provider_responded_at") @db.Timestamptz(6)
+  declineReason            String?   @map("decline_reason")
   /// Reserva temporária do horário enquanto aguarda pagamento.
   holdExpiresAt   DateTime?     @map("hold_expires_at") @db.Timestamptz(6)
   propertyDetails Json?         @map("property_details")
@@ -586,15 +593,17 @@ model Booking {
   feeBearer             CostBearer     @map("fee_bearer")
   refundedCents         Int            @default(0) @map("refunded_cents")
 
-  termsVersion      String?   @map("terms_version")
-  termsAcceptedAt   DateTime? @map("terms_accepted_at") @db.Timestamptz(6)
-  contactReleasedAt DateTime? @map("contact_released_at") @db.Timestamptz(6)
-  confirmedAt       DateTime? @map("confirmed_at") @db.Timestamptz(6)
-  completedAt       DateTime? @map("completed_at") @db.Timestamptz(6)
-  cancelledAt       DateTime? @map("cancelled_at") @db.Timestamptz(6)
-  cancelReason      String?   @map("cancel_reason")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  termsVersion       String?   @map("terms_version")
+  termsAcceptedAt    DateTime? @map("terms_accepted_at") @db.Timestamptz(6)
+  contactReleasedAt  DateTime? @map("contact_released_at") @db.Timestamptz(6)
+  confirmedAt        DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  /// Quando o profissional finalizou com foto/vídeo (inicia o prazo de confirmação automática).
+  providerFinishedAt DateTime? @map("provider_finished_at") @db.Timestamptz(6)
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz(6)
+  cancelledAt        DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason       String?   @map("cancel_reason")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   customer      User                   @relation("CustomerBookings", fields: [customerId], references: [id])
   provider      ProviderProfile?       @relation(fields: [providerId], references: [id])
@@ -610,6 +619,7 @@ model Booking {
   refunds       Refund[]
   review        Review?
   tickets       SupportTicket[]
+  evidence      BookingEvidence[]
 
   @@index([customerId, createdAt])
   @@index([providerId, scheduledStart])
@@ -639,6 +649,26 @@ model BookingItem {
 
   @@index([bookingId])
   @@map("booking_items")
+}
+
+/// Foto/vídeo do serviço finalizado (bucket privado). Obrigatório para o
+/// profissional finalizar; libera a confirmação automática e o repasse.
+model BookingEvidence {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId   String   @map("booking_id") @db.Uuid
+  uploadedBy  String   @map("uploaded_by") @db.Uuid
+  storagePath String   @unique @map("storage_path")
+  mediaType   String   @map("media_type")
+  mimeType    String   @map("mime_type")
+  sizeBytes   Int      @map("size_bytes")
+  caption     String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  user    User    @relation(fields: [uploadedBy], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@map("booking_evidence")
 }
 
 model BookingStatusHistory {

@@ -11,6 +11,8 @@ const LINKS: Record<string, string> = {
   profile: "/profissional/perfil",
   categories: "/profissional/servicos",
   offers: "/profissional/servicos",
+  schedule: "/profissional/agenda",
+  areas: "/profissional/agenda",
 };
 
 export default async function ProviderHome() {
@@ -18,6 +20,7 @@ export default async function ProviderHome() {
   const profile = await db.providerProfile.findUniqueOrThrow({ where: { userId: user.id }, select: { id: true } });
   const { provider, items, complete } = await providerChecklist(profile.id);
   const status = PROVIDER_STATUS[provider.status];
+  const pending = await db.booking.count({ where: { providerId: provider.id, status: "AWAITING_PROVIDER" } });
 
   return (
     <>
@@ -26,6 +29,14 @@ export default async function ProviderHome() {
         description="Gerencie seu perfil, seus serviços e seus preços."
         actions={<Badge tone={status.tone} className="px-3 py-1 text-sm">{status.label}</Badge>}
       />
+
+      {pending > 0 ? (
+        <div className="mb-6">
+          <Notice title={`Você tem ${pending} ${pending === 1 ? "nova solicitação" : "novas solicitações"} de serviço`}>
+            <Link href="/profissional/pedidos" className="font-semibold underline">Responder agora</Link> — sem resposta, a solicitação expira.
+          </Notice>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <Card className="p-6">
@@ -70,7 +81,7 @@ export default async function ProviderHome() {
       </div>
 
       <p className="mt-8 text-sm text-muted">
-        Agenda, disponibilidade, documentos e pedidos recebidos chegam na próxima etapa da plataforma.
+        Envio de documentos para verificação e repasses chegam nas próximas etapas da plataforma.
       </p>
     </>
   );

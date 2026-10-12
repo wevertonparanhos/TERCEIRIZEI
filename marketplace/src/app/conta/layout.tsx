@@ -9,6 +9,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       nav={[
         { href: "/conta", label: "Início", icon: "dashboard", exact: true },
         { href: "/servicos", label: "Contratar serviço", icon: "home" },
+        { href: "/conta/enderecos", label: "Endereços", icon: "pin" },
         { href: "/conta/perfil", label: "Meus dados", icon: "user" },
       ]}
     >

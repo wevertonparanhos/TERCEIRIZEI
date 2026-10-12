@@ -64,3 +64,24 @@ export const providerProfileSchema = z.object({
 export function fieldErrors(error: z.ZodError): Record<string, string[]> {
   return z.flattenError(error).fieldErrors as Record<string, string[]>;
 }
+
+export const addressSchema = z.object({
+  id: z.uuid().optional().or(z.literal("").transform(() => undefined)),
+  label: z.string().trim().min(1, "Dê um nome (ex.: Casa).").max(40),
+  cep: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => /^\d{8}$/.test(v), "CEP com 8 dígitos."),
+  street: z.string().trim().min(2, "Informe a rua.").max(120),
+  number: z.string().trim().min(1, "Informe o número (ou S/N).").max(20),
+  complement: z.string().trim().max(60).optional().transform((v) => v || null),
+  neighborhood: z.string().trim().min(2, "Informe o bairro.").max(80),
+  city: z.string().trim().min(2, "Informe a cidade.").max(80),
+  state: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{2}$/, "UF com 2 letras."),
+  notes: z.string().trim().max(300).optional().transform((v) => v || null),
+  isDefault: z.preprocess((v) => v === "on", z.boolean()),
+});

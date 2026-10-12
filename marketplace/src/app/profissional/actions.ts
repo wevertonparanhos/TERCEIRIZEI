@@ -4,14 +4,23 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { FormState } from "@/components/ui/form";
 import { echoValues } from "@/lib/form-state";
+import { addDays, hhmmToMinutes, isValidLocalDate, localToUtc, WEEKDAYS } from "@/domain/availability";
+import { InvalidTransitionError } from "@/domain/booking-state";
 import { parseBRLToCents } from "@/domain/money";
 import { providerReplySchema } from "@/domain/reviews";
 import { fieldErrors, providerProfileSchema } from "@/lib/validation";
 import { AuthorizationError, requirePermission } from "@/server/auth";
+import { acceptBooking, BookingError, declineBooking } from "@/server/booking";
 import { db } from "@/server/db";
 
 /** Perfil do prestador SEMPRE resolvido pela sessão — nunca por id enviado pelo navegador. */
-async function currentProvider(permission: "provider:profile:manage:own" | "provider:offers:manage:own") {
+async function currentProvider(
+  permission:
+    | "provider:profile:manage:own"
+    | "provider:offers:manage:own"
+    | "provider:schedule:manage:own"
+    | "provider:bookings:read:own",
+) {
   const user = await requirePermission(permission);
   const provider = await db.providerProfile.findUnique({ where: { userId: user.id } });
   if (!provider) throw new AuthorizationError("Perfil profissional não encontrado.");
@@ -213,6 +222,141 @@ export async function replyToReviewAction(_: FormState, formData: FormData): Pro
     revalidatePath(`/profissionais/${provider.id}`);
     return { ok: true, message: "Resposta publicada." };
   } catch (error) {
+    return failure(error);
+  }
+}
+
+// ── Agenda e regiões ───────────────────────────────────────────────────────
+
+/** Substitui a semana de trabalho (uma janela por dia) e o intervalo entre serviços. */
+export async function saveAvailabilityAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { provider } = await currentProvider("provider:schedule:manage:own");
+    const buffer = z.coerce.number().int().min(0).max(240).safeParse(formData.get("bufferMinutes"));
+    if (!buffer.success) return { errors: { bufferMinutes: ["Entre 0 e 240 minutos."] } };
+
+    const windows: { weekday: number; startMinute: number; endMinute: number }[] = [];
+    const errors: Record<string, string[]> = {};
+    for (let d = 0; d < 7; d++) {
+      if (formData.get(`day_${d}_on`) !== "on") continue;
+      const start = hhmmToMinutes(String(formData.get(`day_${d}_start`) ?? ""));
+      const end = hhmmToMinutes(String(formData.get(`day_${d}_end`) ?? ""));
+      if (start === null || end === null || end <= start) {
+        errors[`day_${d}`] = [`${WEEKDAYS[d]}: horário final deve ser depois do inicial.`];
+        continue;
+      }
+      windows.push({ weekday: d, startMinute: start, endMinute: end });
+    }
+    if (Object.keys(errors).length) return { errors, message: "Revise os horários." };
+
+    await db.$transaction([
+      db.providerAvailability.deleteMany({ where: { providerId: provider.id } }),
+      db.providerAvailability.createMany({ data: windows.map((w) => ({ ...w, providerId: provider.id })) }),
+      db.providerProfile.update({ where: { id: provider.id }, data: { bufferMinutes: buffer.data } }),
+    ]);
+    revalidatePath("/profissional", "layout");
+    return { ok: true, message: windows.length ? "Agenda salva." : "Agenda salva sem dias de atendimento: você não receberá pedidos." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+const timeOffSchema = z
+  .object({
+    from: z.string().refine(isValidLocalDate, "Data inválida."),
+    to: z.string().refine(isValidLocalDate, "Data inválida."),
+    reason: z.string().trim().max(120).optional().default(""),
+  })
+  .refine((v) => v.to >= v.from, { path: ["to"], message: "A data final deve ser igual ou depois da inicial." });
+
+/** Bloqueia dias inteiros (folga, férias). Não cancela pedidos já confirmados. */
+export async function addTimeOffAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { provider } = await currentProvider("provider:schedule:manage:own");
+    const parsed = timeOffSchema.safeParse(Object.fromEntries(formData));
+    if (!parsed.success) return { errors: fieldErrors(parsed.error), values: echoValues(formData) };
+    const { from, to, reason } = parsed.data;
+
+    const startsAt = localToUtc(from, 0);
+    const endsAt = localToUtc(addDays(to, 1), 0);
+    const conflicts = await db.booking.count({
+      where: { providerId: provider.id, status: { in: ["CONFIRMED", "IN_PROGRESS"] }, scheduledStart: { lt: endsAt }, blockedUntil: { gt: startsAt } },
+    });
+    await db.providerTimeOff.create({ data: { providerId: provider.id, startsAt, endsAt, reason: reason || null } });
+    revalidatePath("/profissional/agenda");
+    return {
+      ok: true,
+      message: conflicts
+        ? `Folga registrada. Atenção: você tem ${conflicts} pedido(s) confirmado(s) nesse período — fale com o suporte para reagendar.`
+        : "Folga registrada. Esses dias não aparecem mais para clientes.",
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function removeTimeOffAction(formData: FormData): Promise<void> {
+  const { provider } = await currentProvider("provider:schedule:manage:own");
+  const id = z.uuid().parse(formData.get("id"));
+  await db.providerTimeOff.deleteMany({ where: { id, providerId: provider.id } });
+  revalidatePath("/profissional/agenda");
+}
+
+/** Cidades atendidas (e, opcionalmente, só alguns bairros de cada uma). */
+export async function saveServiceAreasAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { provider } = await currentProvider("provider:schedule:manage:own");
+    const cities = await db.city.findMany({ where: { active: true }, select: { id: true } });
+    const selected = cities
+      .filter((c) => formData.get(`city_${c.id}`) === "on")
+      .map((c) => ({
+        cityId: c.id,
+        neighborhoods: String(formData.get(`hoods_${c.id}`) ?? "")
+          .split(",")
+          .map((n) => n.trim())
+          .filter(Boolean)
+          .slice(0, 50),
+      }));
+
+    await db.$transaction([
+      db.providerServiceArea.deleteMany({ where: { providerId: provider.id } }),
+      db.providerServiceArea.createMany({ data: selected.map((s) => ({ ...s, providerId: provider.id })) }),
+    ]);
+    revalidatePath("/profissional", "layout");
+    return { ok: true, message: selected.length ? "Regiões salvas." : "Nenhuma cidade selecionada: você não aparecerá nas buscas." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+// ── Aceite de pedidos ──────────────────────────────────────────────────────
+
+const bookingIdSchema = z.uuid();
+
+export async function acceptBookingAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { user, provider } = await currentProvider("provider:bookings:read:own");
+    const id = bookingIdSchema.safeParse(formData.get("bookingId"));
+    if (!id.success) return { message: "Pedido inválido." };
+    await acceptBooking(provider.id, user.id, id.data);
+    revalidatePath("/profissional/pedidos");
+    return { ok: true, message: "Pedido aceito! O cliente foi avisado para fazer o pagamento." };
+  } catch (error) {
+    if (error instanceof BookingError || error instanceof InvalidTransitionError) return { message: error.message };
+    return failure(error);
+  }
+}
+
+export async function declineBookingAction(_: FormState, formData: FormData): Promise<FormState> {
+  try {
+    const { user, provider } = await currentProvider("provider:bookings:read:own");
+    const id = bookingIdSchema.safeParse(formData.get("bookingId"));
+    if (!id.success) return { message: "Pedido inválido." };
+    await declineBooking(provider.id, user.id, id.data, String(formData.get("reason") ?? ""));
+    revalidatePath("/profissional/pedidos");
+    return { ok: true, message: "Pedido recusado. O horário foi liberado e o cliente avisado." };
+  } catch (error) {
+    if (error instanceof BookingError || error instanceof InvalidTransitionError) return { message: error.message };
     return failure(error);
   }
 }

@@ -2,12 +2,17 @@
  * Máquina de estados do pedido. Toda mudança de status passa por
  * `assertTransition` no servidor, que valida a transição E quem a executa.
  *
+ * Fluxo (regra do negócio): o cliente SOLICITA (AWAITING_PROVIDER), o
+ * profissional ACEITA (→ AWAITING_PAYMENT) ou RECUSA (→ DECLINED); só então
+ * há pagamento. Nada é cobrado antes do aceite.
+ *
  * Ajuste em relação ao briefing: CONFIRMED já significa "pago e agendado"
  * (o horário é escolhido antes do pagamento), por isso não há SCHEDULED
  * separado. EXPIRED cobre reservas/pagamentos que venceram sem confirmação.
  */
 export const BOOKING_STATUSES = [
   "DRAFT",
+  "AWAITING_PROVIDER",
   "AWAITING_PAYMENT",
   "PAYMENT_PROCESSING",
   "CONFIRMED",
@@ -15,6 +20,7 @@ export const BOOKING_STATUSES = [
   "COMPLETION_PENDING",
   "COMPLETED",
   "CANCELLED",
+  "DECLINED",
   "EXPIRED",
   "REFUND_PENDING",
   "REFUNDED",
@@ -30,8 +36,15 @@ type Rule = { to: BookingStatus; by: Actor[] };
 
 const TRANSITIONS: Record<BookingStatus, Rule[]> = {
   DRAFT: [
-    { to: "AWAITING_PAYMENT", by: ["CUSTOMER"] },
+    { to: "AWAITING_PROVIDER", by: ["CUSTOMER"] },
     { to: "CANCELLED", by: ["CUSTOMER", "SYSTEM"] },
+  ],
+  AWAITING_PROVIDER: [
+    // Aceite/recusa: só o profissional do pedido (ou admin, em mediação).
+    { to: "AWAITING_PAYMENT", by: ["PROVIDER", "ADMIN"] },
+    { to: "DECLINED", by: ["PROVIDER", "ADMIN"] },
+    { to: "CANCELLED", by: ["CUSTOMER", "ADMIN"] },
+    { to: "EXPIRED", by: ["SYSTEM"] },
   ],
   AWAITING_PAYMENT: [
     { to: "PAYMENT_PROCESSING", by: ["SYSTEM"] },
@@ -48,17 +61,22 @@ const TRANSITIONS: Record<BookingStatus, Rule[]> = {
   ],
   CONFIRMED: [
     { to: "IN_PROGRESS", by: ["PROVIDER", "ADMIN"] },
+    // Cliente confirma que o serviço foi feito (regra de conclusão em completion.ts).
+    { to: "COMPLETED", by: ["CUSTOMER", "ADMIN"] },
     { to: "REFUND_PENDING", by: ["CUSTOMER", "PROVIDER", "ADMIN", "SUPPORT", "SYSTEM"] },
     // Cancelamento sem reembolso devido (ex.: fora do prazo da política).
     { to: "CANCELLED", by: ["ADMIN", "SYSTEM"] },
     { to: "DISPUTED", by: ["CUSTOMER", "PROVIDER", "ADMIN", "SUPPORT", "SYSTEM"] },
   ],
   IN_PROGRESS: [
+    // Profissional finaliza SÓ com foto/vídeo (validado em completion.ts).
     { to: "COMPLETION_PENDING", by: ["PROVIDER", "ADMIN"] },
+    { to: "COMPLETED", by: ["CUSTOMER", "ADMIN"] },
     { to: "DISPUTED", by: ["CUSTOMER", "PROVIDER", "ADMIN", "SUPPORT"] },
   ],
   COMPLETION_PENDING: [
-    // Cliente confirma, ou o sistema confirma após o prazo sem contestação.
+    // Cliente confirma, ou o sistema confirma após o prazo sem contestação
+    // (somente com foto/vídeo enviados — ver completion.ts).
     { to: "COMPLETED", by: ["CUSTOMER", "ADMIN", "SYSTEM"] },
     { to: "DISPUTED", by: ["CUSTOMER", "ADMIN", "SUPPORT"] },
   ],
@@ -77,6 +95,7 @@ const TRANSITIONS: Record<BookingStatus, Rule[]> = {
     { to: "DISPUTED", by: ["ADMIN", "SYSTEM"] },
   ],
   CANCELLED: [],
+  DECLINED: [],
   EXPIRED: [],
   REFUNDED: [],
 };
@@ -109,6 +128,7 @@ export function isTerminal(status: BookingStatus): boolean {
 
 /** Estados em que o horário do prestador está ocupado (espelha a constraint do banco). */
 export const SLOT_HOLDING_STATUSES: readonly BookingStatus[] = [
+  "AWAITING_PROVIDER",
   "AWAITING_PAYMENT",
   "PAYMENT_PROCESSING",
   "CONFIRMED",
@@ -135,6 +155,7 @@ export function canSeeCounterpartyContact(status: BookingStatus, contactReleased
 
 export const STATUS_LABEL: Record<BookingStatus, string> = {
   DRAFT: "Rascunho",
+  AWAITING_PROVIDER: "Aguardando aceite do profissional",
   AWAITING_PAYMENT: "Aguardando pagamento",
   PAYMENT_PROCESSING: "Processando pagamento",
   CONFIRMED: "Confirmado",
@@ -142,8 +163,17 @@ export const STATUS_LABEL: Record<BookingStatus, string> = {
   COMPLETION_PENDING: "Aguardando confirmação de conclusão",
   COMPLETED: "Concluído",
   CANCELLED: "Cancelado",
+  DECLINED: "Recusado pelo profissional",
   EXPIRED: "Expirado",
   REFUND_PENDING: "Reembolso em processamento",
   REFUNDED: "Reembolsado",
   DISPUTED: "Em análise",
 };
+
+/** Prazo para o profissional responder: N horas, mas sempre antes do serviço (sobra tempo para pagar). */
+export function providerResponseDeadline(now: Date, scheduledStart: Date, responseHours: number): Date {
+  const byHours = now.getTime() + responseHours * 3_600_000;
+  const beforeService = scheduledStart.getTime() - 3 * 3_600_000;
+  const minimum = now.getTime() + 30 * 60_000;
+  return new Date(Math.max(minimum, Math.min(byHours, beforeService)));
+}

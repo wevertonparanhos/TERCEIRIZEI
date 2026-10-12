@@ -13,7 +13,8 @@
     "db:generate": "prisma generate",
     "db:sql": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
     "admin:promote": "tsx --env-file=.env.local scripts/promote-admin.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "check:booking": "tsx --conditions=react-server --env-file=.env.local --tsconfig tsconfig.json scripts/checks/booking-flow.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
