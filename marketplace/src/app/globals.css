@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Identidade PROVISÓRIA: para trocar a marca, altere só estas
+ * variáveis (cores) e NEXT_PUBLIC_BRAND_NAME (nome).
+ */
+@theme {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #f7f7f4;
+  --color-surface: #ffffff;
+  --color-ink: #12201b;
+  --color-ink-soft: #3d4b45;
+  --color-muted: #6b7a73;
+  --color-line: #e3e6e1;
+  --color-line-strong: #cfd5ce;
+
+  --color-brand: #0d6b55;
+  --color-brand-strong: #09503f;
+  --color-brand-soft: #e3f3ec;
+  --color-brand-ink: #ffffff;
+
+  --color-highlight: #f2b33d;
+  --color-highlight-soft: #fdf3dc;
+
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-success: #13795b;
+  --color-success-soft: #e4f5ee;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fff4d6;
+
+  --radius-card: 1.25rem;
+  --shadow-card: 0 1px 2px rgb(18 32 27 / 0.04), 0 8px 24px -12px rgb(18 32 27 / 0.12);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-canvas text-ink antialiased;
+  }
+  ::selection {
+    background: var(--color-brand-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+}
+
+@utility container-page {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
+}
