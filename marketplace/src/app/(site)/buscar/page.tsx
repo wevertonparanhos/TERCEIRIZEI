@@ -22,17 +22,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const today = utcToLocalDate(new Date());
   const cityName = cities.find((c) => c.slug === f.cidade);
   const categoryName = categories.find((c) => c.slug === f.categoria)?.name;
+  // No celular os filtros ficam recolhidos; abertos quando já há filtro além de serviço/cidade.
+  const hasFilters = !!(f.data || f.preco_max || f.nota_min || f.modalidade || f.ordenar);
 
-  return (
-    <div className="container-page py-8">
-      <h1 className="text-3xl font-bold tracking-tight">
-        {categoryName ?? "Profissionais"}
-        {cityName ? <span className="text-muted"> em {cityName.name}</span> : null}
-      </h1>
-      <p className="mt-1 text-muted">Pesquisa gratuita. Preços já incluem a taxa de serviço.</p>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[16rem_1fr]">
-        <form method="get" action="/buscar" className="space-y-4 lg:sticky lg:top-24 lg:self-start" aria-label="Filtros">
+  const filtersForm = (
+        <form method="get" action="/buscar" className="space-y-4" aria-label="Filtros">
           <label className="block text-sm font-medium">
             Serviço
             <Select name="categoria" defaultValue={f.categoria ?? ""} className="mt-1">
@@ -82,8 +76,25 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <Link href="/buscar" className={buttonClass("ghost", "md")}>Limpar</Link>
           </div>
         </form>
+  );
 
-        <div>
+  return (
+    <div className="container-page py-8">
+      <h1 className="text-3xl font-bold tracking-tight">
+        {categoryName ?? "Profissionais"}
+        {cityName ? <span className="text-muted"> em {cityName.name}</span> : null}
+      </h1>
+      <p className="mt-1 text-muted">Pesquisa gratuita. Preços já incluem a taxa de serviço.</p>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[16rem_1fr]">
+        {/* Celular: resultados primeiro e filtros recolhidos. Computador: filtros fixos na lateral. */}
+        <details className="order-2 rounded-[var(--radius-card)] border border-line bg-surface p-4 lg:hidden [&[open]>summary]:mb-4" open={hasFilters}>
+          <summary className="cursor-pointer list-none font-semibold">Filtrar e ordenar</summary>
+          {filtersForm}
+        </details>
+        <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">{filtersForm}</aside>
+
+        <div className="order-1 lg:order-none">
           <p className="mb-3 text-sm text-muted">{results.length} {results.length === 1 ? "profissional encontrado" : "profissionais encontrados"} · todos verificados</p>
           {results.length === 0 ? (
             <EmptyState
