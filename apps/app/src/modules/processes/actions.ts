@@ -335,6 +335,31 @@ export async function addInstallment(processId: string, value: string, paymentDu
 }
 
 /** Marca/desmarca uma parcela como paga. */
+/** Arquiva/desarquiva a tarefa: sai do quadro e dos alertas, mas continua no
+ * financeiro, nos relatórios do cliente e no histórico. */
+export async function setProcessArchived(processId: string, archived: boolean) {
+  const user = await requireStaff();
+  const process = await loadProcessForWrite(processId, user);
+
+  await prisma.process.update({
+    where: { id: processId },
+    data: { archivedAt: archived ? new Date() : null },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: archived ? "process.archive" : "process.unarchive",
+    entityType: "process",
+    entityId: processId,
+    description: `Tarefa #${process.number} ${archived ? "arquivada" : "desarquivada"}.`,
+  });
+
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+  revalidatePath("/dashboard");
+}
+
 export async function markInstallmentPaid(processId: string, installmentId: string, paid: boolean) {
   const user = await requireStaff();
   const process = await loadProcessForWrite(processId, user);

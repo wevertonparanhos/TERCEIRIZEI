@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ClipboardList, CalendarClock, AlertTriangle, Wallet, ShieldAlert, MessageSquare, type LucideIcon } from "lucide-react";
+import { ClipboardList, CalendarClock, AlertTriangle, Wallet, ShieldAlert, MessageSquare, Archive, type LucideIcon } from "lucide-react";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
@@ -49,18 +49,30 @@ function KpiCard({
   );
 }
 
-export default async function ProcessosPage({ searchParams }: { searchParams: { area?: string; nova?: string } }) {
+export default async function ProcessosPage({ searchParams }: { searchParams: { area?: string; nova?: string; arquivadas?: string } }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"].includes(user.role)) redirect("/");
 
   const canManage = user.role === "ADMIN" || user.role === "GESTOR";
+  const showArchived = searchParams.arquivadas === "1";
 
   const workspaces = await prisma.workspace.findMany({
     where: { tenantId: user.tenantId },
     orderBy: { position: "asc" },
   });
   const activeWorkspace = workspaces.find((w) => w.id === searchParams.area) ?? workspaces[0];
+
+  const archivedCount = activeWorkspace
+    ? await prisma.process.count({
+        where: {
+          tenantId: user.tenantId,
+          workspaceId: activeWorkspace.id,
+          archivedAt: { not: null },
+          ...(user.role === "OPERACIONAL" ? { assignees: { some: { userId: user.id } } } : {}),
+        },
+      })
+    : 0;
 
   const [wizardData, stages, processes] = await Promise.all([
     canManage
@@ -100,6 +112,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       where: {
         tenantId: user.tenantId,
         ...(activeWorkspace ? { workspaceId: activeWorkspace.id } : {}),
+        archivedAt: showArchived ? { not: null } : null,
         ...(user.role === "OPERACIONAL" ? { assignees: { some: { userId: user.id } } } : {}),
       },
       include: {
@@ -122,6 +135,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
     }),
   ]);
 
+  const stageLabelById = new Map(stages.map((s) => [s.id, s.label]));
   const stageList: Stage[] = stages.map((s) => ({ id: s.id, label: s.label, color: s.color }));
   const cards: KanbanCard[] = processes.map((p) => {
     const paymentSummary = getProcessPaymentSummary(
@@ -130,6 +144,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
     return {
       id: p.id,
       number: p.number,
+      title: p.description,
       clientName: p.client.name,
       serviceTypeName: p.serviceType.name,
       priority: p.priority,
@@ -164,6 +179,14 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
           <p className="text-sm text-muted">{processes.length} tarefa(s)</p>
         </div>
         <div className="flex gap-2">
+          {activeWorkspace && (
+            <Link href={showArchived ? `/processos?area=${activeWorkspace.id}` : `/processos?area=${activeWorkspace.id}&arquivadas=1`}>
+              <Button variant={showArchived ? "default" : "outline"}>
+                <Archive className="mr-1.5 h-4 w-4" />
+                {showArchived ? "Voltar ao quadro" : `Arquivadas (${archivedCount})`}
+              </Button>
+            </Link>
+          )}
           {canManage && activeWorkspace && (
             <Link href={`/processos/etapas?area=${activeWorkspace.id}`}>
               <Button variant="outline">Gerenciar etapas</Button>
@@ -211,7 +234,47 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       </div>
 
       <div className="mt-4 flex-1 overflow-hidden">
-        <KanbanBoard stages={stageList} cards={cards} canDrag={canDrag} updateStage={updateProcessStage} />
+        {showArchived ? (
+          <div className="h-full overflow-y-auto rounded-2xl border border-border/70 bg-surface shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-surface-alt text-left text-xs uppercase tracking-wide text-muted">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Tarefa</th>
+                  <th className="px-4 py-3 font-medium">Cliente</th>
+                  <th className="px-4 py-3 font-medium">Etapa</th>
+                  <th className="px-4 py-3 text-right font-medium">Valor</th>
+                  <th className="px-4 py-3 font-medium">Pagamento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cards.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-muted-soft">
+                      Nenhuma tarefa arquivada nesta área.
+                    </td>
+                  </tr>
+                )}
+                {cards.map((c) => (
+                  <tr key={c.id} className="border-t border-border hover:bg-surface-alt">
+                    <td className="px-4 py-2.5">
+                      <Link href={`/processos/${c.id}`} className="font-medium text-ink hover:underline">
+                        #{c.number} · {c.title}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2.5 text-muted">{c.clientName}</td>
+                    <td className="px-4 py-2.5 text-muted">{stageLabelById.get(c.stageId) ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-muted">
+                      {c.value ? c.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted">{c.paymentStatus === "PAGO" ? "Efetuado" : c.paymentStatus === "SEM_PAGAMENTO" ? "—" : "Pendente"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <KanbanBoard stages={stageList} cards={cards} canDrag={canDrag} updateStage={updateProcessStage} />
+        )}
       </div>
     </div>
   );

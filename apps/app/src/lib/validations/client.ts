@@ -19,7 +19,7 @@ export const clientSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   notes: z.string().optional(),
-  status: z.enum(["ativo", "inativo"]),
+  status: z.enum(["ativo", "inativo", "lead"]),
   ownerUserId: z.string().uuid().optional().or(z.literal("")),
 });
 export type ClientInput = z.infer<typeof clientSchema>;

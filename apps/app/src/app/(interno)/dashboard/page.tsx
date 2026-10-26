@@ -141,14 +141,14 @@ export default async function DashboardPage() {
       myCompletionsForChart,
     ] = await Promise.all([
       prisma.process.count({
-        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, archivedAt: null, stage: { label: ACTIVE_STAGE_FILTER } },
       }),
       prisma.process.findMany({
         where: {
           tenantId: user.tenantId,
           assignees: { some: { userId: user.id } },
           dueAt: { gte: now, lte: in7Days },
-          stage: { label: ACTIVE_STAGE_FILTER },
+          archivedAt: null, stage: { label: ACTIVE_STAGE_FILTER },
         },
         orderBy: { dueAt: "asc" },
         take: 5,
@@ -159,18 +159,18 @@ export default async function DashboardPage() {
           tenantId: user.tenantId,
           assignees: { some: { userId: user.id } },
           dueAt: { lt: now },
-          stage: { label: ACTIVE_STAGE_FILTER },
+          archivedAt: null, stage: { label: ACTIVE_STAGE_FILTER },
         },
       }),
       prisma.process.findMany({
-        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, archivedAt: null, stage: { label: ACTIVE_STAGE_FILTER } },
         select: {
           stage: { select: { label: true } },
           stageHistory: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },
         },
       }),
       prisma.process.findMany({
-        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, assignees: { some: { userId: user.id } }, archivedAt: null, stage: { label: ACTIVE_STAGE_FILTER } },
         select: {
           comments: {
             where: { author: { role: { name: "CLIENTE" } } },
@@ -284,21 +284,21 @@ export default async function DashboardPage() {
       prisma.kanbanStage.findMany({
         where: { tenantId: user.tenantId },
         orderBy: { position: "asc" },
-        include: { _count: { select: { processes: true } } },
+        include: { _count: { select: { processes: { where: { archivedAt: null } } } } },
       }),
       prisma.process.findMany({
-        where: { tenantId: user.tenantId, dueAt: { gte: now, lte: in7Days }, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, dueAt: { gte: now, lte: in7Days }, archivedAt: null, stage: { label: ACTIVE_STAGE_FILTER } },
         orderBy: { dueAt: "asc" },
         take: 5,
         include: { client: { select: { name: true } } },
       }),
       prisma.process.count({
-        where: { tenantId: user.tenantId, dueAt: { lt: now }, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, dueAt: { lt: now }, archivedAt: null, stage: { label: ACTIVE_STAGE_FILTER } },
       }),
       // Junta em uma query só o que antes eram 4 (stale/não-lido/tipo de serviço/contagem
       // de ativos) — todas filtravam exatamente os mesmos processos ativos do tenant.
       prisma.process.findMany({
-        where: { tenantId: user.tenantId, stage: { label: ACTIVE_STAGE_FILTER } },
+        where: { tenantId: user.tenantId, archivedAt: null, stage: { label: ACTIVE_STAGE_FILTER } },
         select: {
           stage: { select: { label: true } },
           stageHistory: { orderBy: { changedAt: "desc" }, take: 1, select: { changedAt: true } },

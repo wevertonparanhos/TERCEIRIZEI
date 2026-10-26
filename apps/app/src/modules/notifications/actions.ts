@@ -32,6 +32,7 @@ export async function sendDeadlineReminders(tenantId: string): Promise<void> {
   const processes = await prisma.process.findMany({
     where: {
       tenantId,
+      archivedAt: null,
       stage: { label: ACTIVE_STAGE_FILTER },
       dueAt: { lte: in3Days, not: null },
     },

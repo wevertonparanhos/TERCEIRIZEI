@@ -489,6 +489,8 @@ model Process {
   plannedDeliveryAt   DateTime? @map("planned_delivery_at")
   actualDeliveryAt    DateTime? @map("actual_delivery_at")
   visibleInPortal   Boolean        @default(true) @map("visible_in_portal")
+  // Arquivada: sai do quadro e dos alertas, mas continua valendo no financeiro e no histórico.
+  archivedAt        DateTime?      @map("archived_at")
   notes             String?
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")

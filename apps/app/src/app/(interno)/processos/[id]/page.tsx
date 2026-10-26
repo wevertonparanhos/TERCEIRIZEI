@@ -37,6 +37,7 @@ import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import { Deliverables } from "@/modules/processes/deliverables";
 import { ClientInfoTab } from "@/modules/processes/client-info";
+import { ArchiveButton } from "@/modules/processes/archive-button";
 import {
   updateProcess,
   addChecklistItem,
@@ -54,6 +55,7 @@ import {
   clearPresence,
   addDeliverable,
   deleteDeliverable,
+  setProcessArchived,
 } from "@/modules/processes/actions";
 import {
   uploadNewDocument,
@@ -193,6 +195,8 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
             >
               Falar no WhatsApp
             </WhatsAppLink>
+            {canWrite && <ArchiveButton processId={process.id} archived={!!process.archivedAt} setArchived={setProcessArchived} />}
+            {process.archivedAt && <Badge variant="neutral">Arquivada</Badge>}
           </div>
           <p className="text-sm text-muted">
             {process.serviceType.name}

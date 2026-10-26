@@ -13,6 +13,7 @@ export type Stage = { id: string; label: string; color: string };
 export type KanbanCard = {
   id: string;
   number: number;
+  title: string;
   clientName: string;
   serviceTypeName: string;
   priority: string;
@@ -82,7 +83,8 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
       </div>
 
       <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-soft">{card.clientName}</p>
-      <p className="text-sm font-medium text-ink">{card.serviceTypeName}</p>
+      <p className="text-sm font-semibold leading-snug text-ink">{card.title}</p>
+      <p className="mt-0.5 text-[11px] text-muted-soft">{card.serviceTypeName}</p>
 
       <div className="mt-2.5 flex items-center justify-between">
         <div className="flex -space-x-1.5" title={card.assigneeNames.length > 0 ? card.assigneeNames.join(", ") : "Sem responsável"}>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, UserCheck, UserX, Wallet, AlarmClock, Search } from "lucide-react";
+import { Users, UserCheck, UserX, UserPlus, Wallet, AlarmClock, Search } from "lucide-react";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
@@ -96,7 +96,8 @@ export default async function ClientesPage({
   const kpis = {
     total: rows.length,
     ativos: rows.filter((r) => r.status === "ativo").length,
-    inativos: rows.filter((r) => r.status !== "ativo").length,
+    leads: rows.filter((r) => r.status === "lead").length,
+    inativos: rows.filter((r) => r.status === "inativo").length,
     pagamentosAtrasados: rows.filter((r) => r.hasLatePayment).length,
     prazosVencidos: rows.filter((r) => r.hasLateTask).length,
   };
@@ -128,8 +129,9 @@ export default async function ClientesPage({
         {canWrite && <NewClientWizard owners={owners} onSubmit={createClient} autoOpen={searchParams.novo === "1"} />}
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
         <Kpi value={kpis.total} label="Total" icon={Users} />
+        <Kpi value={kpis.leads} label="Leads" icon={UserPlus} />
         <Kpi value={kpis.ativos} label="Ativos" icon={UserCheck} />
         <Kpi value={kpis.inativos} label="Inativos" icon={UserX} />
         <Kpi value={visible.length} label="Exibindo" icon={Search} />
@@ -163,6 +165,7 @@ export default async function ClientesPage({
           <option value="">Todos</option>
           <option value="ativo">Ativo</option>
           <option value="inativo">Inativo</option>
+          <option value="lead">Lead</option>
         </Select>
         <Select name="ordem" defaultValue={ordem} className="max-w-[170px]">
           <option value="nome">Nome (A-Z)</option>
@@ -192,7 +195,9 @@ export default async function ClientesPage({
                   <p className="truncate text-sm font-semibold text-ink group-hover:text-accent">{c.name}</p>
                   <p className="truncate text-xs text-muted-soft">{c.fantasyName ?? c.ownerName ?? "—"}</p>
                 </div>
-                <Badge variant={c.status === "ativo" ? "success" : "neutral"}>{c.status === "ativo" ? "Ativo" : "Inativo"}</Badge>
+                <Badge variant={c.status === "ativo" ? "success" : c.status === "lead" ? "info" : "neutral"}>
+                  {c.status === "ativo" ? "Ativo" : c.status === "lead" ? "Lead" : "Inativo"}
+                </Badge>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3 text-center">
                 <div>

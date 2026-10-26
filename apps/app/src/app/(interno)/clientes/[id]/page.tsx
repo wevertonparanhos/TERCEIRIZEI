@@ -100,8 +100,8 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
         </Link>
         <div className="mt-2 flex items-center gap-3">
           <h1 className="text-2xl font-bold text-ink">{client.name}</h1>
-          <Badge variant={client.status === "ativo" ? "success" : "neutral"}>
-            {client.status === "ativo" ? "Ativo" : "Inativo"}
+          <Badge variant={client.status === "ativo" ? "success" : client.status === "lead" ? "info" : "neutral"}>
+            {client.status === "ativo" ? "Ativo" : client.status === "lead" ? "Lead" : "Inativo"}
           </Badge>
           <WhatsAppLink
             phone={client.whatsapp || client.phone}
@@ -136,7 +136,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
             city: client.city ?? "",
             state: client.state ?? "",
             notes: client.notes ?? "",
-            status: client.status as "ativo" | "inativo",
+            status: client.status as "ativo" | "inativo" | "lead",
             ownerUserId: client.ownerUserId ?? "",
           }}
         />

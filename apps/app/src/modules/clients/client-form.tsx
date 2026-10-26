@@ -109,6 +109,7 @@ export function ClientForm({
           <Select id="status" {...register("status")}>
             <option value="ativo">Ativo</option>
             <option value="inativo">Inativo</option>
+            <option value="lead">Lead</option>
           </Select>
         </div>
 

@@ -34,6 +34,7 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
       : prisma.process.findMany({
           where: {
             tenantId: user.tenantId,
+            archivedAt: null,
             requestedDeadline: { gte: start, lte: end },
             ...(isOperacional ? { assignees: { some: { userId: user.id } } } : {}),
           },
