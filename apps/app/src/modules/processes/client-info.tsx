@@ -8,8 +8,8 @@ type ClientInfo = {
   name: string;
   fantasyName: string | null;
   type: "PF" | "PJ";
-  doc: string;
-  email: string;
+  doc: string | null;
+  email: string | null;
   phone: string | null;
   whatsapp: string | null;
   address: string | null;
@@ -50,13 +50,15 @@ export function ClientInfoTab({ client, company }: { client: ClientInfo; company
             {client.fantasyName ? <span className="ml-1 text-xs text-muted-soft">({client.fantasyName})</span> : null}
           </p>
           <p className="mt-1 text-xs text-muted-soft">
-            {client.type === "PF" ? "Pessoa Física" : "Pessoa Jurídica"} · {formatDoc(client.doc)}
+            {client.type === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}{client.doc ? ` · ${formatDoc(client.doc)}` : ""}
           </p>
           <dl className="mt-3 space-y-1 text-sm">
-            <div className="flex gap-2">
-              <dt className="w-20 flex-none text-muted-soft">E-mail</dt>
-              <dd className="text-ink">{client.email}</dd>
-            </div>
+            {client.email && (
+              <div className="flex gap-2">
+                <dt className="w-20 flex-none text-muted-soft">E-mail</dt>
+                <dd className="text-ink">{client.email}</dd>
+              </div>
+            )}
             {(client.phone || client.whatsapp) && (
               <div className="flex items-center gap-2">
                 <dt className="w-20 flex-none text-muted-soft">Telefone</dt>

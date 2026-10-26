@@ -51,7 +51,7 @@ export default async function PortalClientesPage() {
                 <td className="px-4 py-3">
                   <PortalAccessRow
                     clientId={client.id}
-                    defaultEmail={client.email}
+                    defaultEmail={client.email ?? ""}
                     portalUser={client.users[0] ?? null}
                     invite={inviteClientToPortal}
                     deactivate={deactivateClientPortalAccess}

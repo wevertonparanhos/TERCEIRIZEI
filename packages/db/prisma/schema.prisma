@@ -225,8 +225,8 @@ model Client {
   name        String
   fantasyName String?    @map("fantasy_name")
   type        ClientType @default(PJ)
-  doc         String
-  email       String
+  doc         String?
+  email       String?
   phone       String?
   whatsapp    String?
   address     String?

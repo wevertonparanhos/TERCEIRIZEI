@@ -89,7 +89,7 @@ export default async function ClientesPage({
       pending,
       hasLatePayment,
       hasLateTask,
-      search: `${c.name} ${c.fantasyName ?? ""} ${c.doc} ${c.email}`.toLowerCase(),
+      search: `${c.name} ${c.fantasyName ?? ""} ${c.doc ?? ""} ${c.email ?? ""}`.toLowerCase(),
     };
   });
 

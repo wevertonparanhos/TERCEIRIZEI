@@ -65,8 +65,6 @@ export function NewClientWizard({
   function stepError(): string | null {
     if (step === 1) {
       if (name.trim().length < 2) return "Informe o nome do cliente.";
-      if (!doc.trim()) return "Informe o CPF ou CNPJ.";
-      if (!email.trim()) return "Informe o e-mail.";
     }
     return null;
   }
@@ -164,12 +162,12 @@ export function NewClientWizard({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="nc-doc">{type === "PJ" ? "CNPJ *" : "CPF *"}</Label>
+                <Label htmlFor="nc-doc">{type === "PJ" ? "CNPJ (opcional)" : "CPF (opcional)"}</Label>
                 <Input id="nc-doc" value={doc} onChange={(e) => setDoc(e.target.value)} placeholder={type === "PJ" ? "00.000.000/0000-00" : "000.000.000-00"} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="nc-email">Email *</Label>
+              <Label htmlFor="nc-email">Email (opcional)</Label>
               <Input id="nc-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" />
             </div>
             <div className="grid grid-cols-2 gap-4">

@@ -127,8 +127,8 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
             name: client.name,
             fantasyName: client.fantasyName ?? "",
             type: client.type,
-            doc: client.doc,
-            email: client.email,
+            doc: client.doc ?? "",
+            email: client.email ?? "",
             phone: client.phone ?? "",
             whatsapp: client.whatsapp ?? "",
             address: client.address ?? "",
@@ -162,7 +162,7 @@ export default async function ClienteDetalhePage({ params }: { params: { id: str
         <PortalAccess
           clientId={client.id}
           linkedEmail={client.users[0]?.email ?? null}
-          defaultEmail={client.email}
+          defaultEmail={client.email ?? ""}
           invite={inviteClientToPortal}
         />
       )}

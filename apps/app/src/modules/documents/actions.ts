@@ -254,7 +254,8 @@ export async function requestDocument(clientId: string, processId: string | null
   revalidatePath(`/clientes/${clientId}`);
 
   const { subject, html } = documentRequestedEmail({ label: data.label, deadline: request.deadline });
-  await sendEmail({ to: client.email, subject, html });
+  // Cliente sem e-mail cadastrado (ex.: importado) só recebe a solicitação pelo portal.
+  if (client.email) await sendEmail({ to: client.email, subject, html });
 }
 
 export async function markRequestReceived(requestId: string) {

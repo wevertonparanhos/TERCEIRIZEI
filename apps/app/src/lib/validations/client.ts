@@ -5,11 +5,13 @@ export const clientSchema = z.object({
   name: z.string().min(2, "Informe o nome ou razão social."),
   fantasyName: z.string().optional(),
   type: z.enum(["PF", "PJ"]),
+  // Opcionais: vazio vira NULL no banco (nunca texto vazio, que colidiria na
+  // constraint única). Se preenchido, precisa ser válido.
   doc: z
     .string()
-    .min(1, "Informe o CPF ou CNPJ.")
-    .refine(isValidCpfCnpj, "CPF ou CNPJ inválido."),
-  email: z.string().min(1, "Informe o e-mail.").email("E-mail inválido."),
+    .optional()
+    .refine((v) => !v || isValidCpfCnpj(v), "CPF ou CNPJ inválido."),
+  email: z.string().email("E-mail inválido.").optional().or(z.literal("")),
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
   address: z.string().optional(),
