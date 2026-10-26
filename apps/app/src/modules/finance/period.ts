@@ -67,9 +67,15 @@ export function resolvePeriod(key: PeriodKey, customStart?: string, customEnd?: 
 export type PaymentSummary = {
   total: number;
   recebido: number;
+  /** Ainda não vencido e não pago — NÃO inclui o atrasado. */
   pendente: number;
   atrasado: number;
   count: number;
+  /** "A receber" (mesma definição do FreelaPRO): tudo que não foi pago, incluindo o atrasado. */
+  aReceber: number;
+  /** Total previsto do período (recebido + a receber). */
+  saldoPrevisto: number;
+  ticketMedio: number;
 };
 
 /** Soma os valores de uma lista de processos-com-pagamento por status —
@@ -78,7 +84,16 @@ export function summarizePayments(
   processes: { value: number; paymentDueDate: Date | null; paidAt: Date | null }[],
   now: Date = new Date()
 ): PaymentSummary {
-  const summary: PaymentSummary = { total: 0, recebido: 0, pendente: 0, atrasado: 0, count: 0 };
+  const summary: PaymentSummary = {
+    total: 0,
+    recebido: 0,
+    pendente: 0,
+    atrasado: 0,
+    count: 0,
+    aReceber: 0,
+    saldoPrevisto: 0,
+    ticketMedio: 0,
+  };
   for (const p of processes) {
     summary.count += 1;
     summary.total += p.value;
@@ -90,5 +105,8 @@ export function summarizePayments(
       summary.pendente += p.value;
     }
   }
+  summary.aReceber = summary.pendente + summary.atrasado;
+  summary.saldoPrevisto = summary.total;
+  summary.ticketMedio = summary.count > 0 ? summary.total / summary.count : 0;
   return summary;
 }

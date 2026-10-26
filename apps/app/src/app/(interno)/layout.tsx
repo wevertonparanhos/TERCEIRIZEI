@@ -14,7 +14,6 @@ import {
   MessageSquare,
   DollarSign,
   Activity,
-  ShieldCheck,
   UserCircle,
   FileClock,
   LogOut,
@@ -78,7 +77,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/financeiro", label: "Financeiro", roles: ["ADMIN", "GESTOR", "FINANCEIRO"], icon: DollarSign },
       { href: "/atividades", label: "Atividades", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Activity },
-      { href: "/auditoria", label: "Auditoria", roles: ["ADMIN"], icon: ShieldCheck },
     ],
   },
   {

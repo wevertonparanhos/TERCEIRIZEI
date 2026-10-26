@@ -14,6 +14,7 @@ import {
 } from "@/lib/validations/process";
 import { addDays } from "@/modules/processes/labels";
 import { sendEmail } from "@/lib/email";
+import { syncInvoicesAfterInstallmentChange } from "@/modules/finance/sync";
 import { deliverableRespondedEmail } from "@/lib/email-templates";
 
 // A conexão do Prisma bypassa RLS (role postgres) — tenant_id/process_id explícitos
@@ -342,6 +343,8 @@ export async function markInstallmentPaid(processId: string, installmentId: stri
     where: { id: installmentId, processId },
     data: { paidAt: paid ? new Date() : null },
   });
+
+  await syncInvoicesAfterInstallmentChange({ tenantId: user.tenantId, processId, paid });
 
   await logAudit({
     tenantId: user.tenantId,

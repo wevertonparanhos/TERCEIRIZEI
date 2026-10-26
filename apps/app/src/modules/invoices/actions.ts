@@ -1,5 +1,6 @@
 "use server";
 
+import { payInstallmentsOfInvoice } from "@/modules/finance/sync";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
@@ -141,18 +142,22 @@ export async function markInvoicePaid(invoiceId: string, input: MarkPaidInput) {
     },
   });
 
+  const settledInstallments = await payInstallmentsOfInvoice(invoiceId, new Date(data.paidAt));
+
   await logAudit({
     tenantId: user.tenantId,
     userId: user.id,
     action: "invoice.mark_paid",
     entityType: "invoice",
     entityId: invoiceId,
-    description: `Fatura #${invoice.number} marcada como paga (${data.paymentMethod}).`,
+    description: `Fatura #${invoice.number} marcada como paga (${data.paymentMethod}) — ${settledInstallments} parcela(s) baixada(s).`,
     metadata: { paymentMethod: data.paymentMethod, totalAmount: invoice.totalAmount.toString() },
   });
 
   revalidatePath(`/financeiro/${invoiceId}`);
   revalidatePath("/financeiro");
+  revalidatePath("/clientes");
+  revalidatePath("/processos");
 }
 
 /** Gera fatura(s) a partir do valor já definido em processos — uma fatura

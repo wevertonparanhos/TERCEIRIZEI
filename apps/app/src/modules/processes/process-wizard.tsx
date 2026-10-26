@@ -150,6 +150,9 @@ export function NewTaskWizard({
     if (step === 2 && name.trim().length < 3) return "Informe o nome da tarefa.";
     if (step === 3 && !clientId) return "Selecione um cliente.";
     if (step === 3 && !serviceTypeId) return "Selecione o tipo de serviço.";
+    if (step === 6 && hasPayment && Number(value) > 0 && !paymentDueDate) {
+      return "Informe a data prevista de pagamento — sem ela o valor não aparece no Financeiro.";
+    }
     return null;
   }
 

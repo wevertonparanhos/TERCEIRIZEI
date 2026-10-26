@@ -66,7 +66,16 @@ describe("summarizePayments", () => {
       ],
       now
     );
-    expect(summary).toEqual({ total: 600, recebido: 300, pendente: 100, atrasado: 200, count: 3 });
+    expect(summary).toEqual({
+      total: 600,
+      recebido: 300,
+      pendente: 100,
+      atrasado: 200,
+      count: 3,
+      aReceber: 300,
+      saldoPrevisto: 600,
+      ticketMedio: 200,
+    });
   });
 
   it("conta como pendente quando não há data de pagamento definida", () => {
@@ -76,6 +85,15 @@ describe("summarizePayments", () => {
   });
 
   it("lista vazia retorna tudo zerado", () => {
-    expect(summarizePayments([])).toEqual({ total: 0, recebido: 0, pendente: 0, atrasado: 0, count: 0 });
+    expect(summarizePayments([])).toEqual({
+      total: 0,
+      recebido: 0,
+      pendente: 0,
+      atrasado: 0,
+      count: 0,
+      aReceber: 0,
+      saldoPrevisto: 0,
+      ticketMedio: 0,
+    });
   });
 });

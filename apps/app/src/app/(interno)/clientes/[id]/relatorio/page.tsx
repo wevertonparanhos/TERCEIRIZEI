@@ -4,7 +4,8 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { PeriodFilter } from "@/modules/finance/period-filter";
-import { resolvePeriod, summarizePayments, PERIOD_KEYS, type PeriodKey } from "@/modules/finance/period";
+import { resolvePeriod, PERIOD_KEYS, type PeriodKey } from "@/modules/finance/period";
+import { loadLedger } from "@/modules/finance/ledger";
 import { getPaymentStatus, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_BADGE_VARIANT } from "@/modules/processes/labels";
 import { PrintButton } from "@/modules/finance/print-button";
 
@@ -32,29 +33,9 @@ export default async function ClienteRelatorioPage({
     : "mes";
   const { start, end } = resolvePeriod(periodKey, searchParams.inicio, searchParams.fim);
 
-  const installments = await prisma.processInstallment.findMany({
-    where: {
-      process: { tenantId: user.tenantId, clientId: client.id },
-      paymentDueDate: { gte: start, lte: end },
-    },
-    include: { process: { select: { number: true, description: true } } },
-    orderBy: { paymentDueDate: "asc" },
-  });
-
-  const countByProcess = new Map<string, number>();
-  for (const i of installments) countByProcess.set(i.processId, (countByProcess.get(i.processId) ?? 0) + 1);
-
-  const rows = installments.map((i) => ({
-    id: i.id,
-    number: i.process.number,
-    description: i.process.description,
-    installmentLabel: (countByProcess.get(i.processId) ?? 0) > 1 ? `Parcela ${i.position}` : null,
-    value: Number(i.value),
-    paymentDueDate: i.paymentDueDate,
-    paidAt: i.paidAt,
-  }));
-
-  const summary = summarizePayments(rows);
+  const { rows, undated, summary } = await loadLedger({ tenantId: user.tenantId, clientId: client.id, start, end });
+  const undatedOpen = undated.filter((u) => !u.paidAt);
+  const undatedOpenTotal = undatedOpen.reduce((sum, u) => sum + u.value, 0);
   const periodLabel = `${start.toLocaleDateString("pt-BR", { timeZone: "UTC" })} até ${end.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`;
 
   return (
@@ -93,14 +74,21 @@ export default async function ClienteRelatorioPage({
           <p className="text-sm text-muted">Recebido</p>
         </div>
         <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 print:border-slate-300">
-          <p className="text-xl font-bold text-ink">{currencyFormatter.format(summary.pendente)}</p>
-          <p className="text-sm text-muted">Pendente</p>
+          <p className="text-xl font-bold text-ink">{currencyFormatter.format(summary.aReceber)}</p>
+          <p className="text-sm text-muted">A receber</p>
         </div>
         <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-5 print:border-slate-300 print:bg-transparent">
           <p className="text-xl font-bold text-red-600">{currencyFormatter.format(summary.atrasado)}</p>
-          <p className="text-sm text-muted">Atrasado</p>
+          <p className="text-sm text-muted">Atrasado (já incluso em A receber)</p>
         </div>
       </div>
+
+      {undatedOpen.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 print:border-slate-300 print:bg-transparent">
+          {undatedOpen.length} parcela(s) sem data de vencimento ({currencyFormatter.format(undatedOpenTotal)}) não entram nos totais deste
+          período: {undatedOpen.map((u) => `#${u.number}`).join(", ")}.
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-2xl border border-border/70 bg-surface shadow-sm print:border-slate-300">
         <table className="w-full text-sm">
@@ -125,7 +113,8 @@ export default async function ClienteRelatorioPage({
               return (
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">
-                    #{row.number} — {row.description.slice(0, 60)}
+                    {row.kind === "parcela" ? `#${row.number} — ` : ""}
+                    {row.title.slice(0, 60)}
                     {row.installmentLabel && <span className="text-muted-soft"> · {row.installmentLabel}</span>}
                   </td>
                   <td className="px-4 py-3 text-muted">
@@ -146,7 +135,7 @@ export default async function ClienteRelatorioPage({
                   Total pendente de pagamento
                 </td>
                 <td className="px-4 py-3 text-right font-mono font-semibold text-red-600">
-                  {currencyFormatter.format(summary.pendente + summary.atrasado)}
+                  {currencyFormatter.format(summary.aReceber)}
                 </td>
               </tr>
             </tfoot>

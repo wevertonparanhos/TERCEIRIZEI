@@ -535,7 +535,7 @@ export default async function DashboardPage() {
           <h3 className="mt-6 flex items-center gap-2 text-sm font-semibold text-ink">
             <BarChart3 className="h-4 w-4 text-accent" /> Faturamento — últimos 6 meses
           </h3>
-          <p className="text-xs text-muted-soft">Previsto vs. recebido por mês</p>
+          <p className="text-xs text-muted-soft">Previsto (por vencimento) vs. recebido (por data da baixa), por mês</p>
           <div className="mt-4">
             <RevenueChart data={revenueData} />
           </div>
