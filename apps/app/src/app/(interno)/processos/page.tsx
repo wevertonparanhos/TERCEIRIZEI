@@ -13,7 +13,8 @@ import {
   isPresenceActive,
   isDueToday,
 } from "@/modules/processes/labels";
-import { updateProcessStage, createWorkspace } from "@/modules/processes/actions";
+import { updateProcessStage, createWorkspace, createProcess } from "@/modules/processes/actions";
+import { NewTaskWizard } from "@/modules/processes/process-wizard";
 
 function KpiCard({
   value,
@@ -48,7 +49,7 @@ function KpiCard({
   );
 }
 
-export default async function ProcessosPage({ searchParams }: { searchParams: { area?: string } }) {
+export default async function ProcessosPage({ searchParams }: { searchParams: { area?: string; nova?: string } }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"].includes(user.role)) redirect("/");
@@ -61,7 +62,37 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
   });
   const activeWorkspace = workspaces.find((w) => w.id === searchParams.area) ?? workspaces[0];
 
-  const [stages, processes] = await Promise.all([
+  const [wizardData, stages, processes] = await Promise.all([
+    canManage
+      ? Promise.all([
+          prisma.workspace.findMany({
+            where: { tenantId: user.tenantId },
+            orderBy: { position: "asc" },
+            select: { id: true, name: true, stages: { orderBy: { position: "asc" }, select: { id: true, label: true } } },
+          }),
+          prisma.client.findMany({
+            where: { tenantId: user.tenantId, status: "ativo" },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          }),
+          prisma.company.findMany({
+            where: { tenantId: user.tenantId },
+            select: { id: true, clientId: true, razaoSocial: true },
+          }),
+          prisma.serviceType.findMany({
+            where: { tenantId: user.tenantId, active: true },
+            orderBy: { name: "asc" },
+            select: {
+              id: true,
+              name: true,
+              defaultPrice: true,
+              defaultDeadlineDays: true,
+              defaultPriority: true,
+              checklistTemplate: { orderBy: { position: "asc" }, select: { label: true } },
+            },
+          }),
+        ])
+      : Promise.resolve(null),
     activeWorkspace
       ? prisma.kanbanStage.findMany({ where: { workspaceId: activeWorkspace.id }, orderBy: { position: "asc" } })
       : Promise.resolve([]),
@@ -138,10 +169,23 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
               <Button variant="outline">Gerenciar etapas</Button>
             </Link>
           )}
-          {canManage && activeWorkspace && (
-            <Link href={`/processos/nova?area=${activeWorkspace.id}`}>
-              <Button>+ Nova Tarefa</Button>
-            </Link>
+          {canManage && activeWorkspace && wizardData && (
+            <NewTaskWizard
+              workspaces={wizardData[0]}
+              defaultWorkspaceId={activeWorkspace.id}
+              clients={wizardData[1]}
+              companies={wizardData[2]}
+              serviceTypes={wizardData[3].map((st) => ({
+                id: st.id,
+                name: st.name,
+                defaultPrice: st.defaultPrice ? String(st.defaultPrice) : null,
+                defaultDeadlineDays: st.defaultDeadlineDays,
+                defaultPriority: st.defaultPriority,
+                checklist: st.checklistTemplate.map((c) => c.label),
+              }))}
+              onSubmit={createProcess}
+              autoOpen={searchParams.nova === "1"}
+            />
           )}
         </div>
       </div>

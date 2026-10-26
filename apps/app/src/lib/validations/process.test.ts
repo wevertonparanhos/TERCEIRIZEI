@@ -40,7 +40,7 @@ describe("createProcessSchema", () => {
   });
 
   it("rejeita descrição muito curta", () => {
-    expect(createProcessSchema.safeParse({ ...valid, description: "abc" }).success).toBe(false);
+    expect(createProcessSchema.safeParse({ ...valid, description: "ab" }).success).toBe(false);
   });
 });
 

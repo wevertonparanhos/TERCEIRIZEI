@@ -95,10 +95,9 @@ export async function createProcess(input: CreateProcessInput) {
   });
   if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
 
-  const firstStage = await prisma.kanbanStage.findFirst({
-    where: { workspaceId: workspace.id },
-    orderBy: { position: "asc" },
-  });
+  const firstStage = data.stageId
+    ? await prisma.kanbanStage.findFirst({ where: { id: data.stageId, workspaceId: workspace.id } })
+    : await prisma.kanbanStage.findFirst({ where: { workspaceId: workspace.id }, orderBy: { position: "asc" } });
   if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para esta área de trabalho.");
 
   const number = await nextProcessNumber(user.tenantId);
@@ -120,6 +119,9 @@ export async function createProcess(input: CreateProcessInput) {
           ? addDays(new Date(), serviceType.defaultDeadlineDays)
           : null,
       notes: data.notes || serviceType.defaultNotes || null,
+      dueAt: data.dueAt ? new Date(data.dueAt) : null,
+      plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : null,
+      plannedDeliveryAt: data.plannedDeliveryAt ? new Date(data.plannedDeliveryAt) : null,
     },
   });
 
@@ -127,7 +129,15 @@ export async function createProcess(input: CreateProcessInput) {
     data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: user.id },
   });
 
-  await seedChecklistFromTemplate(process.id, data.serviceTypeId);
+  if (data.checklist) {
+    if (data.checklist.length > 0) {
+      await prisma.processChecklistItem.createMany({
+        data: data.checklist.map((label) => ({ processId: process.id, label })),
+      });
+    }
+  } else {
+    await seedChecklistFromTemplate(process.id, data.serviceTypeId);
+  }
 
   const initialValue = data.value ? Number(data.value) : serviceType.defaultPrice ? Number(serviceType.defaultPrice) : null;
   if (initialValue) {

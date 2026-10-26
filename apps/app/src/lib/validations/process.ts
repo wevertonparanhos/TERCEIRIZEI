@@ -30,12 +30,19 @@ export const createProcessSchema = z.object({
   clientId: z.string().min(1, "Selecione um cliente."),
   companyId: z.string().optional().or(z.literal("")),
   serviceTypeId: z.string().min(1, "Selecione o tipo de serviço."),
-  description: z.string().min(5, "Descreva o processo."),
+  description: z.string().min(3, "Informe o nome da tarefa."),
   priority: z.enum(DEMAND_PRIORITIES),
   value: z.string().optional(),
   paymentDueDate: z.string().optional(),
   requestedDeadline: z.string().optional(),
   notes: z.string().optional(),
+  // Assistente "Nova Tarefa" (inspirado no FreelaPRO): coluna inicial,
+  // cronograma e checklist definidos já na criação.
+  stageId: z.string().optional().or(z.literal("")),
+  plannedStartAt: z.string().optional(),
+  dueAt: z.string().optional(),
+  plannedDeliveryAt: z.string().optional(),
+  checklist: z.array(z.string().min(1)).optional(),
 });
 export type CreateProcessInput = z.infer<typeof createProcessSchema>;
 

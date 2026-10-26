@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { prisma } from "@terceirizei/db";
 import {
   LayoutDashboard,
   Calendar,
@@ -17,6 +19,8 @@ import {
   FileClock,
   LogOut,
   Building2,
+  Bell,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/rbac";
@@ -96,42 +100,71 @@ export default async function InternoLayout({ children }: { children: React.Reac
       .map((item) => ({ href: item.href, label: item.label, icon: <item.icon className="h-4 w-4" /> })),
   })).filter((group) => group.items.length > 0);
 
+  const unreadMentions = await prisma.processCommentMention.count({
+    where: { mentionedUserId: user.id, readAt: null, comment: { process: { tenantId: user.tenantId } } },
+  });
+
   return (
     <div className="flex min-h-screen bg-bg">
-      <aside className="sticky top-0 flex h-screen w-64 flex-none flex-col bg-brand-navy">
-        <div className="flex items-center justify-between px-5 py-5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-white/10 text-brand-cyan">
-              <Building2 className="h-4.5 w-4.5" />
-            </span>
-            <span className="font-sans text-[15px] font-extrabold leading-tight tracking-tight text-white">
-              Terceirizei OS
-            </span>
-          </div>
-          <ThemeToggle className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/50 transition-colors hover:bg-white/10 hover:text-white" />
+      <aside className="sticky top-0 flex h-screen w-60 flex-none flex-col border-r border-border bg-surface">
+        <div className="flex h-14 items-center gap-2.5 px-4">
+          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-accent text-white shadow-sm">
+            <Building2 className="h-4 w-4" />
+          </span>
+          <span className="text-base font-extrabold tracking-tight text-ink">
+            Terceirizei<span className="text-accent">OS</span>
+          </span>
         </div>
         <SidebarNav groups={navGroups} />
-        <div className="flex items-center gap-2.5 border-t border-white/10 px-4 py-4">
-          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-cyan/20 text-sm font-bold text-brand-cyan">
-            {initials(user.name)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{user.name}</p>
-            <p className="truncate text-xs text-white/50">{ROLE_LABELS[user.role]}</p>
+        <div className="border-t border-border p-3">
+          <div className="flex items-center gap-2.5 rounded-xl border border-border/50 bg-surface-alt/50 px-2 py-2">
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-accent-soft text-xs font-bold text-accent">
+              {initials(user.name)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
+              <p className="truncate text-[11px] text-muted">{ROLE_LABELS[user.role]}</p>
+            </div>
+            <form action="/logout" method="post">
+              <button
+                type="submit"
+                title="Sair"
+                aria-label="Sair"
+                className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-alt hover:text-ink"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
           </div>
-          <form action="/logout" method="post">
-            <button
-              type="submit"
-              title="Sair"
-              aria-label="Sair"
-              className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-white/50 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </form>
         </div>
       </aside>
-      <main className="flex-1 overflow-x-hidden">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 flex h-14 flex-none items-center justify-end gap-1 border-b border-border bg-bg/80 px-6 backdrop-blur">
+          <ThemeToggle className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-alt hover:text-ink" />
+          <Link
+            href="/atividades"
+            title="Notificações"
+            aria-label={`Notificações (${unreadMentions} não lidas)`}
+            className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-alt hover:text-ink"
+          >
+            <Bell className="h-[18px] w-[18px]" />
+            {unreadMentions > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {unreadMentions > 9 ? "9+" : unreadMentions}
+              </span>
+            )}
+          </Link>
+          <Link
+            href="/perfil"
+            title="Configurações"
+            aria-label="Configurações"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-alt hover:text-ink"
+          >
+            <Settings className="h-[18px] w-[18px]" />
+          </Link>
+        </header>
+        <main className="flex-1 overflow-x-hidden">{children}</main>
+      </div>
     </div>
   );
 }
