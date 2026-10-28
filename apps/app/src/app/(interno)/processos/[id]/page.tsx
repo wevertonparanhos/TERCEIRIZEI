@@ -74,6 +74,11 @@ import {
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const isoDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
+// Ordem das abas: Atividade logo depois de Detalhes.
+const TAB_ORDER = ["detalhes", "atividade", "checklist", "impedimentos", "entregas", "financeiro", "cliente"];
+const sortTabs = <T extends { key: string }>(tabs: T[]): T[] =>
+  [...tabs].sort((a, b) => TAB_ORDER.indexOf(a.key) - TAB_ORDER.indexOf(b.key));
+
 export default async function ProcessoDetalhePage({
   params,
   searchParams,
@@ -194,6 +199,7 @@ export default async function ProcessoDetalhePage({
 
   const detailsTab = (
     <div className="space-y-4">
+      <NotesCard />
       <PropertiesCard
         stages={stages}
         staff={staff}
@@ -207,7 +213,6 @@ export default async function ProcessoDetalhePage({
             : "Nenhum"
         }
       />
-      <NotesCard />
     </div>
   );
 
@@ -274,7 +279,7 @@ export default async function ProcessoDetalhePage({
           <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
             <ProcessTabs
               initialKey={searchParams.tab}
-              tabs={[
+              tabs={sortTabs([
                 {
                   key: "detalhes",
                   label: "Detalhes",
@@ -511,7 +516,7 @@ export default async function ProcessoDetalhePage({
                     />
                   ),
                 },
-              ]}
+              ])}
             />
           </div>
 
