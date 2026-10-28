@@ -6,27 +6,31 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { WhatsAppLink } from "@/components/whatsapp-link";
 import {
-  FileText,
+  LayoutList,
   MessageSquare,
   Wallet,
   AlertTriangle,
   ListChecks,
-  Paperclip,
-  History,
   PackageCheck,
   Building2,
+  ChevronLeft,
 } from "lucide-react";
 import {
-  PRIORITY_LABELS,
-  PRIORITY_BADGE_VARIANT,
   hasUnreadClientComment,
   getProcessPaymentSummary,
   isPresenceActive,
   PAYMENT_STATUS_LABELS,
-  PAYMENT_STATUS_BADGE_VARIANT,
 } from "@/modules/processes/labels";
 import { ProcessTabs } from "@/modules/processes/process-tabs";
-import { ProcessForm } from "@/modules/processes/process-form";
+import {
+  ProcessFieldsProvider,
+  PropertiesCard,
+  NotesCard,
+  ScheduleCard,
+  PortalToggleButton,
+  SaveIndicator,
+  CopyLinkButton,
+} from "@/modules/processes/process-fields";
 import { Checklist } from "@/modules/processes/checklist";
 import { ProcessComments } from "@/modules/processes/process-comments";
 import { MarkCommentsRead } from "@/modules/processes/mark-comments-read";
@@ -40,6 +44,7 @@ import { ClientInfoTab } from "@/modules/processes/client-info";
 import { ArchiveButton } from "@/modules/processes/archive-button";
 import {
   updateProcess,
+  updateProcessStage,
   addChecklistItem,
   toggleChecklistItem,
   deleteChecklistItem,
@@ -66,7 +71,16 @@ import {
   requestDocumentApproval,
 } from "@/modules/documents/actions";
 
-export default async function ProcessoDetalhePage({ params }: { params: { id: string } }) {
+const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const isoDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
+
+export default async function ProcessoDetalhePage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { tab?: string };
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"].includes(user.role)) redirect("/");
@@ -148,7 +162,7 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
   );
   const hasOpenImpediment = process.impediments.some((i) => !i.resolvedAt);
 
-  const [staff, stageUsers] = await Promise.all([
+  const [staff, stageUsers, stages] = await Promise.all([
     prisma.user.findMany({
       where: { tenantId: user.tenantId, role: { name: { in: ["ADMIN", "GESTOR", "OPERACIONAL"] } }, active: true },
       select: { id: true, name: true },
@@ -158,320 +172,365 @@ export default async function ProcessoDetalhePage({ params }: { params: { id: st
       where: { id: { in: process.stageHistory.map((s) => s.userId).filter((id): id is string => !!id) } },
       select: { id: true, name: true },
     }),
+    prisma.kanbanStage.findMany({
+      where: { tenantId: user.tenantId, workspaceId: process.workspaceId },
+      orderBy: { position: "asc" },
+      select: { id: true, label: true, color: true },
+    }),
   ]);
   const userNameById = new Map(stageUsers.map((u) => [u.id, u.name]));
 
   const paymentSummary = getProcessPaymentSummary(
     process.installments.map((i) => ({ value: Number(i.value), paymentDueDate: i.paymentDueDate, paidAt: i.paidAt }))
   );
+  const paidTotal = process.installments.filter((i) => i.paidAt).reduce((s, i) => s + Number(i.value), 0);
+  const nextInstallment = process.installments
+    .filter((i) => !i.paidAt && i.paymentDueDate)
+    .sort((a, b) => a.paymentDueDate!.getTime() - b.paymentDueDate!.getTime())[0];
 
   const activePresenceUsers = process.presence
     .filter((p) => isPresenceActive(p.lastSeenAt))
     .map((p) => ({ id: p.user.id, name: p.user.name }));
 
+  const detailsTab = (
+    <div className="space-y-4">
+      <PropertiesCard
+        stages={stages}
+        staff={staff}
+        client={{ id: process.client.id, name: process.client.name }}
+        categoryName={process.serviceType.name}
+        valueText={paymentSummary.totalValue > 0 ? currency.format(paymentSummary.totalValue) : "—"}
+        paymentLabel={paymentSummary.status === "SEM_PAGAMENTO" ? "Nenhum" : PAYMENT_STATUS_LABELS[paymentSummary.status]}
+        nextPaymentText={
+          nextInstallment
+            ? `${nextInstallment.paymentDueDate!.toLocaleDateString("pt-BR", { timeZone: "UTC" })} · ${currency.format(Number(nextInstallment.value))}`
+            : "Nenhum"
+        }
+      />
+      <NotesCard />
+    </div>
+  );
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-8">
-      <MarkCommentsRead processId={process.id} markCommentsRead={markCommentsRead} />
-      <div className="flex items-start justify-between">
-        <div>
-          <Link href="/processos" className="text-sm text-accent hover:underline">
-            ← Voltar para Área de Trabalho
-          </Link>
-          <div className="mt-2 flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-ink">
-              #{process.number} · {process.client.name}
-            </h1>
-            <Badge variant="info" style={{ backgroundColor: `${process.stage.color}1A`, color: process.stage.color }}>
-              {process.stage.label}
-            </Badge>
-            <Badge variant={PRIORITY_BADGE_VARIANT[process.priority]}>{PRIORITY_LABELS[process.priority]}</Badge>
-            {paymentSummary.status !== "SEM_PAGAMENTO" && (
-              <Badge variant={PAYMENT_STATUS_BADGE_VARIANT[paymentSummary.status]}>{PAYMENT_STATUS_LABELS[paymentSummary.status]}</Badge>
-            )}
+    <ProcessFieldsProvider
+      processId={process.id}
+      readOnly={!canWrite}
+      initialStageId={process.stageId}
+      updateProcess={updateProcess}
+      updateStage={updateProcessStage}
+      initial={{
+        assigneeIds: process.assignees.map((a) => a.userId),
+        priority: process.priority,
+        dueAt: isoDay(process.dueAt),
+        plannedStartAt: isoDay(process.plannedStartAt),
+        actualStartAt: isoDay(process.actualStartAt),
+        actualCompletionAt: isoDay(process.actualCompletionAt),
+        plannedDeliveryAt: isoDay(process.plannedDeliveryAt),
+        actualDeliveryAt: isoDay(process.actualDeliveryAt),
+        visibleInPortal: process.visibleInPortal,
+        notes: process.notes ?? "",
+      }}
+    >
+      <div className="mx-auto max-w-6xl space-y-4 p-8">
+        <MarkCommentsRead processId={process.id} markCommentsRead={markCommentsRead} />
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <nav className="flex min-w-0 items-center gap-1 text-sm text-muted">
+            <Link href="/processos" className="inline-flex items-center gap-1 hover:text-ink">
+              <ChevronLeft className="h-4 w-4" />
+              Voltar
+            </Link>
+            <span className="text-muted-soft">/</span>
+            <span className="truncate text-ink">{process.description}</span>
+          </nav>
+          <div className="flex items-center gap-2">
+            <SaveIndicator />
             <WhatsAppLink
               phone={process.client.whatsapp || process.client.phone}
               message={`Olá! Sobre a tarefa #${process.number} (${process.serviceType.name})...`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
+              className={buttonVariants({ variant: "ghost", size: "sm" })}
             >
-              Falar no WhatsApp
+              WhatsApp
             </WhatsAppLink>
+            <CopyLinkButton />
             {canWrite && <ArchiveButton processId={process.id} archived={!!process.archivedAt} setArchived={setProcessArchived} />}
-            {process.archivedAt && <Badge variant="neutral">Arquivada</Badge>}
           </div>
-          <p className="text-sm text-muted">
-            {process.serviceType.name}
-            {process.company ? ` · ${process.company.razaoSocial}` : ""} · aberto em{" "}
-            {process.createdAt.toLocaleDateString("pt-BR")}
-            {process.requestedDeadline
-              ? ` · prazo desejado ${process.requestedDeadline.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`
-              : ""}
-            {paymentSummary.totalValue > 0
-              ? ` · R$ ${paymentSummary.totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-              : ""}
-          </p>
         </div>
-        {user.role !== "FINANCEIRO" && (
-          <ProcessPresence
-            processId={process.id}
-            currentUserId={user.id}
-            activeUsers={activePresenceUsers}
-            markPresence={markPresence}
-            clearPresence={clearPresence}
-          />
-        )}
-      </div>
 
-      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
-        <h2 className="mb-2 text-base font-semibold text-ink">Descrição</h2>
-        <p className="whitespace-pre-wrap text-sm text-ink">{process.description}</p>
-      </div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold leading-tight text-ink">{process.description}</h1>
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+              <span className="font-mono">#{process.number}</span>
+              <span>· {process.client.name}</span>
+              <span>· aberta em {process.createdAt.toLocaleDateString("pt-BR")}</span>
+              {process.archivedAt && <Badge variant="neutral">Arquivada</Badge>}
+            </p>
+          </div>
+          <PortalToggleButton />
+        </div>
 
-      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
-        <ProcessTabs
-          tabs={[
-            {
-              key: "geral",
-              label: "Visão geral",
-              icon: <FileText className="h-4 w-4" />,
-              content: (
-                <ProcessForm
-                  processId={process.id}
-                  readOnly={!canWrite}
-                  staff={staff}
-                  defaultValues={{
-                    assigneeIds: process.assignees.map((a) => a.userId),
-                    priority: process.priority,
-                    dueAt: process.dueAt ? process.dueAt.toISOString().slice(0, 10) : "",
-                    plannedStartAt: process.plannedStartAt ? process.plannedStartAt.toISOString().slice(0, 10) : "",
-                    actualStartAt: process.actualStartAt ? process.actualStartAt.toISOString().slice(0, 10) : "",
-                    actualCompletionAt: process.actualCompletionAt
-                      ? process.actualCompletionAt.toISOString().slice(0, 10)
-                      : "",
-                    plannedDeliveryAt: process.plannedDeliveryAt
-                      ? process.plannedDeliveryAt.toISOString().slice(0, 10)
-                      : "",
-                    actualDeliveryAt: process.actualDeliveryAt ? process.actualDeliveryAt.toISOString().slice(0, 10) : "",
-                    visibleInPortal: process.visibleInPortal,
-                    notes: process.notes ?? "",
-                  }}
-                  updateProcess={updateProcess}
-                />
-              ),
-            },
-            {
-              key: "comentarios",
-              label: "Comentários",
-              icon: <MessageSquare className="h-4 w-4" />,
-              badge: hasUnreadComment || hasUnreadMention,
-              content: (
-                <ProcessComments
-                  processId={process.id}
-                  comments={process.comments.map((c) => ({
-                    id: c.id,
-                    body: c.body,
-                    createdAt: c.createdAt.toISOString(),
-                    authorName: c.author.name,
-                    authorIsClient: c.author.role.name === "CLIENTE",
-                    mentionedNames: c.mentions.map((m) => m.mentionedUser.name),
-                  }))}
-                  mentionable={staff}
-                  addComment={addProcessComment}
-                />
-              ),
-            },
-            {
-              key: "pagamentos",
-              label: "Pagamentos",
-              icon: <Wallet className="h-4 w-4" />,
-              badge: paymentSummary.status === "ATRASADO",
-              content: (
-                <Installments
-                  processId={process.id}
-                  canWrite={canWrite}
-                  installments={process.installments.map((i) => ({
-                    id: i.id,
-                    position: i.position,
-                    value: Number(i.value),
-                    paymentDueDate: i.paymentDueDate ? i.paymentDueDate.toISOString() : null,
-                    paidAt: i.paidAt ? i.paidAt.toISOString() : null,
-                  }))}
-                  addInstallment={addInstallment}
-                  markInstallmentPaid={markInstallmentPaid}
-                  deleteInstallment={deleteInstallment}
-                />
-              ),
-            },
-            {
-              key: "impedimentos",
-              label: "Impedimentos",
-              icon: <AlertTriangle className="h-4 w-4" />,
-              badge: hasOpenImpediment,
-              content: (
-                <Impediments
-                  processId={process.id}
-                  canWrite={canWrite}
-                  impediments={process.impediments.map((i) => ({
-                    id: i.id,
-                    title: i.title,
-                    createdAt: i.createdAt.toISOString(),
-                    createdByName: i.createdBy.name,
-                    resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
-                    resolvedByName: i.resolvedBy?.name ?? null,
-                  }))}
-                  addImpediment={addImpediment}
-                  resolveImpediment={resolveImpediment}
-                  reopenImpediment={reopenImpediment}
-                />
-              ),
-            },
-            {
-              key: "checklist",
-              label: "Checklist",
-              icon: <ListChecks className="h-4 w-4" />,
-              content: (
-                <Checklist
-                  processId={process.id}
-                  canWrite={canWrite}
-                  items={process.checklist}
-                  addItem={addChecklistItem}
-                  toggleItem={toggleChecklistItem}
-                  deleteItem={deleteChecklistItem}
-                />
-              ),
-            },
-            {
-              key: "cliente",
-              label: "Cliente",
-              icon: <Building2 className="h-4 w-4" />,
-              content: (
-                <ClientInfoTab
-                  client={{
-                    id: process.client.id,
-                    name: process.client.name,
-                    fantasyName: process.client.fantasyName,
-                    type: process.client.type,
-                    doc: process.client.doc,
-                    email: process.client.email,
-                    phone: process.client.phone,
-                    whatsapp: process.client.whatsapp,
-                    address: process.client.address,
-                    city: process.client.city,
-                    state: process.client.state,
-                    contacts: process.client.contacts,
-                  }}
-                  company={process.company}
-                />
-              ),
-            },
-            ...(user.role !== "FINANCEIRO"
-              ? [
-            {
-              key: "documentos",
-              label: "Documentos",
-              icon: <Paperclip className="h-4 w-4" />,
-              content: (
-                <div className="space-y-8">
-                  <DocumentList
-                    clientId={process.clientId}
-                    processId={process.id}
-                    canWrite={canWrite}
-                    documents={process.documents.map((d) => {
-                      const latest = d.versions.find((v) => v.version === d.currentVersion) ?? d.versions[0];
-                      return {
-                        id: d.id,
-                        name: d.name,
-                        category: d.category,
-                        currentVersion: d.currentVersion,
-                        uploadedByName: d.uploadedBy.name,
-                        uploadedByIsClient: d.uploadedBy.role.name === "CLIENTE",
-                        createdAt: d.createdAt.toISOString(),
-                        latestFileName: latest?.fileName ?? "",
-                        latestSizeBytes: latest?.sizeBytes ?? 0,
-                        approvalStatus: d.approvalStatus,
-                        approvalNote: d.approvalNote,
-                      };
-                    })}
-                    requestApproval={requestDocumentApproval}
-                    openRequests={process.documentRequests
-                      .filter((r) => r.status === "PENDENTE")
-                      .map((r) => ({ id: r.id, label: r.label }))}
-                    uploadNewDocument={uploadNewDocument}
-                    uploadNewVersion={uploadNewVersion}
-                  />
-                  <DocumentRequests
-                    clientId={process.clientId}
-                    processId={process.id}
-                    canWrite={canWrite}
-                    requests={process.documentRequests.map((r) => ({
-                      id: r.id,
-                      label: r.label,
-                      deadline: r.deadline ? r.deadline.toISOString() : null,
-                      status: r.status,
-                    }))}
-                    requestDocument={requestDocument}
-                    markRequestReceived={markRequestReceived}
-                    cancelRequest={cancelRequest}
-                  />
-                </div>
-              ),
-            },
-            {
-              key: "entregaveis",
-              label: "Entregáveis",
-              icon: <PackageCheck className="h-4 w-4" />,
-              content: (
-                <Deliverables
-                  processId={process.id}
-                  canWrite={canWrite}
-                  canRespond={false}
-                  deliverables={process.deliverables.map((d) => ({
-                    id: d.id,
-                    type: d.type,
-                    title: d.title,
-                    content: d.content,
-                    url: d.url,
-                    documentId: d.documentId,
-                    documentName: d.document?.name ?? null,
-                    approvalStatus: d.approvalStatus,
-                    approvalNote: d.approvalNote,
-                    createdAt: d.createdAt.toISOString(),
-                  }))}
-                  availableDocuments={process.documents.map((doc) => ({ id: doc.id, name: doc.name }))}
-                  addDeliverable={addDeliverable}
-                  deleteDeliverable={deleteDeliverable}
-                />
-              ),
-            },
-              ]
-              : []),
-            {
-              key: "historico",
-              label: "Histórico",
-              icon: <History className="h-4 w-4" />,
-              content: (
-                <ul className="space-y-2">
-                  {process.stageHistory.map((entry) => (
-                    <li key={entry.id} className="text-sm text-muted">
-                      <span className="font-mono text-xs text-muted-soft">
-                        {entry.changedAt.toLocaleString("pt-BR")}
-                      </span>{" "}
-                      — {entry.userId ? userNameById.get(entry.userId) ?? "Sistema" : "Sistema"}{" "}
-                      {entry.fromStage ? (
-                        <>
-                          moveu de <b>{entry.fromStage.label}</b> para{" "}
-                        </>
-                      ) : (
-                        "abriu a tarefa em "
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
+            <ProcessTabs
+              initialKey={searchParams.tab}
+              tabs={[
+                {
+                  key: "detalhes",
+                  label: "Detalhes",
+                  icon: <LayoutList className="h-4 w-4" />,
+                  content: detailsTab,
+                },
+                {
+                  key: "checklist",
+                  label: "Checklist",
+                  icon: <ListChecks className="h-4 w-4" />,
+                  content: (
+                    <Checklist
+                      processId={process.id}
+                      canWrite={canWrite}
+                      items={process.checklist}
+                      addItem={addChecklistItem}
+                      toggleItem={toggleChecklistItem}
+                      deleteItem={deleteChecklistItem}
+                    />
+                  ),
+                },
+                {
+                  key: "impedimentos",
+                  label: "Impedimentos",
+                  icon: <AlertTriangle className="h-4 w-4" />,
+                  badge: hasOpenImpediment,
+                  content: (
+                    <Impediments
+                      processId={process.id}
+                      canWrite={canWrite}
+                      impediments={process.impediments.map((i) => ({
+                        id: i.id,
+                        title: i.title,
+                        createdAt: i.createdAt.toISOString(),
+                        createdByName: i.createdBy.name,
+                        resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
+                        resolvedByName: i.resolvedBy?.name ?? null,
+                      }))}
+                      addImpediment={addImpediment}
+                      resolveImpediment={resolveImpediment}
+                      reopenImpediment={reopenImpediment}
+                    />
+                  ),
+                },
+                ...(user.role !== "FINANCEIRO"
+                  ? [
+                      {
+                        key: "entregas",
+                        label: "Entregas",
+                        icon: <PackageCheck className="h-4 w-4" />,
+                        content: (
+                          <div className="space-y-8">
+                            <Deliverables
+                              processId={process.id}
+                              canWrite={canWrite}
+                              canRespond={false}
+                              deliverables={process.deliverables.map((d) => ({
+                                id: d.id,
+                                type: d.type,
+                                title: d.title,
+                                content: d.content,
+                                url: d.url,
+                                documentId: d.documentId,
+                                documentName: d.document?.name ?? null,
+                                approvalStatus: d.approvalStatus,
+                                approvalNote: d.approvalNote,
+                                createdAt: d.createdAt.toISOString(),
+                              }))}
+                              availableDocuments={process.documents.map((doc) => ({ id: doc.id, name: doc.name }))}
+                              addDeliverable={addDeliverable}
+                              deleteDeliverable={deleteDeliverable}
+                            />
+                            <div className="space-y-6 border-t border-border pt-6">
+                              <h3 className="text-sm font-semibold text-ink">Documentos e arquivos</h3>
+                              <DocumentList
+                                clientId={process.clientId}
+                                processId={process.id}
+                                canWrite={canWrite}
+                                documents={process.documents.map((d) => {
+                                  const latest = d.versions.find((v) => v.version === d.currentVersion) ?? d.versions[0];
+                                  return {
+                                    id: d.id,
+                                    name: d.name,
+                                    category: d.category,
+                                    currentVersion: d.currentVersion,
+                                    uploadedByName: d.uploadedBy.name,
+                                    uploadedByIsClient: d.uploadedBy.role.name === "CLIENTE",
+                                    createdAt: d.createdAt.toISOString(),
+                                    latestFileName: latest?.fileName ?? "",
+                                    latestSizeBytes: latest?.sizeBytes ?? 0,
+                                    approvalStatus: d.approvalStatus,
+                                    approvalNote: d.approvalNote,
+                                  };
+                                })}
+                                requestApproval={requestDocumentApproval}
+                                openRequests={process.documentRequests
+                                  .filter((r) => r.status === "PENDENTE")
+                                  .map((r) => ({ id: r.id, label: r.label }))}
+                                uploadNewDocument={uploadNewDocument}
+                                uploadNewVersion={uploadNewVersion}
+                              />
+                              <DocumentRequests
+                                clientId={process.clientId}
+                                processId={process.id}
+                                canWrite={canWrite}
+                                requests={process.documentRequests.map((r) => ({
+                                  id: r.id,
+                                  label: r.label,
+                                  deadline: r.deadline ? r.deadline.toISOString() : null,
+                                  status: r.status,
+                                }))}
+                                requestDocument={requestDocument}
+                                markRequestReceived={markRequestReceived}
+                                cancelRequest={cancelRequest}
+                              />
+                            </div>
+                          </div>
+                        ),
+                      },
+                    ]
+                  : []),
+                {
+                  key: "financeiro",
+                  label: "Financeiro",
+                  icon: <Wallet className="h-4 w-4" />,
+                  badge: paymentSummary.status === "ATRASADO",
+                  content: (
+                    <div className="space-y-5">
+                      {paymentSummary.totalValue > 0 && (
+                        <div className="space-y-2 rounded-2xl border border-border/70 bg-surface-alt p-4">
+                          <div className="flex items-baseline justify-between text-sm">
+                            <span className="font-semibold text-ink">Progresso</span>
+                            <span className="font-mono text-ink">
+                              {currency.format(paidTotal)} <span className="text-muted-soft">de</span>{" "}
+                              {currency.format(paymentSummary.totalValue)}
+                            </span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-border">
+                            <div
+                              className="h-full rounded-full bg-emerald-500"
+                              style={{ width: `${Math.min(100, Math.round((paidTotal / paymentSummary.totalValue) * 100))}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-muted">
+                            {paymentSummary.paidCount} de {paymentSummary.totalCount} efetuado(s)
+                            {paidTotal >= paymentSummary.totalValue
+                              ? " · ✓ Pago integralmente"
+                              : ` · Faltam ${currency.format(paymentSummary.totalValue - paidTotal)}`}
+                          </p>
+                        </div>
                       )}
-                      <b>{entry.toStage.label}</b>
-                    </li>
-                  ))}
-                </ul>
-              ),
-            },
-          ]}
-        />
+                      <Installments
+                        processId={process.id}
+                        canWrite={canWrite}
+                        installments={process.installments.map((i) => ({
+                          id: i.id,
+                          position: i.position,
+                          value: Number(i.value),
+                          paymentDueDate: i.paymentDueDate ? i.paymentDueDate.toISOString() : null,
+                          paidAt: i.paidAt ? i.paidAt.toISOString() : null,
+                        }))}
+                        addInstallment={addInstallment}
+                        markInstallmentPaid={markInstallmentPaid}
+                        deleteInstallment={deleteInstallment}
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  key: "atividade",
+                  label: "Atividade",
+                  icon: <MessageSquare className="h-4 w-4" />,
+                  badge: hasUnreadComment || hasUnreadMention,
+                  content: (
+                    <div className="space-y-8">
+                      <ProcessComments
+                        processId={process.id}
+                        comments={process.comments.map((c) => ({
+                          id: c.id,
+                          body: c.body,
+                          createdAt: c.createdAt.toISOString(),
+                          authorName: c.author.name,
+                          authorIsClient: c.author.role.name === "CLIENTE",
+                          mentionedNames: c.mentions.map((m) => m.mentionedUser.name),
+                        }))}
+                        mentionable={staff}
+                        addComment={addProcessComment}
+                      />
+                      <div className="border-t border-border pt-6">
+                        <h3 className="mb-3 text-sm font-semibold text-ink">Histórico</h3>
+                        <ul className="space-y-2">
+                          {process.stageHistory.map((entry) => (
+                            <li key={entry.id} className="text-sm text-muted">
+                              <span className="font-mono text-xs text-muted-soft">
+                                {entry.changedAt.toLocaleString("pt-BR")}
+                              </span>{" "}
+                              — {entry.userId ? userNameById.get(entry.userId) ?? "Sistema" : "Sistema"}{" "}
+                              {entry.fromStage ? (
+                                <>
+                                  moveu de <b>{entry.fromStage.label}</b> para{" "}
+                                </>
+                              ) : (
+                                "abriu a tarefa em "
+                              )}
+                              <b>{entry.toStage.label}</b>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: "cliente",
+                  label: "Cliente",
+                  icon: <Building2 className="h-4 w-4" />,
+                  content: (
+                    <ClientInfoTab
+                      client={{
+                        id: process.client.id,
+                        name: process.client.name,
+                        fantasyName: process.client.fantasyName,
+                        type: process.client.type,
+                        doc: process.client.doc,
+                        email: process.client.email,
+                        phone: process.client.phone,
+                        whatsapp: process.client.whatsapp,
+                        address: process.client.address,
+                        city: process.client.city,
+                        state: process.client.state,
+                        contacts: process.client.contacts,
+                      }}
+                      company={process.company}
+                    />
+                  ),
+                },
+              ]}
+            />
+          </div>
+
+          <aside className="space-y-4">
+            {user.role !== "FINANCEIRO" && (
+              <div className="rounded-2xl border border-border/70 bg-surface p-4 shadow-sm">
+                <ProcessPresence
+                  processId={process.id}
+                  currentUserId={user.id}
+                  activeUsers={activePresenceUsers}
+                  markPresence={markPresence}
+                  clearPresence={clearPresence}
+                />
+              </div>
+            )}
+            <ScheduleCard />
+          </aside>
+        </div>
       </div>
-    </div>
+    </ProcessFieldsProvider>
   );
 }
