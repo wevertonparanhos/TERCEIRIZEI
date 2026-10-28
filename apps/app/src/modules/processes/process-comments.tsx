@@ -12,6 +12,7 @@ type Comment = {
   authorName: string;
   authorIsClient: boolean;
   mentionedNames: string[];
+  clientVisible?: boolean;
 };
 type StaffUser = { id: string; name: string };
 
@@ -51,11 +52,16 @@ export function ProcessComments({
   comments,
   addComment,
   mentionable,
+  showVisibility = false,
+  setCommentVisibility,
 }: {
   processId: string;
   comments: Comment[];
-  addComment: (processId: string, body: string, mentionedUserIds: string[]) => Promise<void>;
+  addComment: (processId: string, body: string, mentionedUserIds: string[], clientVisible?: boolean) => Promise<void>;
   mentionable?: StaffUser[];
+  /** Equipe: mostra se cada comentário é interno ou visível ao cliente e permite escolher ao comentar. */
+  showVisibility?: boolean;
+  setCommentVisibility?: (commentId: string, visible: boolean) => Promise<void>;
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -64,6 +70,17 @@ export function ProcessComments({
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareWithClient, setShareWithClient] = useState(false);
+
+  async function toggleVisibility(commentId: string, visible: boolean) {
+    if (!setCommentVisibility) return;
+    try {
+      await setCommentVisibility(commentId, visible);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível alterar a visibilidade.");
+    }
+  }
 
   const mentionMatches =
     mentionQuery !== null && mentionable
@@ -97,9 +114,10 @@ export function ProcessComments({
     setSubmitting(true);
     setError(null);
     try {
-      await addComment(processId, body, mentionedIds);
+      await addComment(processId, body, mentionedIds, shareWithClient);
       setBody("");
       setMentionedIds([]);
+      setShareWithClient(false);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível enviar o comentário.");
@@ -126,6 +144,21 @@ export function ProcessComments({
                   <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-accent">Cliente</span>
                 )}
                 <span>{new Date(comment.createdAt).toLocaleString("pt-BR")}</span>
+                {showVisibility && !comment.authorIsClient && (
+                  <button
+                    type="button"
+                    disabled={!setCommentVisibility}
+                    onClick={() => toggleVisibility(comment.id, !comment.clientVisible)}
+                    title={comment.clientVisible ? "Clique para tornar interno" : "Clique para mostrar ao cliente"}
+                    className={
+                      comment.clientVisible
+                        ? "ml-auto rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
+                        : "ml-auto rounded-full bg-surface px-2 py-0.5 text-[11px] font-medium text-muted-soft ring-1 ring-border"
+                    }
+                  >
+                    {comment.clientVisible ? "Visível ao cliente" : "Interno"}
+                  </button>
+                )}
               </div>
               <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink">
                 {renderCommentBody(comment.body, comment.mentionedNames)}
@@ -158,9 +191,17 @@ export function ProcessComments({
             ))}
           </ul>
         )}
-        <Button type="submit" size="sm" disabled={submitting || !body.trim()}>
-          {submitting ? "Enviando..." : "Comentar"}
-        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button type="submit" size="sm" disabled={submitting || !body.trim()}>
+            {submitting ? "Enviando..." : "Comentar"}
+          </Button>
+          {showVisibility && (
+            <label className="flex items-center gap-2 text-xs text-muted">
+              <input type="checkbox" checked={shareWithClient} onChange={(e) => setShareWithClient(e.target.checked)} />
+              Mostrar este comentário ao cliente no portal
+            </label>
+          )}
+        </div>
       </form>
       {error && <p className="mt-2 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">{error}</p>}
     </div>

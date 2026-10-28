@@ -36,6 +36,7 @@ export type KanbanCard = {
   paymentStatus: PaymentStatus;
   hasOpenImpediment: boolean;
   activePresenceNames: string[];
+  requestedByClient?: boolean;
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -66,6 +67,14 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
               className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
             >
               <Radio className="h-2.5 w-2.5" />
+            </span>
+          )}
+          {card.requestedByClient && (
+            <span
+              title="Solicitada pelo cliente no portal"
+              className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-500/15 dark:text-sky-400"
+            >
+              Cliente
             </span>
           )}
           {card.hasOpenImpediment && (

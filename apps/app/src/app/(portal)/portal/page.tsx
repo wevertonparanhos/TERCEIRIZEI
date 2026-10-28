@@ -34,11 +34,11 @@ export default async function PortalDashboardPage() {
   });
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <p className="text-sm text-muted">Bem-vindo(a),</p>
       <h1 className="mt-1 text-2xl font-bold text-ink">{user.name}</h1>
 
-      <div className="mt-6 grid grid-cols-3 gap-4">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link href="/portal/processos" className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm">
           <p className="text-2xl font-bold text-ink">{activeProcesses}</p>
           <p className="text-sm text-muted">Tarefas em andamento</p>

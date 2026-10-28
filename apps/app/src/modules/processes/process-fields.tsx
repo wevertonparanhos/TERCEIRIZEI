@@ -187,7 +187,10 @@ export function PropertiesCard({
   stages,
   staff,
   client,
-  categoryName,
+  categoryId,
+  categories,
+  setCategory,
+  newCategory,
   valueText,
   paymentLabel,
   nextPaymentText,
@@ -195,12 +198,45 @@ export function PropertiesCard({
   stages: { id: string; label: string; color: string }[];
   staff: { id: string; name: string }[];
   client: { id: string; name: string };
-  categoryName: string;
+  categoryId: string;
+  categories: { id: string; name: string }[];
+  setCategory: (categoryId: string) => Promise<void>;
+  newCategory: (name: string) => Promise<{ id: string; name: string }>;
   valueText: string;
   paymentLabel: string;
   nextPaymentText: string;
 }) {
   const { fields, stageId, save, changeStage, readOnly } = useFields();
+  const router = useRouter();
+  const [category, setCategoryState] = useState(categoryId);
+  const [extra, setExtra] = useState<{ id: string; name: string }[]>([]);
+  const [catError, setCatError] = useState<string | null>(null);
+  const allCategories = [...categories, ...extra.filter((e) => !categories.some((c) => c.id === e.id))];
+
+  async function pickCategory(id: string) {
+    const previous = category;
+    setCategoryState(id);
+    setCatError(null);
+    try {
+      await setCategory(id);
+      router.refresh();
+    } catch (err) {
+      setCategoryState(previous);
+      setCatError(err instanceof Error ? err.message : "Não foi possível alterar a categoria.");
+    }
+  }
+
+  async function addCategory() {
+    const typed = window.prompt("Nome da nova categoria:");
+    if (!typed || !typed.trim()) return;
+    try {
+      const created = await newCategory(typed);
+      setExtra((prev) => [...prev, created]);
+      await pickCategory(created.id);
+    } catch (err) {
+      setCatError(err instanceof Error ? err.message : "Não foi possível criar a categoria.");
+    }
+  }
   const stageColor = stages.find((s) => s.id === stageId)?.color;
 
   return (
@@ -246,9 +282,23 @@ export function PropertiesCard({
           </Link>
         </Row>
         <Row icon={Tag} label="Categorias">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
-            <Briefcase className="h-3 w-3" />
-            {categoryName}
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1">
+              <Briefcase className="h-3.5 w-3.5 text-accent" />
+              <select value={category} disabled={readOnly} onChange={(e) => pickCategory(e.target.value)} className={selectClass}>
+                {allCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+            {!readOnly && (
+              <button type="button" onClick={addCategory} className="text-xs font-medium text-accent hover:underline">
+                + Nova categoria
+              </button>
+            )}
+            {catError && <span className="text-xs text-red-600">{catError}</span>}
           </span>
         </Row>
       </Group>

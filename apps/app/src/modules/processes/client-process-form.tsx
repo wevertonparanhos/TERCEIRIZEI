@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Paperclip, X } from "lucide-react";
 
 type Company = { id: string; razaoSocial: string };
 type ServiceType = { id: string; name: string; defaultDeadlineDays: number | null; defaultPriority: string | null };
@@ -25,15 +26,20 @@ export function ClientProcessForm({
   companies,
   serviceTypes,
   onSubmit,
+  clientId,
+  uploadDocument,
 }: {
   companies: Company[];
   serviceTypes: ServiceType[];
   onSubmit: (data: ClientCreateProcessInput) => Promise<{ id: string } | void>;
+  clientId?: string;
+  uploadDocument?: (clientId: string, processId: string | null, requestId: string | null, formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
 
   const {
     register,
@@ -62,8 +68,24 @@ export function ClientProcessForm({
     try {
       const result = await onSubmit(data);
       if (result?.id) {
+        // Anexos escolhidos na criação são enviados já vinculados à nova demanda.
+        const failed: string[] = [];
+        if (uploadDocument && clientId) {
+          for (const file of files) {
+            const fd = new FormData();
+            fd.set("name", file.name.replace(/\.[^.]+$/, "").slice(0, 120) || "Anexo");
+            fd.set("category", "OUTROS");
+            fd.set("file", file);
+            try {
+              await uploadDocument(clientId, result.id, null, fd);
+            } catch (err) {
+              failed.push(`${file.name}: ${err instanceof Error ? err.message : "falhou"}`);
+            }
+          }
+        }
         setSent(true);
-        router.push(`/portal/processos/${result.id}`);
+        router.push(`/portal/processos/${result.id}${failed.length ? "?tab=arquivos" : ""}`);
+        if (failed.length) window.alert(`A demanda foi criada, mas alguns arquivos não foram enviados:\n${failed.join("\n")}\nVocê pode anexá-los na aba Arquivos.`);
       }
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Não foi possível enviar sua solicitação.");
@@ -82,7 +104,7 @@ export function ClientProcessForm({
 
   return (
     <form onSubmit={handleSubmit(submit)} method="post" className="space-y-4" noValidate>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {companies.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="companyId">Empresa</Label>
@@ -139,6 +161,47 @@ export function ClientProcessForm({
         <Textarea id="description" rows={4} {...register("description")} />
         {errors.description && <p className="text-xs text-red-600">{errors.description.message}</p>}
       </div>
+
+      {uploadDocument && clientId && (
+        <div className="space-y-2">
+          <Label htmlFor="attachments">Anexar arquivos (opcional)</Label>
+          <label
+            htmlFor="attachments"
+            className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border-strong px-3 py-3 text-sm text-muted hover:bg-surface-alt"
+          >
+            <Paperclip className="h-4 w-4" />
+            Escolher arquivos (PDF, imagens, documentos — até 20 MB cada)
+          </label>
+          <input
+            id="attachments"
+            type="file"
+            multiple
+            className="sr-only"
+            onChange={(e) => {
+              const picked = Array.from(e.target.files ?? []);
+              setFiles((prev) => [...prev, ...picked]);
+              e.target.value = "";
+            }}
+          />
+          {files.length > 0 && (
+            <ul className="space-y-1">
+              {files.map((f, i) => (
+                <li key={`${f.name}-${i}`} className="flex items-center justify-between gap-2 rounded-md bg-surface-alt px-3 py-1.5 text-sm text-ink">
+                  <span className="truncate">{f.name}</span>
+                  <button
+                    type="button"
+                    aria-label={`Remover ${f.name}`}
+                    onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-muted hover:text-red-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {serverError && (
         <p role="alert" className="rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">

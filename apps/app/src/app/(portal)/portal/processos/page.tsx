@@ -16,7 +16,7 @@ export default async function PortalProcessosPage() {
   });
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <RealtimeRefresh table="processes" filterColumn="client_id" filterValue={user.clientId} />
       <h1 className="text-2xl font-bold text-ink">Minhas Tarefas</h1>
       <p className="text-sm text-muted">{processes.length} tarefa(s)</p>
@@ -31,19 +31,20 @@ export default async function PortalProcessosPage() {
           <Link
             key={p.id}
             href={`/portal/processos/${p.id}`}
-            className="flex items-center justify-between rounded-2xl border border-border/70 bg-surface shadow-sm p-4 hover:shadow-sm"
+            className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-surface p-4 shadow-sm hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
           >
-            <div>
-              <p className="text-sm font-medium text-ink">
-                #{p.number} — {p.serviceType.name}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-ink">
+                #{p.number} — {p.description}
               </p>
+              <p className="text-xs text-muted-soft">{p.serviceType.name}</p>
               {p.dueAt && (
                 <p className="text-xs text-muted-soft">
                   prazo previsto {p.dueAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant={PRIORITY_BADGE_VARIANT[p.priority]}>{PRIORITY_LABELS[p.priority]}</Badge>
               <Badge variant="info" style={{ backgroundColor: `${p.stage.color}1A`, color: p.stage.color }}>
                 {p.stage.label}

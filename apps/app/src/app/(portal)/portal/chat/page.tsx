@@ -15,7 +15,7 @@ export default async function PortalChatPage() {
   });
 
   return (
-    <div className="flex h-screen flex-col p-8">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col p-4 sm:p-8 md:h-screen">
       <div className="flex-none">
         <h1 className="text-2xl font-bold text-ink">Chat</h1>
         <p className="text-sm text-muted">Fale diretamente com a equipe da Terceirizei.</p>

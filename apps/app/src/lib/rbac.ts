@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { prisma, withPrismaRetry } from "@terceirizei/db";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAuthUserId } from "@/lib/supabase/auth-user";
 
 export const ROLES = ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO", "CLIENTE"] as const;
 export type Role = (typeof ROLES)[number];
@@ -20,15 +21,13 @@ export type CurrentUser = {
  * + consulta ao banco, dobrando (ou mais) o custo fixo de autenticação por clique. */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = createSupabaseServerClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const authUserId = await getAuthUserId(supabase);
 
-  if (!authUser) return null;
+  if (!authUserId) return null;
 
   const profile = await withPrismaRetry(() =>
     prisma.user.findUnique({
-      where: { id: authUser.id },
+      where: { id: authUserId },
       include: { role: true },
     })
   );

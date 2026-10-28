@@ -203,6 +203,7 @@ model User {
   commentMentions    ProcessCommentMention[]
   processPresence    ProcessPresence[]
   createdImpediments  ProcessImpediment[] @relation("ImpedimentCreatedBy")
+  processInfoFields   ProcessInfoField[]  @relation("ProcessInfoFieldUpdatedBy")
   resolvedImpediments ProcessImpediment[] @relation("ImpedimentResolvedBy")
   createdDeliverables ProcessDeliverable[] @relation("DeliverableCreatedBy")
   assignedRecurringTasks   RecurringTask[]           @relation("RecurringTaskAssignee")
@@ -378,6 +379,8 @@ model ProcessComment {
   processId String   @map("process_id") @db.Uuid
   authorId  String   @map("author_id") @db.Uuid
   body      String
+  /// Só comentários marcados como visíveis aparecem para o cliente no portal; os da equipe são internos por padrão.
+  clientVisible Boolean @default(false) @map("client_visible")
   createdAt DateTime @default(now()) @map("created_at")
 
   process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
@@ -489,6 +492,8 @@ model Process {
   plannedDeliveryAt   DateTime? @map("planned_delivery_at")
   actualDeliveryAt    DateTime? @map("actual_delivery_at")
   visibleInPortal   Boolean        @default(true) @map("visible_in_portal")
+  /// Tarefa aberta pelo próprio cliente no portal (destaque no quadro da equipe)
+  requestedByClient Boolean        @default(false) @map("requested_by_client")
   // Arquivada: sai do quadro e dos alertas, mas continua valendo no financeiro e no histórico.
   archivedAt        DateTime?      @map("archived_at")
   notes             String?
@@ -503,6 +508,7 @@ model Process {
   stage        KanbanStage            @relation(fields: [stageId], references: [id])
   stageHistory ProcessStage[]
   checklist    ProcessChecklistItem[]
+  infoFields   ProcessInfoField[]
   tags         ProcessTag[]
   documents    Document[]
   documentRequests DocumentRequest[]
@@ -616,6 +622,24 @@ model ProcessStage {
 
   @@index([processId])
   @@map("process_stages")
+}
+
+/// Aba "Informações" da tarefa: campos livres só da equipe (CNPJ, acessos, links).
+model ProcessInfoField {
+  id          String   @id @default(uuid()) @db.Uuid
+  processId   String   @map("process_id") @db.Uuid
+  label       String
+  value       String   @default("")
+  position    Int      @default(0)
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  updatedBy User?   @relation("ProcessInfoFieldUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([processId])
+  @@map("process_info_fields")
 }
 
 model ProcessChecklistItem {

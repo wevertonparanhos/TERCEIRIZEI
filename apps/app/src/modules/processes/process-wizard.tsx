@@ -59,6 +59,7 @@ export function NewTaskWizard({
   companies,
   serviceTypes,
   onSubmit,
+  createCategory,
   autoOpen = false,
 }: {
   workspaces: Workspace[];
@@ -67,6 +68,7 @@ export function NewTaskWizard({
   companies: Company[];
   serviceTypes: ServiceType[];
   onSubmit: (data: CreateProcessInput) => Promise<{ id: string } | void>;
+  createCategory?: (name: string) => Promise<{ id: string; name: string }>;
   autoOpen?: boolean;
 }) {
   const router = useRouter();
@@ -77,6 +79,8 @@ export function NewTaskWizard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [extraCategories, setExtraCategories] = useState<ServiceType[]>([]);
+  const allServiceTypes = useMemo(() => [...serviceTypes, ...extraCategories], [serviceTypes, extraCategories]);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState(initialWorkspace?.id ?? "");
   const [stageId, setStageId] = useState("");
@@ -372,12 +376,35 @@ export function NewTaskWizard({
               <Label htmlFor="wz-service">Categoria (tipo de serviço) *</Label>
               <Select id="wz-service" value={serviceTypeId} onChange={(e) => setServiceTypeId(e.target.value)}>
                 <option value="">Selecione...</option>
-                {serviceTypes.map((s) => (
+                {allServiceTypes.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
               </Select>
+              {createCategory && (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-accent hover:underline"
+                  onClick={async () => {
+                    const typed = window.prompt("Nome da nova categoria:");
+                    if (!typed || !typed.trim()) return;
+                    try {
+                      const created = await createCategory(typed);
+                      setExtraCategories((prev) =>
+                        allServiceTypes.some((s) => s.id === created.id)
+                          ? prev
+                          : [...prev, { id: created.id, name: created.name, defaultPrice: null, defaultDeadlineDays: null, defaultPriority: null, checklist: [] }]
+                      );
+                      setServiceTypeId(created.id);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Não foi possível criar a categoria.");
+                    }
+                  }}
+                >
+                  + Nova categoria
+                </button>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="wz-notes">Observações</Label>

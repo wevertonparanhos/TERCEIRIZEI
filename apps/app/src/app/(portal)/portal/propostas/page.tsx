@@ -17,7 +17,7 @@ export default async function PortalPropostasPage() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl p-8">
+    <div className="mx-auto max-w-3xl p-4 sm:p-8">
       <h1 className="text-2xl font-bold text-ink">Propostas</h1>
       <p className="mt-1 text-sm text-muted">Propostas comerciais enviadas pela Terceirizei.</p>
 

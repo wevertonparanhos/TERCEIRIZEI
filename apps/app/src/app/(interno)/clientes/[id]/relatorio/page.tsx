@@ -16,7 +16,7 @@ export default async function ClienteRelatorioPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { periodo?: string; inicio?: string; fim?: string };
+  searchParams: { periodo?: string; inicio?: string; fim?: string; mes?: string };
 }) {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -31,7 +31,14 @@ export default async function ClienteRelatorioPage({
   const periodKey: PeriodKey = PERIOD_KEYS.includes(searchParams.periodo as PeriodKey)
     ? (searchParams.periodo as PeriodKey)
     : "mes";
-  const { start, end } = resolvePeriod(periodKey, searchParams.inicio, searchParams.fim);
+  // "Mês de referência" (AAAA-MM) tem prioridade: é o relatório mensal que vai para o cliente.
+  const mes = /^\d{4}-(0[1-9]|1[0-2])$/.test(searchParams.mes ?? "") ? (searchParams.mes as string) : null;
+  const { start, end } = mes
+    ? {
+        start: new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5)) - 1, 1)),
+        end: new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5)), 0, 23, 59, 59, 999)),
+      }
+    : resolvePeriod(periodKey, searchParams.inicio, searchParams.fim);
 
   // Demandas INICIADAS no período (data de início/criação da tarefa), com valor e previsão de pagamento.
   const { rows, summary } = await loadStartLedger({ tenantId: user.tenantId, clientId: client.id, start, end });
@@ -56,6 +63,24 @@ export default async function ClienteRelatorioPage({
         </div>
         <PrintButton />
       </div>
+
+      <form method="get" className="flex flex-wrap items-end gap-2 print:hidden">
+        <div className="space-y-1">
+          <label htmlFor="mes" className="block text-xs font-medium text-muted">
+            Mês de referência
+          </label>
+          <input
+            id="mes"
+            name="mes"
+            type="month"
+            defaultValue={mes ?? ""}
+            className="h-9 rounded-lg border border-border-strong bg-surface px-3 text-sm text-ink"
+          />
+        </div>
+        <button type="submit" className="h-9 rounded-lg bg-accent px-4 text-sm font-medium text-white hover:bg-accent/90">
+          Gerar
+        </button>
+      </form>
 
       <div className="print:hidden">
         <PeriodFilter current={periodKey} start={searchParams.inicio ?? ""} end={searchParams.fim ?? ""} />
@@ -116,7 +141,7 @@ export default async function ClienteRelatorioPage({
               const status = getPaymentStatus(row.value, row.paymentDueDate, row.paidAt);
               return (
                 <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 text-muted">{row.startDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}</td>
+                  <td className="px-4 py-3 text-muted">{row.startDate.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td>
                   <td className="px-4 py-3">
                     #{row.number} — {row.title.slice(0, 60)}
                     {row.installmentLabel && <span className="text-muted-soft"> · {row.installmentLabel}</span>}

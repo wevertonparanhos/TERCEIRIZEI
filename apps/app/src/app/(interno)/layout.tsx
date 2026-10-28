@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   Calendar,
   ClipboardList,
-  LayoutTemplate,
   Repeat,
   FileSignature,
   Users,
@@ -56,10 +55,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Gestão",
     items: [
-      { href: "/equipe", label: "Equipe", roles: ["ADMIN"], icon: Users },
+      { href: "/equipe", label: "Equipe", roles: ["ADMIN", "GESTOR"], icon: Users },
       { href: "/clientes", label: "Clientes", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Handshake },
       { href: "/clientes/portal", label: "Portal de Clientes", roles: ["ADMIN", "GESTOR"], icon: ExternalLink },
-      { href: "/servicos", label: "Modelos de Processo", roles: ["ADMIN", "GESTOR"], icon: LayoutTemplate },
       {
         href: "/licencas",
         label: "Licenças e Certidões",

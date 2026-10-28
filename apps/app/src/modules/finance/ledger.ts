@@ -50,7 +50,10 @@ export async function loadStartLedger(params: {
   end: Date;
 }): Promise<{ rows: StartLedgerRow[]; summary: PaymentSummary }> {
   const { tenantId, clientId, start, end } = params;
-  const inRange = { gte: start, lte: end };
+  // O período chega em dias UTC; a data de criação é um instante — alinha ao dia de Brasília (UTC-3),
+  // para uma tarefa criada às 22h de 31/10 contar em outubro.
+  const BRT_SHIFT = 3 * 60 * 60 * 1000;
+  const inRange = { gte: new Date(start.getTime() + BRT_SHIFT), lte: new Date(end.getTime() + BRT_SHIFT) };
 
   const processes = await prisma.process.findMany({
     where: {

@@ -13,7 +13,7 @@ import {
   isPresenceActive,
   isDueToday,
 } from "@/modules/processes/labels";
-import { updateProcessStage, createWorkspace, createProcess } from "@/modules/processes/actions";
+import { updateProcessStage, createWorkspace, createProcess, createCategory } from "@/modules/processes/actions";
 import { NewTaskWizard } from "@/modules/processes/process-wizard";
 
 function KpiCard({
@@ -63,18 +63,19 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
   });
   const activeWorkspace = workspaces.find((w) => w.id === searchParams.area) ?? workspaces[0];
 
-  const archivedCount = activeWorkspace
-    ? await prisma.process.count({
-        where: {
-          tenantId: user.tenantId,
-          workspaceId: activeWorkspace.id,
-          archivedAt: { not: null },
-          ...(user.role === "OPERACIONAL" ? { assignees: { some: { userId: user.id } } } : {}),
-        },
-      })
-    : 0;
-
-  const [wizardData, stages, processes] = await Promise.all([
+  // Tudo que depende só da área ativa roda junto (antes a contagem de arquivadas
+  // esperava sozinha uma ida ao banco antes das demais consultas).
+  const [archivedCount, wizardData, stages, processes] = await Promise.all([
+    activeWorkspace
+      ? prisma.process.count({
+          where: {
+            tenantId: user.tenantId,
+            workspaceId: activeWorkspace.id,
+            archivedAt: { not: null },
+            ...(user.role === "OPERACIONAL" ? { assignees: { some: { userId: user.id } } } : {}),
+          },
+        })
+      : Promise.resolve(0),
     canManage
       ? Promise.all([
           prisma.workspace.findMany({
@@ -157,6 +158,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       paymentStatus: paymentSummary.status,
       hasOpenImpediment: p.impediments.length > 0,
       activePresenceNames: p.presence.filter((pr) => isPresenceActive(pr.lastSeenAt)).map((pr) => pr.user.name),
+      requestedByClient: p.requestedByClient,
     };
   });
 
@@ -207,6 +209,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
                 checklist: st.checklistTemplate.map((c) => c.label),
               }))}
               onSubmit={createProcess}
+              createCategory={createCategory}
               autoOpen={searchParams.nova === "1"}
             />
           )}

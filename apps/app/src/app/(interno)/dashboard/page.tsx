@@ -26,6 +26,7 @@ import { getLastMonths, sumByMonth, countByMonth, countByLabel, getLastDays, cou
 import { RevenueChart, ProcessesTrendChart, ServiceTypeBarChart, CompletionsTrendChart } from "@/modules/dashboard/charts";
 import { isWithinReminderWindow } from "@/modules/licenses/labels";
 import { ensureAutoRenewalTasks } from "@/modules/licenses/actions";
+import { waitUntil } from "@vercel/functions";
 import { sendDeadlineReminders } from "@/modules/notifications/actions";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -125,8 +126,15 @@ export default async function DashboardPage() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  await ensureAutoRenewalTasks(user.tenantId);
-  await sendDeadlineReminders(user.tenantId);
+  // Rotinas automáticas (renovações e avisos de prazo) rodam em segundo plano, em
+  // paralelo, DEPOIS da resposta — antes ficavam na frente do clique e seguravam o
+  // Dashboard por várias idas e vindas ao banco. Os efeitos (tarefa criada, e-mail
+  // enviado) aparecem na próxima abertura.
+  waitUntil(
+    Promise.all([ensureAutoRenewalTasks(user.tenantId), sendDeadlineReminders(user.tenantId)]).catch((err) =>
+      console.error("[dashboard] rotinas automáticas falharam:", err)
+    )
+  );
 
   if (user.role === "OPERACIONAL") {
     const [

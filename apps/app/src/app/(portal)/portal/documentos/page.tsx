@@ -28,7 +28,7 @@ export default async function PortalDocumentosPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-8">
+    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-8">
       <RealtimeRefresh table="document_requests" filterColumn="client_id" filterValue={user.clientId} />
       <div>
         <h1 className="text-2xl font-bold text-ink">Documentos</h1>

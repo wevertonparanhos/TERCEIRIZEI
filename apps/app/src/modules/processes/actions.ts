@@ -123,6 +123,8 @@ export async function createProcess(input: CreateProcessInput) {
       dueAt: data.dueAt ? new Date(data.dueAt) : null,
       plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : null,
       plannedDeliveryAt: data.plannedDeliveryAt ? new Date(data.plannedDeliveryAt) : null,
+      // Tarefas criadas pela equipe nascem só para a equipe; o botão "Visível no portal" libera ao cliente.
+      visibleInPortal: false,
     },
   });
 
@@ -215,6 +217,7 @@ export async function clientCreateProcess(input: ClientCreateProcessInput) {
           ? addDays(new Date(), serviceType.defaultDeadlineDays)
           : null,
       notes: data.notes || serviceType.defaultNotes || null,
+      requestedByClient: true,
     },
   });
 
@@ -230,6 +233,7 @@ export async function clientCreateProcess(input: ClientCreateProcessInput) {
     });
   }
 
+  revalidatePath("/processos");
   revalidatePath("/portal");
   revalidatePath("/portal/processos");
   return { id: process.id };
@@ -625,7 +629,12 @@ async function createCommentMentions(commentId: string, authorId: string, mentio
   });
 }
 
-export async function addProcessComment(processId: string, body: string, mentionedUserIds: string[] = []) {
+export async function addProcessComment(
+  processId: string,
+  body: string,
+  mentionedUserIds: string[] = [],
+  clientVisible = false
+) {
   const user = await getCurrentUser();
   if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
     throw new Error("Você não tem acesso a este módulo.");
@@ -635,7 +644,10 @@ export async function addProcessComment(processId: string, body: string, mention
   const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId } });
   if (!process) throw new Error("Tarefa não encontrada.");
 
-  const comment = await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim() } });
+  // Comentário da equipe nasce interno; só aparece no portal se marcado como visível ao cliente.
+  const comment = await prisma.processComment.create({
+    data: { processId, authorId: user.id, body: body.trim(), clientVisible },
+  });
   await createCommentMentions(comment.id, user.id, mentionedUserIds, user.tenantId);
 
   revalidatePath(`/processos/${processId}`);
@@ -653,10 +665,110 @@ export async function clientAddProcessComment(processId: string, body: string, _
   const process = await prisma.process.findFirst({ where: { id: processId, clientId: user.clientId } });
   if (!process) throw new Error("Tarefa não encontrada.");
 
-  await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim() } });
+  await prisma.processComment.create({ data: { processId, authorId: user.id, body: body.trim(), clientVisible: true } });
 
   revalidatePath(`/portal/processos/${processId}`);
   revalidatePath(`/processos/${processId}`);
+}
+
+// --- Categorias (tipos de serviço): criadas na hora, sem módulo próprio ---
+
+/** Cria a categoria (ou devolve a que já existe com o mesmo nome, sem diferenciar maiúsculas). */
+export async function createCategory(name: string): Promise<{ id: string; name: string }> {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
+    throw new Error("Você não tem acesso a este módulo.");
+  }
+  const clean = name.trim();
+  if (clean.length < 2) throw new Error("Informe o nome da categoria.");
+
+  const existing = await prisma.serviceType.findFirst({
+    where: { tenantId: user.tenantId, name: { equals: clean, mode: "insensitive" } },
+    select: { id: true, name: true },
+  });
+  if (existing) return existing;
+
+  const created = await prisma.serviceType.create({
+    data: { tenantId: user.tenantId, name: clean, active: true },
+    select: { id: true, name: true },
+  });
+  revalidatePath("/processos");
+  return created;
+}
+
+export async function setProcessCategory(processId: string, serviceTypeId: string) {
+  const user = await requireInfoAccess(processId);
+  const type = await prisma.serviceType.findFirst({ where: { id: serviceTypeId, tenantId: user.tenantId }, select: { id: true } });
+  if (!type) throw new Error("Categoria não encontrada.");
+  await prisma.process.update({ where: { id: processId }, data: { serviceTypeId } });
+  revalidatePath(`/processos/${processId}`);
+  revalidatePath("/processos");
+}
+
+// --- Aba "Informações": campos livres só da equipe ---
+
+async function requireInfoAccess(processId: string) {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
+    throw new Error("Você não tem acesso a este módulo.");
+  }
+  const process = await prisma.process.findFirst({
+    where: { id: processId, tenantId: user.tenantId },
+    select: { id: true, assignees: { select: { userId: true } } },
+  });
+  if (!process) throw new Error("Tarefa não encontrada.");
+  if (user.role === "OPERACIONAL" && !process.assignees.some((a) => a.userId === user.id)) {
+    throw new Error("Você não é responsável por esta tarefa.");
+  }
+  return user;
+}
+
+export async function addInfoField(processId: string, label: string, value: string) {
+  const user = await requireInfoAccess(processId);
+  if (!label.trim()) throw new Error("Informe o nome do campo.");
+  const last = await prisma.processInfoField.aggregate({ where: { processId }, _max: { position: true } });
+  await prisma.processInfoField.create({
+    data: { processId, label: label.trim(), value: value.trim(), position: (last._max.position ?? 0) + 1, updatedById: user.id },
+  });
+  revalidatePath(`/processos/${processId}`);
+}
+
+export async function updateInfoField(fieldId: string, label: string, value: string) {
+  const field = await prisma.processInfoField.findUnique({ where: { id: fieldId }, select: { processId: true } });
+  if (!field) throw new Error("Campo não encontrado.");
+  const user = await requireInfoAccess(field.processId);
+  if (!label.trim()) throw new Error("Informe o nome do campo.");
+  await prisma.processInfoField.update({
+    where: { id: fieldId },
+    data: { label: label.trim(), value: value.trim(), updatedById: user.id, updatedAt: new Date() },
+  });
+  revalidatePath(`/processos/${field.processId}`);
+}
+
+export async function deleteInfoField(fieldId: string) {
+  const field = await prisma.processInfoField.findUnique({ where: { id: fieldId }, select: { processId: true } });
+  if (!field) throw new Error("Campo não encontrado.");
+  await requireInfoAccess(field.processId);
+  await prisma.processInfoField.delete({ where: { id: fieldId } });
+  revalidatePath(`/processos/${field.processId}`);
+}
+
+/** Equipe decide se um comentário aparece (ou não) para o cliente no portal. */
+export async function setCommentClientVisible(commentId: string, visible: boolean) {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
+    throw new Error("Você não tem acesso a este módulo.");
+  }
+  const comment = await prisma.processComment.findFirst({
+    where: { id: commentId, process: { tenantId: user.tenantId } },
+    select: { id: true, processId: true, author: { select: { role: { select: { name: true } } } } },
+  });
+  if (!comment) throw new Error("Comentário não encontrado.");
+  if (comment.author.role.name === "CLIENTE") throw new Error("Comentários do cliente são sempre visíveis a ele.");
+
+  await prisma.processComment.update({ where: { id: commentId }, data: { clientVisible: visible } });
+  revalidatePath(`/processos/${comment.processId}`);
+  revalidatePath(`/portal/processos/${comment.processId}`);
 }
 
 /** Chamado ao abrir a tela do processo — marca os comentários e as menções
