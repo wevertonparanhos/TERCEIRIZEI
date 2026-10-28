@@ -5,12 +5,13 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { InviteStaffForm } from "@/modules/team/invite-form";
-import { RoleSelect, RemoveMemberButton, ReactivateButton } from "@/modules/team/member-controls";
+import { RoleSelect, RemoveMemberButton, ReactivateButton, ActivateMigratedButton } from "@/modules/team/member-controls";
 import {
   inviteStaffMember,
   changeStaffRole,
   removeStaffMember,
   reactivateStaffMember,
+  activateMigratedMember,
 } from "@/modules/team/actions";
 import { ROLE_LABELS } from "@/modules/team/permissions";
 
@@ -82,7 +83,9 @@ export default async function EquipePage({ searchParams }: { searchParams: { sem
   const lastSeenById = new Map(lastSignIns.map((r) => [r.id, r.last_sign_in_at]));
 
   const activeStaff = staff.filter((m) => m.active);
-  const ordered = [...activeStaff, ...staff.filter((m) => !m.active)];
+  const isMigrated = (m: { email: string }) => m.email.endsWith(".invalid");
+  const mainMembers = [...activeStaff, ...staff.filter((m) => !m.active && !isMigrated(m))];
+  const migratedMembers = staff.filter((m) => !m.active && isMigrated(m));
 
   // carga de trabalho: membro × dia
   type Cell = { id: string; number: number; title: string; priority: string }[];
@@ -127,6 +130,48 @@ export default async function EquipePage({ searchParams }: { searchParams: { sem
       {(cell?.length ?? 0) > 3 && <p className="px-1 text-[11px] text-muted-soft">+{(cell?.length ?? 0) - 3} tarefa(s)</p>}
     </div>
   );
+
+  const renderMemberRow = (member: (typeof staff)[number]) => {
+      const migrated = member.email.endsWith(".invalid");
+      const seen = lastSeenLabel(lastSeenById.get(member.id) ?? null);
+      const isSelf = member.id === user.id;
+      return (
+        <tr key={member.id} className={`border-b border-border last:border-0 hover:bg-surface-alt ${member.active ? "" : "opacity-70"}`}>
+          <td className="px-4 py-3 font-medium text-ink">{member.name}</td>
+          <td className="px-4 py-3 text-muted">
+            {migrated ? <span className="text-muted-soft">Migrado do FreelaPRO (só histórico)</span> : member.email}
+          </td>
+          <td className="px-4 py-3">
+            {isAdmin && !isSelf ? (
+              <RoleSelect userId={member.id} current={member.role.name} changeRole={changeStaffRole} />
+            ) : (
+              <Badge variant="info">{ROLE_LABELS[member.role.name] ?? member.role.name}</Badge>
+            )}
+          </td>
+          <td className="px-4 py-3">
+            <Badge variant={member.active ? "success" : "neutral"}>{member.active ? "Ativo" : "Desativado"}</Badge>
+            {member.active && seen && <p className="mt-1 text-[11px] text-muted-soft">{seen}</p>}
+          </td>
+          <td className="px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href={`/equipe/${member.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Permissões
+              </Link>
+              {isAdmin && !isSelf && !member.active && !migrated && (
+              <ReactivateButton userId={member.id} reactivate={reactivateStaffMember} />
+            )}
+            {isAdmin && !isSelf && !member.active && migrated && (
+              <ActivateMigratedButton userId={member.id} name={member.name} activate={activateMigratedMember} />
+            )}
+              {isAdmin && !isSelf && (
+                <RemoveMemberButton userId={member.id} name={member.name} remove={removeStaffMember} />
+              )}
+            </div>
+          </td>
+        </tr>
+      );
+  };
 
   return (
     <div className="space-y-6 p-4 sm:p-8">
@@ -254,47 +299,23 @@ export default async function EquipePage({ searchParams }: { searchParams: { sem
               </tr>
             </thead>
             <tbody>
-              {ordered.map((member) => {
-                const migrated = member.email.endsWith(".invalid");
-                const seen = lastSeenLabel(lastSeenById.get(member.id) ?? null);
-                const isSelf = member.id === user.id;
-                return (
-                  <tr key={member.id} className={`border-b border-border last:border-0 hover:bg-surface-alt ${member.active ? "" : "opacity-70"}`}>
-                    <td className="px-4 py-3 font-medium text-ink">{member.name}</td>
-                    <td className="px-4 py-3 text-muted">
-                      {migrated ? <span className="text-muted-soft">Migrado do FreelaPRO (só histórico)</span> : member.email}
-                    </td>
-                    <td className="px-4 py-3">
-                      {isAdmin && !isSelf && member.active ? (
-                        <RoleSelect userId={member.id} current={member.role.name} changeRole={changeStaffRole} />
-                      ) : (
-                        <Badge variant="info">{ROLE_LABELS[member.role.name] ?? member.role.name}</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={member.active ? "success" : "neutral"}>{member.active ? "Ativo" : "Desativado"}</Badge>
-                      {member.active && seen && <p className="mt-1 text-[11px] text-muted-soft">{seen}</p>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <Link href={`/equipe/${member.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Permissões
-                        </Link>
-                        {isAdmin && !isSelf && !member.active && !migrated && (
-                          <ReactivateButton userId={member.id} reactivate={reactivateStaffMember} />
-                        )}
-                        {isAdmin && !isSelf && (member.active || !migrated) && (
-                          <RemoveMemberButton userId={member.id} name={member.name} remove={removeStaffMember} />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {mainMembers.map(renderMemberRow)}
             </tbody>
           </table>
         </div>
+
+        {migratedMembers.length > 0 && (
+          <details className="border-t border-border" open>
+            <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-ink">
+              Migrados do FreelaPRO ({migratedMembers.length}) <span className="font-normal text-muted">— só histórico; ative com um e-mail real ou remova</span>
+            </summary>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <tbody>{migratedMembers.map(renderMemberRow)}</tbody>
+              </table>
+            </div>
+          </details>
+        )}
       </section>
     </div>
   );

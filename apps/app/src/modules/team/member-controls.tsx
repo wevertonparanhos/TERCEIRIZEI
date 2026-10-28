@@ -101,6 +101,46 @@ export function RemoveMemberButton({
   );
 }
 
+/** Membro migrado do FreelaPRO: informa um e-mail real, ativa o acesso e mostra o link para criar a senha. */
+export function ActivateMigratedButton({
+  userId,
+  name,
+  activate,
+}: {
+  userId: string;
+  name: string;
+  activate: (userId: string, email: string) => Promise<{ inviteLink: string }>;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function onClick() {
+    const email = window.prompt(`E-mail de ${name} para ativar o acesso:`);
+    if (!email || !email.trim()) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { inviteLink } = await activate(userId, email);
+      window.prompt("Acesso ativado! Copie este link e envie para a pessoa criar a senha (Ctrl+C):", inviteLink);
+      router.refresh();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Não foi possível ativar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span>
+      <button type="button" onClick={onClick} disabled={busy} className="text-xs font-medium text-accent hover:underline disabled:opacity-60">
+        {busy ? "Ativando..." : "Ativar com e-mail"}
+      </button>
+      {message && <span className="ml-2 block max-w-[16rem] text-xs text-red-600">{message}</span>}
+    </span>
+  );
+}
+
 export function ReactivateButton({
   userId,
   reactivate,

@@ -6,6 +6,7 @@ import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { provisionInvitedUser } from "@/lib/invite-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { headers } from "next/headers";
 import { inviteStaffSchema, type InviteStaffInput } from "@/lib/validations/team";
 import { STAFF_ROLES, ROLE_LABELS } from "@/modules/team/permissions";
 
@@ -91,6 +92,53 @@ export async function reactivateStaffMember(userId: string) {
   revalidatePath("/equipe");
 }
 
+/** Dá acesso de verdade a um membro que veio da migração só como histórico: troca o e-mail provisório
+ * por um real, reativa e devolve um link para a pessoa definir a senha. O histórico dele (comentários,
+ * tarefas) continua com o mesmo nome. */
+export async function activateMigratedMember(userId: string, email: string): Promise<{ inviteLink: string }> {
+  const user = await requireAdmin();
+  const clean = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new Error("E-mail inválido.");
+
+  const target = await loadStaffTarget(userId, user.tenantId);
+  if (!target.email.endsWith(".invalid")) throw new Error("Este membro já tem um e-mail real.");
+  const taken = await prisma.user.findUnique({ where: { email: clean }, select: { id: true } });
+  if (taken) throw new Error("Já existe um usuário com este e-mail.");
+
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      update auth.users
+         set email = ${clean}::text, email_confirmed_at = now(), banned_until = null, updated_at = now()
+       where id = ${userId}::uuid`,
+    prisma.$executeRaw`
+      insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+      select gen_random_uuid(), ${userId}::uuid, ${userId}::text, jsonb_build_object('sub', ${userId}::text, 'email', ${clean}::text), 'email', now(), now(), now()
+       where not exists (select 1 from auth.identities where user_id = ${userId}::uuid)`,
+    prisma.user.update({ where: { id: userId }, data: { email: clean, active: true } }),
+  ]);
+
+  const host = headers().get("host") ?? "";
+  const origin = `${host.startsWith("localhost") ? "http" : "https"}://${host}`;
+  const { data, error } = await createSupabaseAdminClient().auth.admin.generateLink({
+    type: "recovery",
+    email: clean,
+    options: { redirectTo: `${origin}/auth/callback?next=/redefinir-senha` },
+  });
+  if (error || !data) throw new Error("Membro ativado, mas não foi possível gerar o link de acesso. Use \"Esqueci minha senha\" no login.");
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "team.activate_migrated",
+    entityType: "user",
+    entityId: userId,
+    description: `${target.name}: membro migrado ativado com o e-mail ${clean}.`,
+  });
+
+  revalidatePath("/equipe");
+  return { inviteLink: data.properties.action_link };
+}
+
 /** Troca o papel de um membro. O acesso de cada papel está em modules/team/permissions.ts. */
 export async function changeStaffRole(userId: string, roleName: string) {
   const user = await requireAdmin();
@@ -99,6 +147,9 @@ export async function changeStaffRole(userId: string, roleName: string) {
 
   const target = await loadStaffTarget(userId, user.tenantId);
   if (target.role.name === roleName) return;
+  if (target.role.name === "ADMIN" && !target.active) {
+    // admin desativado não conta como "último administrador" — pode mudar sem travar o sistema
+  }
   if (target.role.name === "ADMIN") await assertNotLastAdmin(target, user.tenantId);
 
   const role = await prisma.role.findUnique({ where: { name: roleName as (typeof STAFF_ROLES)[number] } });
