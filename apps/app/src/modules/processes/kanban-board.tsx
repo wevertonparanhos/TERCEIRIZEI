@@ -3,7 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { DndContext, DragOverlay, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, type PaymentStatus } from "@/modules/processes/labels";
@@ -134,7 +144,7 @@ function DraggableCard({ card, canDrag }: { card: KanbanCard; canDrag: boolean }
         ref={setNodeRef}
         {...(canDrag ? listeners : {})}
         {...(canDrag ? attributes : {})}
-        style={{ opacity: isDragging ? 0.4 : 1, touchAction: "none" }}
+        style={{ opacity: isDragging ? 0.4 : 1 }}
         className="mb-2"
         onClick={(e) => {
           if (isDragging) e.preventDefault();
@@ -152,7 +162,7 @@ function DroppableColumn({ stage, cards, canDrag }: { stage: Stage; cards: Kanba
   return (
     <div
       ref={setNodeRef}
-      className={`flex w-64 flex-none flex-col rounded-lg border ${
+      className={`flex h-full max-h-full w-64 flex-none flex-col rounded-lg border ${
         isOver ? "border-accent bg-accent-soft" : "border-border bg-surface-alt"
       }`}
     >
@@ -165,7 +175,7 @@ function DroppableColumn({ stage, cards, canDrag }: { stage: Stage; cards: Kanba
           {cards.length}
         </span>
       </div>
-      <div className="flex-1 space-y-2 p-2">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
         {cards.map((card) => (
           <DraggableCard key={card.id} card={card} canDrag={canDrag} />
         ))}
@@ -186,6 +196,13 @@ export function KanbanBoard({
   updateStage: (processId: string, stageId: string) => Promise<void>;
 }) {
   const router = useRouter();
+  // Sem "distância mínima" o arrasto começa no clique e engole o clique do mouse:
+  // o card não abria. Com a restrição, clicar abre a tarefa e só arrastar move.
+  // No toque, segurar um instante para arrastar mantém a rolagem da coluna livre.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } })
+  );
   const [items, setItems] = useState(cards);
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -218,14 +235,14 @@ export function KanbanBoard({
   }
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       {error && (
         <p role="alert" className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {error}
         </p>
       )}
-      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4">
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
           {stages.map((stage) => (
             <DroppableColumn
               key={stage.id}
