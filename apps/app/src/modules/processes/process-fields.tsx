@@ -366,15 +366,17 @@ function DateCell({
   );
 }
 
-/** Cronograma Previsto × Real. O "real" fica vermelho quando passa do previsto. */
-export function ScheduleCard() {
+/** Cronograma: uma única data de início (a de criação da tarefa, não editável) e
+ * Previsto × Real para conclusão e entrega. O "real" fica vermelho quando passa
+ * do previsto. */
+export function ScheduleCard({ createdAt }: { createdAt: string }) {
   const { fields, save, readOnly } = useFields();
   const late = (planned: string, actual: string) => !!planned && !!actual && actual > planned;
   const rows: { label: string; plannedKey: keyof Fields; actualKey: keyof Fields }[] = [
-    { label: "Início", plannedKey: "plannedStartAt", actualKey: "actualStartAt" },
     { label: "Conclusão", plannedKey: "dueAt", actualKey: "actualCompletionAt" },
     { label: "Entrega", plannedKey: "plannedDeliveryAt", actualKey: "actualDeliveryAt" },
   ];
+  const startDate = new Date(createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
   return (
     <div className="rounded-2xl border border-border/70 bg-surface p-4 shadow-sm">
@@ -382,6 +384,12 @@ export function ScheduleCard() {
         <CalendarClock className="h-4 w-4 text-muted-soft" />
         Cronograma
       </p>
+      <div className="mb-3 flex items-center justify-between text-xs">
+        <span className="text-muted">Início</span>
+        <span title="Data em que a tarefa foi criada" className="px-1 font-medium text-ink">
+          {startDate}
+        </span>
+      </div>
       <div className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-x-2 gap-y-1 text-xs">
         <span />
         <span className="px-1 text-muted-soft">Previsto</span>

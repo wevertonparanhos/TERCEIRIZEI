@@ -31,7 +31,7 @@ export type StartLedgerRow = {
   processId: string;
   number: number;
   title: string;
-  /** Data de início/criação da tarefa: início real, senão previsto, senão cadastro. */
+  /** Data de início da tarefa = data em que foi criada. */
   startDate: Date;
   installmentLabel: string | null;
   value: number;
@@ -41,7 +41,7 @@ export type StartLedgerRow = {
 };
 
 /** Relatório mensal para enviar ao cliente: as demandas INICIADAS no período
- * (pela data de início/criação da tarefa) com o valor e a previsão de pagamento
+ * (o início é a data de criação da tarefa) com o valor e a previsão de pagamento
  * de cada uma — não importa em que mês cai o vencimento. */
 export async function loadStartLedger(params: {
   tenantId: string;
@@ -56,18 +56,12 @@ export async function loadStartLedger(params: {
     where: {
       tenantId,
       clientId,
-      OR: [
-        { actualStartAt: inRange },
-        { actualStartAt: null, plannedStartAt: inRange },
-        { actualStartAt: null, plannedStartAt: null, createdAt: inRange },
-      ],
+      createdAt: inRange,
     },
     select: {
       id: true,
       number: true,
       description: true,
-      actualStartAt: true,
-      plannedStartAt: true,
       createdAt: true,
       installments: { orderBy: { position: "asc" }, select: { id: true, position: true, value: true, paymentDueDate: true, paidAt: true } },
     },
@@ -80,7 +74,7 @@ export async function loadStartLedger(params: {
         processId: p.id,
         number: p.number,
         title: p.description,
-        startDate: (p.actualStartAt ?? p.plannedStartAt ?? p.createdAt) as Date,
+        startDate: p.createdAt,
         installmentLabel: p.installments.length > 1 ? `Parcela ${i.position}` : null,
         value: Number(i.value),
         paymentDueDate: i.paymentDueDate,

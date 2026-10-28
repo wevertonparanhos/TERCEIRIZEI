@@ -442,10 +442,6 @@ export function NewTaskWizard({
             />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="wz-start">Data prevista de início (opcional)</Label>
-                <Input id="wz-start" type="date" value={plannedStartAt} onChange={(e) => setPlannedStartAt(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
                 <Label htmlFor="wz-due">Data prevista de conclusão (opcional)</Label>
                 <Input id="wz-due" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
                 <p className="text-xs text-muted-soft">Quando o trabalho interno precisa estar finalizado.</p>
@@ -457,7 +453,7 @@ export function NewTaskWizard({
                 </div>
               )}
             </div>
-            {!hasDelivery && <p className="text-xs text-muted-soft">Basta definir início e conclusão — sem data de entrega para o cliente.</p>}
+            {!hasDelivery && <p className="text-xs text-muted-soft">O início é a data em que a tarefa é criada. Basta definir a conclusão — sem data de entrega para o cliente.</p>}
           </div>
         )}
 

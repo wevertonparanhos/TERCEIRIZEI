@@ -532,7 +532,7 @@ export default async function ProcessoDetalhePage({
                 />
               </div>
             )}
-            <ScheduleCard />
+            <ScheduleCard createdAt={process.createdAt.toISOString()} />
           </aside>
         </div>
       </div>
