@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Briefcase, CalendarClock, CreditCard, Globe, Link2, Signal, Tag, User, Users, Wallet } from "lucide-react";
@@ -304,17 +304,28 @@ export function NotesCard() {
   const { fields, save, readOnly } = useFields();
   const [text, setText] = useState(fields.notes);
   const dirty = text !== fields.notes;
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  // A caixa acompanha o tamanho do texto: sem rolagem interna, cresce e encolhe.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [text]);
 
   return (
     <div className="space-y-3 rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
       <h2 className="text-base font-semibold text-ink">Observações</h2>
       <Textarea
+        ref={ref}
         value={text}
         disabled={readOnly}
         maxLength={MAX_NOTES}
-        rows={8}
+        rows={3}
         onChange={(e) => setText(e.target.value)}
         placeholder="Anotações e observações sobre a tarefa"
+        className="min-h-[5rem] resize-none overflow-hidden"
       />
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-soft">

@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { PeriodFilter } from "@/modules/finance/period-filter";
 import { resolvePeriod, PERIOD_KEYS, type PeriodKey } from "@/modules/finance/period";
-import { loadLedger } from "@/modules/finance/ledger";
+import { loadStartLedger } from "@/modules/finance/ledger";
 import { getPaymentStatus, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_BADGE_VARIANT } from "@/modules/processes/labels";
 import { PrintButton } from "@/modules/finance/print-button";
 
@@ -33,9 +33,10 @@ export default async function ClienteRelatorioPage({
     : "mes";
   const { start, end } = resolvePeriod(periodKey, searchParams.inicio, searchParams.fim);
 
-  const { rows, undated, summary } = await loadLedger({ tenantId: user.tenantId, clientId: client.id, start, end });
-  const undatedOpen = undated.filter((u) => !u.paidAt);
-  const undatedOpenTotal = undatedOpen.reduce((sum, u) => sum + u.value, 0);
+  // Demandas INICIADAS no período (data de início/criação da tarefa), com valor e previsão de pagamento.
+  const { rows, summary } = await loadStartLedger({ tenantId: user.tenantId, clientId: client.id, start, end });
+  const undatedOpen = rows.filter((r) => !r.paidAt && !r.paymentDueDate);
+  const undatedOpenTotal = undatedOpen.reduce((sum, r) => sum + r.value, 0);
   const periodLabel = `${start.toLocaleDateString("pt-BR", { timeZone: "UTC" })} até ${end.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`;
 
   return (
@@ -49,7 +50,9 @@ export default async function ClienteRelatorioPage({
       <div className="flex items-start justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-ink">Relatório Financeiro</h1>
-          <p className="text-sm text-muted">{client.name}</p>
+          <p className="text-sm text-muted">
+            {client.name} · demandas iniciadas no período, com a previsão de pagamento de cada uma
+          </p>
         </div>
         <PrintButton />
       </div>
@@ -61,7 +64,7 @@ export default async function ClienteRelatorioPage({
       {/* Cabeçalho só visível na impressão/PDF */}
       <div className="hidden print:block">
         <h1 className="text-xl font-bold text-ink">Relatório Financeiro — {client.name}</h1>
-        <p className="text-sm text-muted">Período: {periodLabel}</p>
+        <p className="text-sm text-muted">Demandas iniciadas de {periodLabel}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -85,8 +88,8 @@ export default async function ClienteRelatorioPage({
 
       {undatedOpen.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 print:border-slate-300 print:bg-transparent">
-          {undatedOpen.length} parcela(s) sem data de vencimento ({currencyFormatter.format(undatedOpenTotal)}) não entram nos totais deste
-          período: {undatedOpen.map((u) => `#${u.number}`).join(", ")}.
+          {undatedOpen.length} parcela(s) em aberto sem previsão de pagamento ({currencyFormatter.format(undatedOpenTotal)}):{" "}
+          {undatedOpen.map((u) => `#${u.number}`).join(", ")}.
         </div>
       )}
 
@@ -94,8 +97,9 @@ export default async function ClienteRelatorioPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-alt text-left text-xs uppercase tracking-wide text-muted print:bg-transparent">
+              <th className="px-4 py-3 font-medium">Início</th>
               <th className="px-4 py-3 font-medium">Tarefa</th>
-              <th className="px-4 py-3 font-medium">Vencimento</th>
+              <th className="px-4 py-3 font-medium">Previsão de pagamento</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 text-right font-medium">Valor</th>
             </tr>
@@ -103,8 +107,8 @@ export default async function ClienteRelatorioPage({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-muted-soft">
-                  Nenhuma demanda com pagamento neste período.
+                <td colSpan={5} className="px-4 py-10 text-center text-muted-soft">
+                  Nenhuma demanda iniciada neste período.
                 </td>
               </tr>
             )}
@@ -112,9 +116,9 @@ export default async function ClienteRelatorioPage({
               const status = getPaymentStatus(row.value, row.paymentDueDate, row.paidAt);
               return (
                 <tr key={row.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3 text-muted">{row.startDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}</td>
                   <td className="px-4 py-3">
-                    {row.kind === "parcela" ? `#${row.number} — ` : ""}
-                    {row.title.slice(0, 60)}
+                    #{row.number} — {row.title.slice(0, 60)}
                     {row.installmentLabel && <span className="text-muted-soft"> · {row.installmentLabel}</span>}
                   </td>
                   <td className="px-4 py-3 text-muted">
@@ -131,7 +135,7 @@ export default async function ClienteRelatorioPage({
           {rows.length > 0 && (
             <tfoot>
               <tr className="border-t border-border-strong">
-                <td colSpan={3} className="px-4 py-3 text-right font-semibold text-ink">
+                <td colSpan={4} className="px-4 py-3 text-right font-semibold text-ink">
                   Total pendente de pagamento
                 </td>
                 <td className="px-4 py-3 text-right font-mono font-semibold text-red-600">

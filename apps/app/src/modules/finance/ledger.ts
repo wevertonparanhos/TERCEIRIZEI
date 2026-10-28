@@ -26,6 +26,72 @@ export type UndatedInstallment = {
   paidAt: Date | null;
 };
 
+export type StartLedgerRow = {
+  id: string;
+  processId: string;
+  number: number;
+  title: string;
+  /** Data de início/criação da tarefa: início real, senão previsto, senão cadastro. */
+  startDate: Date;
+  installmentLabel: string | null;
+  value: number;
+  /** Previsão de pagamento (vencimento da parcela). */
+  paymentDueDate: Date | null;
+  paidAt: Date | null;
+};
+
+/** Relatório mensal para enviar ao cliente: as demandas INICIADAS no período
+ * (pela data de início/criação da tarefa) com o valor e a previsão de pagamento
+ * de cada uma — não importa em que mês cai o vencimento. */
+export async function loadStartLedger(params: {
+  tenantId: string;
+  clientId: string;
+  start: Date;
+  end: Date;
+}): Promise<{ rows: StartLedgerRow[]; summary: PaymentSummary }> {
+  const { tenantId, clientId, start, end } = params;
+  const inRange = { gte: start, lte: end };
+
+  const processes = await prisma.process.findMany({
+    where: {
+      tenantId,
+      clientId,
+      OR: [
+        { actualStartAt: inRange },
+        { actualStartAt: null, plannedStartAt: inRange },
+        { actualStartAt: null, plannedStartAt: null, createdAt: inRange },
+      ],
+    },
+    select: {
+      id: true,
+      number: true,
+      description: true,
+      actualStartAt: true,
+      plannedStartAt: true,
+      createdAt: true,
+      installments: { orderBy: { position: "asc" }, select: { id: true, position: true, value: true, paymentDueDate: true, paidAt: true } },
+    },
+  });
+
+  const rows: StartLedgerRow[] = processes
+    .flatMap((p) =>
+      p.installments.map((i) => ({
+        id: i.id,
+        processId: p.id,
+        number: p.number,
+        title: p.description,
+        startDate: (p.actualStartAt ?? p.plannedStartAt ?? p.createdAt) as Date,
+        installmentLabel: p.installments.length > 1 ? `Parcela ${i.position}` : null,
+        value: Number(i.value),
+        paymentDueDate: i.paymentDueDate,
+        paidAt: i.paidAt,
+      }))
+    )
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime() || a.number - b.number);
+
+  return { rows, summary: summarizePayments(rows) };
+}
+
 /** Fonte única dos valores financeiros — usada pelo Financeiro geral e pelo
  * relatório por cliente, para os dois sempre baterem.
  *  - parcelas de tarefas com vencimento dentro do período;
