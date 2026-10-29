@@ -12,7 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { parseBrl } from "@/modules/processes/process-fields";
 import { PRIORITY_LABELS } from "@/modules/processes/labels";
-import { deleteServiceType, saveServiceType, setServiceTypeActive } from "@/modules/service-types/actions";
+import { deleteServiceType, saveServiceType, setServiceTypeActive, type ActionResult } from "@/modules/service-types/actions";
 
 export type ServiceTypeItem = {
   id: string;
@@ -68,11 +68,12 @@ export function ServiceTypeManager({ items }: { items: ServiceTypeItem[] }) {
     return items.filter((i) => (showInactive || i.active) && (!q || i.name.toLowerCase().includes(q)));
   }, [items, query, showInactive]);
 
-  async function run(key: string, fn: () => Promise<unknown>) {
+  async function run(key: string, fn: () => Promise<ActionResult>) {
     setBusy(key);
     setError(null);
     try {
-      await fn();
+      const result = await fn();
+      if (!result.ok) setError(result.error);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível concluir.");
@@ -106,7 +107,7 @@ export function ServiceTypeManager({ items }: { items: ServiceTypeItem[] }) {
     }
     setBusy("save");
     try {
-      await saveServiceType(draft.id, {
+      const result = await saveServiceType(draft.id, {
         name: draft.name,
         defaultPrice: price,
         defaultDeadlineDays: days,
@@ -115,6 +116,10 @@ export function ServiceTypeManager({ items }: { items: ServiceTypeItem[] }) {
         active: draft.active,
         checklist: draft.checklist.map((label) => ({ label })),
       });
+      if (!result.ok) {
+        setFormError(result.error);
+        return;
+      }
       setDraft(null);
       router.refresh();
     } catch (err) {
@@ -199,7 +204,7 @@ export function ServiceTypeManager({ items }: { items: ServiceTypeItem[] }) {
                   {confirmDelete === item.id ? (
                     <div className="flex items-center justify-end gap-2 text-xs">
                       <span className="text-muted">Excluir de vez?</span>
-                      <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => run(item.id, async () => { await deleteServiceType(item.id); setConfirmDelete(null); })}>
+                      <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => run(item.id, async () => { setConfirmDelete(null); return deleteServiceType(item.id); })}>
                         Sim
                       </Button>
                       <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>

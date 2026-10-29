@@ -6,11 +6,18 @@ import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { serviceTypeSchema, type ServiceTypeInput } from "@/lib/validations/service-type";
 
+// Em produção o Next esconde a mensagem de erros lançados por Server Actions, então os avisos esperados
+// (sem permissão, nome repetido, modelo em uso) voltam como resultado e a tela mostra o texto.
+export type ActionResult<T extends object = object> = ({ ok: true } & T) | { ok: false; error: string };
+
+const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
+
+const NO_PERMISSION = "Você não tem permissão para editar os modelos.";
+
 // A conexão do Prisma bypassa RLS — tenant_id explícito em todo where/data é a fronteira real.
-async function requireManageAccess(): Promise<CurrentUser> {
+async function manageAccess(): Promise<CurrentUser | null> {
   const user = await getCurrentUser();
-  if (!user || !["ADMIN", "GESTOR"].includes(user.role)) throw new Error("Você não tem permissão para editar os modelos.");
-  return user;
+  return user && ["ADMIN", "GESTOR"].includes(user.role) ? user : null;
 }
 
 function refresh() {
@@ -19,15 +26,18 @@ function refresh() {
 }
 
 /** Cria (id = null) ou atualiza um modelo de tarefa, com o checklist padrão. */
-export async function saveServiceType(id: string | null, input: ServiceTypeInput): Promise<{ id: string }> {
-  const user = await requireManageAccess();
-  const data = serviceTypeSchema.parse(input);
+export async function saveServiceType(id: string | null, input: ServiceTypeInput): Promise<ActionResult<{ id: string }>> {
+  const user = await manageAccess();
+  if (!user) return fail(NO_PERMISSION);
+  const parsed = serviceTypeSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Confira os dados do modelo.");
+  const data = parsed.data;
 
   const duplicate = await prisma.serviceType.findFirst({
     where: { tenantId: user.tenantId, name: { equals: data.name, mode: "insensitive" }, ...(id ? { id: { not: id } } : {}) },
     select: { id: true },
   });
-  if (duplicate) throw new Error("Já existe um modelo com esse nome.");
+  if (duplicate) return fail("Já existe um modelo com esse nome.");
 
   const values = {
     name: data.name,
@@ -38,11 +48,11 @@ export async function saveServiceType(id: string | null, input: ServiceTypeInput
     active: data.active,
   };
 
-  const saved = await prisma.$transaction(async (tx) => {
+  const saved = await prisma.$transaction(async (tx): Promise<{ id: string } | null> => {
     let serviceTypeId = id;
     if (id) {
       const found = await tx.serviceType.updateMany({ where: { id, tenantId: user.tenantId }, data: values });
-      if (found.count === 0) throw new Error("Modelo não encontrado.");
+      if (found.count === 0) return null;
     } else {
       const created = await tx.serviceType.create({ data: { tenantId: user.tenantId, ...values }, select: { id: true } });
       serviceTypeId = created.id;
@@ -56,6 +66,7 @@ export async function saveServiceType(id: string | null, input: ServiceTypeInput
     }
     return { id: serviceTypeId! };
   });
+  if (!saved) return fail("Modelo não encontrado. Atualize a página.");
 
   await logAudit({
     tenantId: user.tenantId,
@@ -67,26 +78,30 @@ export async function saveServiceType(id: string | null, input: ServiceTypeInput
   });
 
   refresh();
-  return saved;
+  return { ok: true, id: saved.id };
 }
 
 /** Ativa ou desativa o modelo (desativado some da Nova Tarefa, mas as tarefas antigas continuam com ele). */
-export async function setServiceTypeActive(id: string, active: boolean) {
-  const user = await requireManageAccess();
+export async function setServiceTypeActive(id: string, active: boolean): Promise<ActionResult> {
+  const user = await manageAccess();
+  if (!user) return fail(NO_PERMISSION);
   const result = await prisma.serviceType.updateMany({ where: { id, tenantId: user.tenantId }, data: { active } });
-  if (result.count === 0) throw new Error("Modelo não encontrado.");
+  if (result.count === 0) return fail("Modelo não encontrado. Atualize a página.");
   refresh();
+  return { ok: true };
 }
 
 /** Exclui o modelo — só se nenhuma tarefa ou pedido do portal usar. Senão, desative. */
-export async function deleteServiceType(id: string) {
-  const user = await requireManageAccess();
+export async function deleteServiceType(id: string): Promise<ActionResult> {
+  const user = await manageAccess();
+  if (!user) return fail(NO_PERMISSION);
   const type = await prisma.serviceType.findFirst({ where: { id, tenantId: user.tenantId }, select: { id: true, name: true } });
-  if (!type) throw new Error("Modelo não encontrado.");
+  if (!type) return fail("Modelo não encontrado. Atualize a página.");
 
   const [tasks, requests] = await Promise.all([prisma.process.count({ where: { serviceTypeId: id } }), prisma.portalRequest.count({ where: { serviceTypeId: id } })]);
   if (tasks + requests > 0) {
-    throw new Error(`Este modelo está em uso (${tasks} tarefa(s), ${requests} pedido(s) do portal). Desative-o em vez de excluir.`);
+    const uso = [tasks > 0 ? `${tasks} tarefa(s)` : null, requests > 0 ? `${requests} pedido(s) do portal` : null].filter(Boolean).join(" e ");
+    return fail(`Este modelo está em uso (${uso}) e não pode ser excluído. Clique em Desativar: ele some da Nova Tarefa e as tarefas antigas continuam com ele.`);
   }
 
   await prisma.serviceType.delete({ where: { id } });
@@ -99,4 +114,5 @@ export async function deleteServiceType(id: string) {
     description: `Modelo de tarefa "${type.name}" excluído.`,
   });
   refresh();
+  return { ok: true };
 }
