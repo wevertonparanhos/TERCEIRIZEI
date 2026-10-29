@@ -183,6 +183,130 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 const selectClass =
   "w-full max-w-xs rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium text-ink hover:border-border focus:border-accent focus:outline-none disabled:cursor-not-allowed";
 
+export type FinanceProps = {
+  total: number;
+  installmentCount: number;
+  /** "NONE" sem parcelas; "PAGO"; "PENDENTE"; "ATRASADO". */
+  status: "NONE" | "PAGO" | "PENDENTE" | "ATRASADO";
+  nextDate: string;
+  hasOpen: boolean;
+  setValue: (value: number) => Promise<void>;
+  setPaid: (paid: boolean) => Promise<void>;
+  setNextDate: (date: string) => Promise<void>;
+};
+
+const brl = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** "1.250,50" -> 1250.5 ; "250" -> 250 ; "" -> 0 */
+export function parseBrl(text: string): number | null {
+  const clean = text.replace(/[^\d,.-]/g, "").trim();
+  if (!clean) return 0;
+  const normalized = clean.includes(",") ? clean.replace(/\./g, "").replace(",", ".") : clean;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
+function FinanceRows({ finance }: { finance: FinanceProps }) {
+  const { readOnly } = useFields();
+  const router = useRouter();
+  const [valueText, setValueText] = useState(finance.total > 0 ? brl.format(finance.total) : "");
+  const [date, setDate] = useState(finance.nextDate);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const multi = finance.installmentCount > 1;
+
+  async function run(action: () => Promise<void>, rollback?: () => void) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      router.refresh();
+    } catch (err) {
+      rollback?.();
+      setError(err instanceof Error ? err.message : "Não foi possível salvar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function commitValue() {
+    const parsed = parseBrl(valueText);
+    if (parsed === null || parsed < 0) {
+      setError("Informe um valor válido.");
+      setValueText(finance.total > 0 ? brl.format(finance.total) : "");
+      return;
+    }
+    if (Math.round(parsed * 100) === Math.round(finance.total * 100)) {
+      setValueText(parsed > 0 ? brl.format(parsed) : "");
+      return;
+    }
+    run(
+      () => finance.setValue(parsed),
+      () => setValueText(finance.total > 0 ? brl.format(finance.total) : "")
+    );
+    setValueText(parsed > 0 ? brl.format(parsed) : "");
+  }
+
+  const paymentValue = finance.status === "PAGO" ? "PAGO" : finance.status === "NONE" ? "NONE" : "PENDENTE";
+
+  return (
+    <>
+      <Row icon={Wallet} label="Valor">
+        <span className="flex items-center gap-1.5">
+          <span className="text-sm text-muted">R$</span>
+          <input
+            inputMode="decimal"
+            value={valueText}
+            disabled={readOnly || multi || busy}
+            placeholder="0,00"
+            onChange={(e) => setValueText(e.target.value)}
+            onBlur={commitValue}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            title={multi ? `${finance.installmentCount} parcelas — edite na aba Financeiro` : "Clique para editar o valor"}
+            className="w-32 rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-sm font-semibold text-ink hover:border-border focus:border-accent focus:outline-none disabled:cursor-not-allowed"
+          />
+          {multi && <span className="text-xs text-muted-soft">{finance.installmentCount} parcelas — edite na aba Financeiro</span>}
+        </span>
+      </Row>
+      <Row icon={CreditCard} label="Pagamento">
+        <span className="flex items-center gap-2">
+          <select
+            value={paymentValue}
+            disabled={readOnly || finance.status === "NONE" || busy}
+            onChange={(e) => run(() => finance.setPaid(e.target.value === "PAGO"))}
+            className={selectClass}
+          >
+            {finance.status === "NONE" && <option value="NONE">Nenhum</option>}
+            <option value="PENDENTE">Pendente</option>
+            <option value="PAGO">Efetuado</option>
+          </select>
+          {finance.status === "ATRASADO" && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:bg-red-500/15 dark:text-red-400">Atrasado</span>}
+        </span>
+      </Row>
+      <Row icon={CalendarClock} label="Próximo pgto.">
+        {finance.hasOpen ? (
+          <input
+            type="date"
+            value={date}
+            disabled={readOnly || busy}
+            onChange={(e) => {
+              const previous = date;
+              setDate(e.target.value);
+              run(() => finance.setNextDate(e.target.value), () => setDate(previous));
+            }}
+            className="rounded-lg border border-transparent bg-transparent px-2 py-1.5 text-sm text-ink hover:border-border focus:border-accent focus:outline-none disabled:cursor-not-allowed"
+          />
+        ) : (
+          <span className="px-2 text-sm text-muted">Nenhum</span>
+        )}
+      </Row>
+      {error && <p className="pl-[10.75rem] text-xs text-red-600">{error}</p>}
+    </>
+  );
+}
+
 export function PropertiesCard({
   stages,
   staff,
@@ -191,9 +315,7 @@ export function PropertiesCard({
   categories,
   setCategory,
   newCategory,
-  valueText,
-  paymentLabel,
-  nextPaymentText,
+  finance,
 }: {
   stages: { id: string; label: string; color: string }[];
   staff: { id: string; name: string }[];
@@ -202,9 +324,7 @@ export function PropertiesCard({
   categories: { id: string; name: string }[];
   setCategory: (categoryId: string) => Promise<void>;
   newCategory: (name: string) => Promise<{ id: string; name: string }>;
-  valueText: string;
-  paymentLabel: string;
-  nextPaymentText: string;
+  finance: FinanceProps;
 }) {
   const { fields, stageId, save, changeStage, readOnly } = useFields();
   const router = useRouter();
@@ -334,15 +454,7 @@ export function PropertiesCard({
       </Group>
 
       <Group title="Financeiro">
-        <Row icon={Wallet} label="Valor">
-          <span className="font-semibold text-ink">{valueText}</span>
-        </Row>
-        <Row icon={CreditCard} label="Pagamento">
-          <span className="font-semibold text-ink">{paymentLabel}</span>
-        </Row>
-        <Row icon={CalendarClock} label="Próximo pgto.">
-          <span className="text-muted">{nextPaymentText}</span>
-        </Row>
+        <FinanceRows finance={finance} />
       </Group>
     </div>
   );

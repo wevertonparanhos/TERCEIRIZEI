@@ -338,6 +338,131 @@ export async function addInstallment(processId: string, value: string, paymentDu
   revalidatePath(`/portal/processos/${processId}`);
 }
 
+const FINANCE_PATHS = (processId: string) => [
+  `/processos/${processId}`,
+  "/processos",
+  "/financeiro",
+  "/clientes",
+  "/portal",
+  "/portal/processos",
+  `/portal/processos/${processId}`,
+];
+
+/** Valor da tarefa direto na tela de Detalhes (como no FreelaPRO): com zero ou uma parcela edita o
+ * valor aqui; com várias parcelas o total depende de cada uma e é ajustado na aba Financeiro. */
+export async function setProcessValue(processId: string, value: number) {
+  const user = await requireStaff();
+  await loadProcessForWrite(processId, user);
+  if (!Number.isFinite(value) || value < 0) throw new Error("Informe um valor válido.");
+  const amount = Math.round(value * 100) / 100;
+
+  const installments = await prisma.processInstallment.findMany({ where: { processId }, orderBy: { position: "asc" } });
+  if (installments.length > 1) {
+    throw new Error(`Esta tarefa tem ${installments.length} parcelas — altere os valores na aba Financeiro.`);
+  }
+
+  if (installments.length === 0) {
+    if (amount === 0) return;
+    await prisma.processInstallment.create({ data: { processId, position: 1, value: amount } });
+  } else if (amount === 0) {
+    if (installments[0].paidAt) throw new Error("A parcela já foi paga — estorne o pagamento na aba Financeiro antes de zerar o valor.");
+    await prisma.processInstallment.delete({ where: { id: installments[0].id } });
+  } else {
+    await prisma.processInstallment.update({ where: { id: installments[0].id }, data: { value: amount } });
+  }
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.value_changed",
+    entityType: "process",
+    entityId: processId,
+    description: `Valor da tarefa alterado para R$ ${amount.toFixed(2)}.`,
+  });
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+}
+
+/** Pagamento da tarefa: Efetuado quita todas as parcelas; Pendente estorna todas. */
+export async function setProcessPaymentStatus(processId: string, paid: boolean) {
+  const user = await requireStaff();
+  const process = await loadProcessForWrite(processId, user);
+
+  const installments = await prisma.processInstallment.count({ where: { processId } });
+  if (installments === 0) throw new Error("Informe o valor da tarefa antes de marcar o pagamento.");
+
+  await prisma.processInstallment.updateMany({
+    where: { processId, paidAt: paid ? null : { not: null } },
+    data: { paidAt: paid ? new Date() : null },
+  });
+  await syncInvoicesAfterInstallmentChange({ tenantId: user.tenantId, processId, paid });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: paid ? "process.installment_paid" : "process.installment_unpaid",
+    entityType: "process",
+    entityId: processId,
+    description: `Pagamento da tarefa #${process.number} marcado como ${paid ? "efetuado" : "pendente"}.`,
+  });
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+}
+
+/** Data do próximo pagamento: vale para a primeira parcela em aberto. */
+export async function setNextPaymentDate(processId: string, date: string) {
+  const user = await requireStaff();
+  await loadProcessForWrite(processId, user);
+
+  const open = await prisma.processInstallment.findMany({ where: { processId, paidAt: null }, orderBy: { position: "asc" } });
+  if (open.length === 0) throw new Error("Não há parcela em aberto para definir a data.");
+  const target = [...open].sort((a, b) => {
+    const ad = a.paymentDueDate?.getTime() ?? Infinity;
+    const bd = b.paymentDueDate?.getTime() ?? Infinity;
+    return ad - bd || a.position - b.position;
+  })[0];
+
+  await prisma.processInstallment.update({
+    where: { id: target.id },
+    data: { paymentDueDate: date ? new Date(date) : null },
+  });
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+}
+
+/** Edita valor, vencimento e (se já paga) a data do pagamento de uma parcela. */
+export async function updateInstallment(
+  processId: string,
+  installmentId: string,
+  input: { value: string; paymentDueDate: string; paidAt?: string }
+) {
+  const user = await requireStaff();
+  await loadProcessForWrite(processId, user);
+
+  const numericValue = Number(String(input.value).replace(",", "."));
+  if (!input.value || Number.isNaN(numericValue) || numericValue <= 0) {
+    throw new Error("Informe um valor maior que zero.");
+  }
+  const installment = await prisma.processInstallment.findFirst({ where: { id: installmentId, processId } });
+  if (!installment) throw new Error("Parcela não encontrada.");
+
+  await prisma.processInstallment.update({
+    where: { id: installmentId },
+    data: {
+      value: Math.round(numericValue * 100) / 100,
+      paymentDueDate: input.paymentDueDate ? new Date(input.paymentDueDate) : null,
+      ...(installment.paidAt && input.paidAt ? { paidAt: new Date(input.paidAt) } : {}),
+    },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.installment_updated",
+    entityType: "process",
+    entityId: processId,
+    description: `Parcela ${installment.position} alterada para R$ ${numericValue.toFixed(2)}.`,
+  });
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+}
+
 /** Marca/desmarca uma parcela como paga. */
 /** Arquiva/desarquiva a tarefa: sai do quadro e dos alertas, mas continua no
  * financeiro, nos relatórios do cliente e no histórico. */

@@ -54,6 +54,10 @@ import {
   setCommentClientVisible,
   setProcessCategory,
   createCategory,
+  setProcessValue,
+  updateInstallment,
+  setProcessPaymentStatus,
+  setNextPaymentDate,
   addInfoField,
   updateInfoField,
   deleteInfoField,
@@ -206,9 +210,10 @@ export default async function ProcessoDetalhePage({
     process.installments.map((i) => ({ value: Number(i.value), paymentDueDate: i.paymentDueDate, paidAt: i.paidAt }))
   );
   const paidTotal = process.installments.filter((i) => i.paidAt).reduce((s, i) => s + Number(i.value), 0);
-  const nextInstallment = process.installments
-    .filter((i) => !i.paidAt && i.paymentDueDate)
-    .sort((a, b) => a.paymentDueDate!.getTime() - b.paymentDueDate!.getTime())[0];
+  // Mesma regra do servidor: a primeira parcela em aberto, pela data (sem data por último).
+  const nextOpenInstallment = process.installments
+    .filter((i) => !i.paidAt)
+    .sort((a, b) => (a.paymentDueDate?.getTime() ?? Infinity) - (b.paymentDueDate?.getTime() ?? Infinity) || a.position - b.position)[0];
 
   const activePresenceUsers = process.presence
     .filter((p) => isPresenceActive(p.lastSeenAt))
@@ -225,13 +230,16 @@ export default async function ProcessoDetalhePage({
         categories={categories}
         setCategory={setProcessCategory.bind(null, process.id)}
         newCategory={createCategory}
-        valueText={paymentSummary.totalValue > 0 ? currency.format(paymentSummary.totalValue) : "—"}
-        paymentLabel={paymentSummary.status === "SEM_PAGAMENTO" ? "Nenhum" : PAYMENT_STATUS_LABELS[paymentSummary.status]}
-        nextPaymentText={
-          nextInstallment
-            ? `${nextInstallment.paymentDueDate!.toLocaleDateString("pt-BR", { timeZone: "UTC" })} · ${currency.format(Number(nextInstallment.value))}`
-            : "Nenhum"
-        }
+        finance={{
+          total: paymentSummary.totalValue,
+          installmentCount: process.installments.length,
+          status: paymentSummary.status === "SEM_PAGAMENTO" ? "NONE" : paymentSummary.status,
+          nextDate: nextOpenInstallment?.paymentDueDate ? isoDay(nextOpenInstallment.paymentDueDate) : "",
+          hasOpen: !!nextOpenInstallment,
+          setValue: setProcessValue.bind(null, process.id),
+          setPaid: setProcessPaymentStatus.bind(null, process.id),
+          setNextDate: setNextPaymentDate.bind(null, process.id),
+        }}
       />
     </div>
   );
@@ -490,6 +498,7 @@ export default async function ProcessoDetalhePage({
                         addInstallment={addInstallment}
                         markInstallmentPaid={markInstallmentPaid}
                         deleteInstallment={deleteInstallment}
+                        updateInstallment={updateInstallment}
                       />
                     </div>
                   ),

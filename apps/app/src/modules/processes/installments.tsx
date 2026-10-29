@@ -25,6 +25,7 @@ export function Installments({
   addInstallment,
   markInstallmentPaid,
   deleteInstallment,
+  updateInstallment,
 }: {
   processId: string;
   installments: Installment[];
@@ -32,11 +33,43 @@ export function Installments({
   addInstallment: (processId: string, value: string, paymentDueDate: string) => Promise<void>;
   markInstallmentPaid: (processId: string, installmentId: string, paid: boolean) => Promise<void>;
   deleteInstallment: (processId: string, installmentId: string) => Promise<void>;
+  updateInstallment?: (
+    processId: string,
+    installmentId: string,
+    input: { value: string; paymentDueDate: string; paidAt?: string }
+  ) => Promise<void>;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editDue, setEditDue] = useState("");
+  const [editPaid, setEditPaid] = useState("");
+
+  function startEdit(item: Installment) {
+    setEditingId(item.id);
+    setEditValue(String(item.value).replace(".", ","));
+    setEditDue(item.paymentDueDate ? item.paymentDueDate.slice(0, 10) : "");
+    setEditPaid(item.paidAt ? item.paidAt.slice(0, 10) : "");
+    setError(null);
+  }
+
+  async function saveEdit(item: Installment) {
+    if (!updateInstallment) return;
+    setBusyId(item.id);
+    setError(null);
+    try {
+      await updateInstallment(processId, item.id, { value: editValue, paymentDueDate: editDue, paidAt: item.paidAt ? editPaid : undefined });
+      setEditingId(null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar a parcela.");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   const totalValue = installments.reduce((sum, i) => sum + i.value, 0);
 
@@ -94,6 +127,35 @@ export function Installments({
             {installments.map((item) => {
               const status = getPaymentStatus(item.value, item.paymentDueDate ? new Date(item.paymentDueDate) : null, item.paidAt ? new Date(item.paidAt) : null);
               const paid = status === "PAGO";
+              if (editingId === item.id) {
+                return (
+                  <li key={item.id} className="space-y-3 rounded-md border border-accent/40 bg-accent-soft/20 p-3">
+                    <p className="text-xs font-medium text-muted-soft">Editar parcela {item.position}</p>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor={`ev-${item.id}`}>Valor (R$)</Label>
+                        <Input id={`ev-${item.id}`} inputMode="decimal" value={editValue} onChange={(e) => setEditValue(e.target.value)} className="w-32" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`ed-${item.id}`}>Vencimento</Label>
+                        <Input id={`ed-${item.id}`} type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} />
+                      </div>
+                      {item.paidAt && (
+                        <div className="space-y-1">
+                          <Label htmlFor={`ep-${item.id}`}>Pago em</Label>
+                          <Input id={`ep-${item.id}`} type="date" value={editPaid} onChange={(e) => setEditPaid(e.target.value)} />
+                        </div>
+                      )}
+                      <Button type="button" size="sm" disabled={busyId === item.id} onClick={() => saveEdit(item)}>
+                        {busyId === item.id ? "Salvando..." : "Salvar"}
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </li>
+                );
+              }
               return (
                 <li
                   key={item.id}
@@ -113,6 +175,11 @@ export function Installments({
                   </div>
                   {canWrite && (
                     <div className="flex flex-none items-center gap-3">
+                      {updateInstallment && (
+                        <button type="button" onClick={() => startEdit(item)} className="text-xs font-medium text-ink hover:underline">
+                          Editar
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={busyId === item.id}
