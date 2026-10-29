@@ -229,7 +229,7 @@ export function NewTaskWizard({
         open={open}
         onClose={close}
         title="Nova Tarefa"
-        description="Crie uma nova tarefa: escolha um serviço, defina informações básicas, detalhes, cronograma e pagamento."
+        description="Crie uma nova tarefa: escolha um modelo (ou comece em branco), defina informações básicas, tipos de solicitação, cronograma e pagamento."
         size="lg"
         footer={
           <>
