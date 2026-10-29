@@ -12,8 +12,11 @@ export default function LoginPage() {
       </Suspense>
       <p className="mt-4 text-center text-sm text-muted">
         <Link href="/esqueci-senha" className="text-accent hover:underline">
-          Esqueci minha senha
+          Esqueci minha senha / primeiro acesso
         </Link>
+      </p>
+      <p className="mt-1 text-center text-xs text-muted">
+        Foi convidado(a) pela equipe? Clique aí e informe o seu e-mail para criar a sua senha.
       </p>
       <p className="mt-2 text-center text-sm text-muted">
         Ainda não tem conta?{" "}

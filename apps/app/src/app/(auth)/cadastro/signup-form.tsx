@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, type SignupInput } from "@/lib/validations/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { registerAccount } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,6 @@ export function SignupForm() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   const {
     register,
@@ -26,46 +26,25 @@ export function SignupForm() {
     setServerError(null);
     setSubmitting(true);
 
-    const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        data: {
-          name: values.name,
-          doc: values.doc.replace(/\D/g, ""),
-          phone: values.phone,
-        },
-      },
-    });
+    const result = await registerAccount(values);
+    if (!result.ok) {
+      setSubmitting(false);
+      setServerError(result.error);
+      return;
+    }
 
+    // A conta já nasce confirmada: entra direto com a senha recém-criada.
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithPassword({ email: values.email.trim().toLowerCase(), password: values.password });
     setSubmitting(false);
 
     if (error) {
-      setServerError(
-        error.message.toLowerCase().includes("already registered")
-          ? "Já existe uma conta com este e-mail."
-          : "Não foi possível concluir o cadastro. Tente novamente em instantes."
-      );
+      setServerError("Conta criada! Não conseguimos entrar automaticamente — use a tela de entrada com o seu e-mail e senha.");
       return;
     }
 
-    if (data.session) {
-      router.push("/");
-      router.refresh();
-      return;
-    }
-
-    setAwaitingConfirmation(true);
-  }
-
-  if (awaitingConfirmation) {
-    return (
-      <p className="rounded-md bg-emerald-50 dark:bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
-        Cadastro recebido! Enviamos um e-mail de confirmação — clique no link para ativar sua conta e
-        fazer login.
-      </p>
-    );
+    router.push("/");
+    router.refresh();
   }
 
   return (
