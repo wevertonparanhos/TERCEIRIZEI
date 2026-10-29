@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { PortalAccessRow } from "@/modules/clients/portal-access-row";
-import { inviteClientToPortal, deactivateClientPortalAccess, reactivateClientPortalAccess } from "@/modules/clients/actions";
+import { inviteClientToPortal, deactivateClientPortalAccess, reactivateClientPortalAccess, sendPortalAccessLink } from "@/modules/clients/actions";
 import { PortalSettingsForm } from "@/modules/portal/portal-settings-form";
 import { PortalVisibilityList } from "@/modules/portal/portal-visibility-list";
 import { PortalQuestionsEditor } from "@/modules/portal/portal-questions-editor";
@@ -80,7 +80,7 @@ export default async function ClientePortalConfigPage({ params }: { params: { id
 
       <section className={card}>
         <h2 className="text-base font-semibold text-ink">Acesso</h2>
-        <p className="mb-3 text-xs text-muted">O cliente recebe um convite por e-mail e define a própria senha no primeiro acesso.</p>
+        <p className="mb-3 text-xs text-muted">Crie o acesso, envie o convite e, se o cliente esquecer a senha, gere um link de redefinição. Ele define a própria senha pelo link.</p>
         <PortalAccessRow
           clientId={client.id}
           defaultEmail={client.email ?? ""}
@@ -88,6 +88,7 @@ export default async function ClientePortalConfigPage({ params }: { params: { id
           invite={inviteClientToPortal}
           deactivate={deactivateClientPortalAccess}
           reactivate={reactivateClientPortalAccess}
+          sendAccess={sendPortalAccessLink}
         />
       </section>
 

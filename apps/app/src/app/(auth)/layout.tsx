@@ -1,4 +1,9 @@
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+import { getCurrentUser } from "@/lib/rbac";
+
+export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+  // Quem chega pelo link de convite/redefinição já está autenticado: cliente vê "Portal do Cliente".
+  const user = await getCurrentUser().catch(() => null);
+  const subtitle = user?.role === "CLIENTE" ? "Portal do Cliente" : "Sistema de gestão";
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-navy via-brand-blue to-brand-navy px-4">
       <div className="w-full max-w-sm">
@@ -7,7 +12,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo-terceirizei.png" alt="Terceirizei — Consultoria e Gestão Empresarial" className="h-11 w-auto" />
           </div>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-[2px] text-[#8A9AEA]">Sistema de gestão</p>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[2px] text-[#8A9AEA]">{subtitle}</p>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-8 shadow-xl">{children}</div>
       </div>

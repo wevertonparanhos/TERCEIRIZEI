@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { PortalAccessRow } from "@/modules/clients/portal-access-row";
-import { inviteClientToPortal, deactivateClientPortalAccess, reactivateClientPortalAccess } from "@/modules/clients/actions";
+import { inviteClientToPortal, deactivateClientPortalAccess, reactivateClientPortalAccess, sendPortalAccessLink } from "@/modules/clients/actions";
 
 export default async function PortalClientesPage() {
   const user = await getCurrentUser();
@@ -59,6 +59,7 @@ export default async function PortalClientesPage() {
                     invite={inviteClientToPortal}
                     deactivate={deactivateClientPortalAccess}
                     reactivate={reactivateClientPortalAccess}
+                    sendAccess={sendPortalAccessLink}
                   />
                 </td>
               </tr>

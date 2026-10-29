@@ -110,3 +110,20 @@ export function licenseReminderEmail(params: { name: string; clientName: string;
     html: layout(title, title, body, `${APP_URL}/licencas`, "Ver Licenças e Certidões"),
   };
 }
+
+/** Convite ao Portal do Cliente ou redefinição de senha (o link serve para criar/trocar a senha). */
+export function portalAccessEmail(params: { clientName: string; link: string; mode: "invite" | "reset" }) {
+  const invite = params.mode === "invite";
+  return {
+    subject: invite ? "Seu acesso ao Portal do Cliente Terceirizei" : "Redefinir sua senha do Portal do Cliente",
+    html: layout(
+      invite ? "Crie sua senha e acesse o portal" : "Crie uma nova senha para o portal",
+      invite ? "Bem-vindo(a) ao Portal do Cliente" : "Redefinição de senha",
+      invite
+        ? `<p>Olá, ${params.clientName}! A Terceirizei liberou o seu acesso ao <b>Portal do Cliente</b>, onde você acompanha suas demandas, envia pedidos e conversa com a equipe.</p><p>Clique no botão abaixo para criar a sua senha.</p>`
+        : `<p>Olá, ${params.clientName}! Recebemos o pedido para redefinir a sua senha do <b>Portal do Cliente</b>.</p><p>Clique no botão abaixo para criar uma nova senha. Se não foi você, pode ignorar este e-mail.</p>`,
+      params.link,
+      invite ? "Criar minha senha" : "Criar nova senha"
+    ),
+  };
+}

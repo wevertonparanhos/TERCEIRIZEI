@@ -11,6 +11,7 @@ import { ProcessTabs } from "@/modules/processes/process-tabs";
 import { ClipboardList, MessageSquare, Paperclip, PackageCheck } from "lucide-react";
 import { Deliverables } from "@/modules/processes/deliverables";
 import { RealtimeRefresh } from "@/modules/portal/realtime-refresh";
+import { ProgressTimeline } from "@/modules/portal/progress-timeline";
 import {
   clientUploadDocument,
   clientUploadNewVersion,
@@ -61,8 +62,17 @@ export default async function PortalProcessoDetalhePage({
 
   if (!process) notFound();
 
-  const portalSettings = await prisma.clientPortalSettings.findUnique({ where: { clientId: user.clientId }, select: { allowApprovals: true } });
+  const [portalSettings, workspaceStages] = await Promise.all([
+    prisma.clientPortalSettings.findUnique({ where: { clientId: user.clientId }, select: { allowApprovals: true } }),
+    prisma.kanbanStage.findMany({ where: { workspaceId: process.workspaceId }, orderBy: { position: "asc" }, select: { id: true, label: true, position: true } }),
+  ]);
   const allowApprovals = portalSettings?.allowApprovals ?? true;
+
+  // Data em que a tarefa chegou a cada etapa (primeira vez).
+  const reachedAt: Record<string, string> = {};
+  for (const entry of process.stageHistory) {
+    if (!reachedAt[entry.toStageId]) reachedAt[entry.toStageId] = entry.changedAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-8">
@@ -97,6 +107,12 @@ export default async function PortalProcessoDetalhePage({
               icon: <ClipboardList className="h-4 w-4" />,
               content: (
                 <div className="space-y-6">
+                  <ProgressTimeline
+                    stages={workspaceStages}
+                    currentStageId={process.stageId}
+                    reachedAt={reachedAt}
+                    checklist={{ done: process.checklist.filter((i) => i.done).length, total: process.checklist.length }}
+                  />
                   <div>
                     <h2 className="mb-2 text-base font-semibold text-ink">Descrição</h2>
                     <p className="whitespace-pre-wrap text-sm text-ink">{process.description}</p>

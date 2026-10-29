@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT } from "@/modules/processes/labels";
 import { RealtimeRefresh } from "@/modules/portal/realtime-refresh";
+import { stageProgress } from "@/modules/portal/progress";
 
 export default async function PortalProcessosPage() {
   const user = await getCurrentUser();
@@ -23,6 +24,13 @@ export default async function PortalProcessosPage() {
       take: 20,
     }),
   ]);
+
+ // Etapas dos quadros das tarefas listadas, para calcular o % de conclusão.
+  const stages = await prisma.kanbanStage.findMany({
+    where: { workspaceId: { in: Array.from(new Set(processes.map((p) => p.workspaceId))) } },
+    select: { id: true, workspaceId: true, position: true },
+  });
+  const percentOf = (p: (typeof processes)[number]) => stageProgress(stages.filter((s) => s.workspaceId === p.workspaceId), p.stageId).percent;
 
   return (
     <div className="p-4 sm:p-8">
@@ -70,6 +78,12 @@ export default async function PortalProcessosPage() {
                   prazo previsto {p.dueAt.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                 </p>
               )}
+              <div className="mt-2 flex items-center gap-2" aria-label={`Progresso ${percentOf(p)}%`}>
+                <div className="h-1.5 w-40 max-w-full overflow-hidden rounded-full bg-border">
+                  <div className={`h-full rounded-full ${percentOf(p) === 100 ? "bg-emerald-500" : "bg-accent"}`} style={{ width: `${percentOf(p)}%` }} />
+                </div>
+                <span className="text-[11px] font-semibold text-muted">{percentOf(p)}%</span>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={PRIORITY_BADGE_VARIANT[p.priority]}>{PRIORITY_LABELS[p.priority]}</Badge>

@@ -9,6 +9,18 @@ function getOrigin(): string {
   return `${protocol}://${host}`;
 }
 
+/** Gera um link novo para a pessoa (re)definir a senha — serve para reenviar convite e para redefinir a senha. */
+export async function generateAccessLink(email: string): Promise<string> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo: `${getOrigin()}/auth/callback?next=/redefinir-senha` },
+  });
+  if (error || !data) throw new Error("Não foi possível gerar o link de acesso.");
+  return data.properties.action_link;
+}
+
 /**
  * Cria um usuário Auth direto via SQL e gera um link de convite (recovery)
  * pra pessoa definir a própria senha.

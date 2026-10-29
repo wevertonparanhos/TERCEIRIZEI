@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { Prisma, prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
-import { provisionInvitedUser } from "@/lib/invite-user";
+import { provisionInvitedUser, generateAccessLink } from "@/lib/invite-user";
+import { sendEmail } from "@/lib/email";
+import { portalAccessEmail } from "@/lib/email-templates";
 import {
   clientSchema,
   clientContactSchema,
@@ -247,6 +249,40 @@ export async function inviteClientToPortal(clientId: string, email: string) {
   revalidatePath(`/clientes/${clientId}`);
   revalidatePath("/clientes/portal");
   return { inviteLink };
+}
+
+/**
+ * Gera um link novo de acesso para o cliente do Portal e, se pedido, envia por e-mail.
+ * "invite" = reenviar o convite; "reset" = redefinir a senha. O link volta sempre, para a equipe
+ * poder copiar e mandar pelo WhatsApp quando o e-mail não chega.
+ */
+export async function sendPortalAccessLink(clientId: string, mode: "invite" | "reset", byEmail: boolean) {
+  const user = await requireWriteAccess();
+
+  const client = await prisma.client.findFirst({ where: { id: clientId, tenantId: user.tenantId }, select: { id: true, name: true } });
+  if (!client) throw new Error("Cliente não encontrado.");
+  const portalUser = await prisma.user.findFirst({ where: { clientId, tenantId: user.tenantId }, select: { id: true, email: true, active: true } });
+  if (!portalUser) throw new Error("Este cliente ainda não tem acesso ao portal. Crie o acesso primeiro.");
+  if (!portalUser.active) throw new Error("O acesso deste cliente está desativado. Reative antes de enviar o link.");
+
+  const link = await generateAccessLink(portalUser.email);
+
+  let emailed = false;
+  if (byEmail) {
+    const { subject, html } = portalAccessEmail({ clientName: client.name, link, mode });
+    emailed = await sendEmail({ to: portalUser.email, subject, html });
+  }
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: mode === "invite" ? "client.resend_portal_invite" : "client.reset_portal_password",
+    entityType: "user",
+    entityId: portalUser.id,
+    description: `${mode === "invite" ? "Convite do Portal reenviado" : "Link de redefinição de senha gerado"} para ${portalUser.email}${byEmail ? (emailed ? " (e-mail enviado)" : " (e-mail não enviado)") : ""}.`,
+  });
+
+  return { link, email: portalUser.email, emailed };
 }
 
 /** Bloqueia o login de um usuário do Portal sem apagar o vínculo — pode ser
