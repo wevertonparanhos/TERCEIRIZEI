@@ -2,10 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 
-export function PrintButton() {
+export function PrintButton({ label = "Exportar PDF" }: { label?: string }) {
   return (
-    <Button type="button" variant="outline" onClick={() => window.print()}>
-      Exportar PDF
+    <Button type="button" variant="outline" onClick={() => window.print()} className="print:hidden">
+      {label}
     </Button>
   );
 }

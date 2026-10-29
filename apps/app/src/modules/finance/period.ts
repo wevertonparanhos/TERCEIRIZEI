@@ -94,12 +94,16 @@ export function summarizePayments(
     saldoPrevisto: 0,
     ticketMedio: 0,
   };
+  // Atrasado só depois do dia do vencimento (dia de Brasília) — a mesma regra do status de cada pagamento:
+  // vencendo hoje ainda é pendente.
+  const br = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+  const startOfTodayBRT = Date.UTC(br.getUTCFullYear(), br.getUTCMonth(), br.getUTCDate());
   for (const p of processes) {
     summary.count += 1;
     summary.total += p.value;
     if (p.paidAt) {
       summary.recebido += p.value;
-    } else if (p.paymentDueDate && p.paymentDueDate.getTime() < now.getTime()) {
+    } else if (p.paymentDueDate && p.paymentDueDate.getTime() < startOfTodayBRT) {
       summary.atrasado += p.value;
     } else {
       summary.pendente += p.value;

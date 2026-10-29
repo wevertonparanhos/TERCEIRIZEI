@@ -97,3 +97,18 @@ describe("summarizePayments", () => {
     });
   });
 });
+
+describe("summarizePayments — atraso só depois do dia do vencimento", () => {
+  it("vencendo hoje ainda é pendente; ontem já é atrasado", () => {
+    const now = new Date("2026-10-29T15:00:00.000Z"); // 12h em Brasília
+    const s = summarizePayments(
+      [
+        { value: 100, paymentDueDate: new Date("2026-10-29T00:00:00.000Z"), paidAt: null },
+        { value: 50, paymentDueDate: new Date("2026-10-28T00:00:00.000Z"), paidAt: null },
+      ],
+      now
+    );
+    expect(s.pendente).toBe(100);
+    expect(s.atrasado).toBe(50);
+  });
+});

@@ -144,13 +144,15 @@ export async function loadLedger(params: {
   clientId?: string;
   start: Date;
   end: Date;
+  /** Só o que ainda não foi pago (para listas de atrasados e próximos recebimentos). */
+  onlyOpen?: boolean;
 }): Promise<{ rows: LedgerRow[]; undated: UndatedInstallment[]; summary: PaymentSummary }> {
-  const { tenantId, clientId, start, end } = params;
+  const { tenantId, clientId, start, end, onlyOpen = false } = params;
   const processScope = { tenantId, ...(clientId ? { clientId } : {}) };
 
   const [installments, undatedRaw, invoiceItems] = await Promise.all([
     prisma.processInstallment.findMany({
-      where: { process: processScope, paymentDueDate: { gte: start, lte: end } },
+      where: { process: processScope, paymentDueDate: { gte: start, lte: end }, ...(onlyOpen ? { paidAt: null } : {}) },
       include: { process: { select: { number: true, description: true, clientId: true, client: { select: { name: true } } } } },
       orderBy: { paymentDueDate: "asc" },
     }),
@@ -162,7 +164,12 @@ export async function loadLedger(params: {
     prisma.invoiceItem.findMany({
       where: {
         processId: null,
-        invoice: { tenantId, ...(clientId ? { clientId } : {}), status: { not: "CANCELADA" }, dueDate: { gte: start, lte: end } },
+        invoice: {
+          tenantId,
+          ...(clientId ? { clientId } : {}),
+          status: onlyOpen ? { notIn: ["CANCELADA", "PAGA"] } : { not: "CANCELADA" },
+          dueDate: { gte: start, lte: end },
+        },
       },
       include: { invoice: { select: { id: true, number: true, clientId: true, dueDate: true, status: true, paidAt: true, client: { select: { name: true } } } } },
       orderBy: { invoice: { dueDate: "asc" } },
