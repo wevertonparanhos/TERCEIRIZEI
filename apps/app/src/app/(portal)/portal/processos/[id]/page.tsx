@@ -110,6 +110,7 @@ export default async function PortalProcessoDetalhePage({
                   <ProgressTimeline
                     stages={workspaceStages}
                     currentStageId={process.stageId}
+                    history={process.stageHistory.map((h) => h.toStageId)}
                     reachedAt={reachedAt}
                     checklist={{ done: process.checklist.filter((i) => i.done).length, total: process.checklist.length }}
                   />

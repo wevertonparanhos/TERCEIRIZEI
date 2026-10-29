@@ -1,42 +1,50 @@
-import { Check } from "lucide-react";
-import { stageProgress } from "@/modules/portal/progress";
-
-export type TimelineStage = { id: string; label: string; position: number };
+import { Check, PauseCircle } from "lucide-react";
+import { taskProgress, type StageInfo } from "@/modules/portal/progress";
 
 /** Linha do tempo do andamento: etapas do quadro, a atual destacada e o % de conclusão. */
 export function ProgressTimeline({
   stages,
   currentStageId,
+  history,
   reachedAt,
   checklist,
 }: {
-  stages: TimelineStage[];
+  stages: StageInfo[];
   currentStageId: string;
+  /** ids das etapas por onde a tarefa passou, em ordem cronológica */
+  history: string[];
   /** etapa → data em que a tarefa chegou nela (dd/mm/aaaa) */
   reachedAt: Record<string, string>;
   checklist?: { done: number; total: number } | null;
 }) {
-  const sorted = [...stages].sort((a, b) => a.position - b.position);
-  const { percent, index } = stageProgress(sorted, currentStageId);
-  const finished = percent === 100;
+  const { percent, path, currentIndex, paused, pauseLabel, finished } = taskProgress(stages, currentStageId, history);
 
   return (
     <section aria-label="Progresso da tarefa" className="rounded-2xl border border-border/70 bg-surface-alt/40 p-4 sm:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold text-ink">Progresso</h2>
         <p className="text-sm text-muted">
-          <span className={`text-2xl font-extrabold ${finished ? "text-emerald-600" : "text-accent"}`}>{percent}%</span> concluído
+          <span className={`text-2xl font-extrabold ${finished ? "text-emerald-600" : paused ? "text-amber-600" : "text-accent"}`}>{percent}%</span> concluído
         </p>
       </div>
 
       <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-border" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-        <div className={`h-full rounded-full transition-all ${finished ? "bg-emerald-500" : "bg-accent"}`} style={{ width: `${percent}%` }} />
+        <div className={`h-full rounded-full transition-all ${finished ? "bg-emerald-500" : paused ? "bg-amber-500" : "bg-accent"}`} style={{ width: `${percent}%` }} />
       </div>
 
+      {paused && (
+        <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+          <PauseCircle className="mt-0.5 h-4 w-4 flex-none" />
+          <span>
+            Esta tarefa está em pausa ({pauseLabel}). O andamento abaixo volta a avançar quando ela for retomada.
+          </span>
+        </p>
+      )}
+
       <ol className="mt-5 grid gap-3 sm:auto-cols-fr sm:grid-flow-col sm:gap-2">
-        {sorted.map((stage, i) => {
-          const done = i < index || (finished && i === index);
-          const current = i === index && !finished;
+        {path.map((stage, i) => {
+          const done = i < currentIndex || (finished && i === currentIndex);
+          const current = i === currentIndex && !finished && !paused;
           return (
             <li key={stage.id} className="flex items-start gap-3 sm:flex-col sm:items-center sm:text-center">
               <span

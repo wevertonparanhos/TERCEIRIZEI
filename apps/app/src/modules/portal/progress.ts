@@ -1,12 +1,58 @@
-export type StageLite = { id: string; position: number };
+export type StageInfo = { id: string; label: string; position: number };
+export type StageKind = "pause" | "done" | "step";
+
+const PAUSE = /paralis|suspens|pend[eê]ncia|parad|cancel/i;
+const DONE = /conclu[ií]d|renovad|finaliz|entregue/i;
+
+/** Etapa de pausa (Paralisadas, Suspensas, Pendência com o Cliente…), de conclusão (Concluído, Renovados…) ou normal. */
+export function stageKind(label: string): StageKind {
+  if (PAUSE.test(label)) return "pause";
+  if (DONE.test(label)) return "done";
+  return "step";
+}
+
+export type TaskProgress = {
+  /** 0–100 */
+  percent: number;
+  /** etapas do caminho (sem as de pausa), com a de conclusão sempre por último */
+  path: StageInfo[];
+  /** posição da etapa atual (ou da última do caminho, se estiver em pausa) em `path`; -1 se nenhuma */
+  currentIndex: number;
+  paused: boolean;
+  /** nome da etapa de pausa em que a tarefa está */
+  pauseLabel: string | null;
+  finished: boolean;
+};
 
 /**
- * Progresso de uma tarefa pela etapa do quadro em que ela está: a 1ª etapa é 0% e a última é 100%.
- * (Quem organiza as etapas define o que cada passo significa; o % acompanha a posição.)
+ * Progresso de uma tarefa pelas etapas do quadro. As etapas de pausa não contam como andamento: a tarefa
+ * mantém o % da última etapa normal por onde passou (`history` = ids das etapas em ordem cronológica).
+ * A etapa de conclusão sempre vale 100%; a primeira etapa normal vale 0%.
  */
-export function stageProgress(stages: StageLite[], currentStageId: string): { percent: number; index: number; total: number } {
+export function taskProgress(stages: StageInfo[], currentStageId: string, history: string[] = []): TaskProgress {
   const sorted = [...stages].sort((a, b) => a.position - b.position);
-  const index = sorted.findIndex((s) => s.id === currentStageId);
-  if (index < 0 || sorted.length < 2) return { percent: 0, index: Math.max(index, 0), total: sorted.length };
-  return { percent: Math.round((index / (sorted.length - 1)) * 100), index, total: sorted.length };
+  const steps = sorted.filter((s) => stageKind(s.label) === "step");
+  const done = sorted.filter((s) => stageKind(s.label) === "done");
+  const path = [...steps, ...done];
+
+  const current = sorted.find((s) => s.id === currentStageId) ?? null;
+  const paused = current ? stageKind(current.label) === "pause" : false;
+
+  // Etapa que vale para o %: a atual, ou (em pausa) a última do caminho por onde a tarefa passou.
+  let effective: StageInfo | null = current && !paused ? current : null;
+  if (paused) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const found = path.find((s) => s.id === history[i]);
+      if (found) {
+        effective = found;
+        break;
+      }
+    }
+  }
+
+  const currentIndex = effective ? path.findIndex((s) => s.id === effective!.id) : -1;
+  const finished = !!effective && stageKind(effective.label) === "done";
+  const percent = !effective || currentIndex < 0 ? 0 : finished ? 100 : path.length < 2 ? 0 : Math.round((currentIndex / (path.length - 1)) * 100);
+
+  return { percent, path, currentIndex, paused, pauseLabel: paused && current ? current.label : null, finished };
 }
