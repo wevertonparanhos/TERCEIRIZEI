@@ -228,6 +228,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
         </div>
       )}
 
+      {showArchived && (
       <div className="mt-4 grid flex-none grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <KpiCard value={kpis.total} label="Total" icon={ClipboardList} />
         <KpiCard value={kpis.entregaHoje} label="Entrega hoje" icon={CalendarClock} />
@@ -236,6 +237,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
         <KpiCard value={kpis.impedimento} label="Impedimento" icon={ShieldAlert} tone="danger" />
         <KpiCard value={kpis.comentarioNaoLido} label="Comentário não lido" icon={MessageSquare} tone="danger" />
       </div>
+      )}
 
       <div className="mt-4 flex-1 overflow-hidden">
         {showArchived ? (

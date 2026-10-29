@@ -14,9 +14,9 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { Radio } from "lucide-react";
+import { AlertTriangle, CalendarClock, ClipboardList, MessageSquare, Radio, ShieldAlert, Wallet, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, type PaymentStatus } from "@/modules/processes/labels";
+import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, isDueToday, type PaymentStatus } from "@/modules/processes/labels";
 import { matchesSearch } from "@/modules/processes/search";
 import { SearchInput, usePersistentSearch } from "@/modules/processes/search-input";
 
@@ -42,6 +42,58 @@ export type KanbanCard = {
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
+type CardFilter = "all" | "entregaHoje" | "atrasadas" | "pgtoAtrasado" | "impedimento" | "comentario";
+
+const FILTER_TEST: Record<Exclude<CardFilter, "all">, (c: KanbanCard) => boolean> = {
+  entregaHoje: (c) => !!c.dueAt && isDueToday(new Date(c.dueAt)),
+  atrasadas: (c) => c.isOverdue,
+  pgtoAtrasado: (c) => c.paymentStatus === "ATRASADO",
+  impedimento: (c) => c.hasOpenImpediment,
+  comentario: (c) => c.hasUnreadComment,
+};
+
+/** Cartão de indicador que também é filtro: clicar mostra só as tarefas dele; clicar de novo (ou em Total) volta a todas. */
+function KpiFilterCard({
+  value,
+  label,
+  icon: Icon,
+  tone = "neutral",
+  active,
+  onClick,
+}: {
+  value: number;
+  label: string;
+  icon: LucideIcon;
+  tone?: "neutral" | "danger";
+  active: boolean;
+  onClick: () => void;
+}) {
+  const isDanger = tone === "danger" && value > 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={active ? "Clique para mostrar todas as tarefas" : `Mostrar só: ${label}`}
+      className={`rounded-2xl border p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+        isDanger ? "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10" : "border-border/70 bg-surface"
+      } ${active ? "ring-2 ring-accent ring-offset-2 ring-offset-bg" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-muted">{label}</p>
+        <span
+          className={`flex h-7 w-7 flex-none items-center justify-center rounded-lg ${
+            isDanger ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400" : "bg-accent-soft text-accent"
+          }`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+      </div>
+      <p className={`mt-1.5 text-xl font-bold ${isDanger ? "text-red-600" : "text-ink"}`}>{value}</p>
+    </button>
+  );
+}
 
 function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean }) {
   const paymentOverdue = card.paymentStatus === "ATRASADO";
@@ -219,10 +271,22 @@ export function KanbanBoard({
   );
   const [items, setItems] = useState(cards);
   const [query, setQuery] = usePersistentSearch(searchKey);
+  const [filterText, setFilterText] = usePersistentSearch(`${searchKey}:filtro`);
+  const filter: CardFilter = filterText in FILTER_TEST ? (filterText as CardFilter) : "all";
   const searching = query.trim().length > 0;
+  const filtering = filter !== "all";
+  const baseItems = filtering ? items.filter(FILTER_TEST[filter as Exclude<CardFilter, "all">]) : items;
   const visibleItems = searching
-    ? items.filter((c) => matchesSearch([String(c.number), c.title, c.clientName, c.serviceTypeName, ...c.assigneeNames], query))
-    : items;
+    ? baseItems.filter((c) => matchesSearch([String(c.number), c.title, c.clientName, c.serviceTypeName, ...c.assigneeNames], query))
+    : baseItems;
+  const counts = {
+    entregaHoje: items.filter(FILTER_TEST.entregaHoje).length,
+    atrasadas: items.filter(FILTER_TEST.atrasadas).length,
+    pgtoAtrasado: items.filter(FILTER_TEST.pgtoAtrasado).length,
+    impedimento: items.filter(FILTER_TEST.impedimento).length,
+    comentario: items.filter(FILTER_TEST.comentario).length,
+  };
+  const toggle = (f: CardFilter) => setFilterText(filter === f ? "" : f === "all" ? "" : f);
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -255,9 +319,17 @@ export function KanbanBoard({
 
   return (
     <div className="flex h-full flex-col">
+      <div className="mb-4 grid flex-none grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <KpiFilterCard value={items.length} label="Total" icon={ClipboardList} active={!filtering} onClick={() => toggle("all")} />
+        <KpiFilterCard value={counts.entregaHoje} label="Entrega hoje" icon={CalendarClock} active={filter === "entregaHoje"} onClick={() => toggle("entregaHoje")} />
+        <KpiFilterCard value={counts.atrasadas} label="Atrasadas" icon={AlertTriangle} tone="danger" active={filter === "atrasadas"} onClick={() => toggle("atrasadas")} />
+        <KpiFilterCard value={counts.pgtoAtrasado} label="Pgto. atrasado" icon={Wallet} tone="danger" active={filter === "pgtoAtrasado"} onClick={() => toggle("pgtoAtrasado")} />
+        <KpiFilterCard value={counts.impedimento} label="Impedimento" icon={ShieldAlert} tone="danger" active={filter === "impedimento"} onClick={() => toggle("impedimento")} />
+        <KpiFilterCard value={counts.comentario} label="Comentário não lido" icon={MessageSquare} tone="danger" active={filter === "comentario"} onClick={() => toggle("comentario")} />
+      </div>
       <div className="mb-3 flex flex-none flex-wrap items-center gap-3">
         <SearchInput value={query} onChange={setQuery} className="w-full max-w-md" />
-        {searching && (
+        {(searching || filtering) && (
           <span className="text-xs text-muted">
             {visibleItems.length} {visibleItems.length === 1 ? "tarefa encontrada" : "tarefas encontradas"}
           </span>
