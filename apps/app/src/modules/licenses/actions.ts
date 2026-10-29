@@ -110,7 +110,7 @@ export async function ensureAutoRenewalTasks(tenantId: string): Promise<void> {
 
   const serviceType = await prisma.serviceType.upsert({
     where: { tenantId_name: { tenantId, name: "Renovação de Documento" } },
-    create: { tenantId, name: "Renovação de Documento", defaultPriority: "ALTA" },
+    create: { tenantId, name: "Renovação de Documento" },
     update: {},
   });
 
@@ -147,6 +147,7 @@ export async function ensureAutoRenewalTasks(tenantId: string): Promise<void> {
     await prisma.processStage.create({
       data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: null },
     });
+    await prisma.processServiceType.create({ data: { processId: process.id, serviceTypeId: serviceType.id } });
 
     if (license.responsibleId) {
       await prisma.processAssignee.create({ data: { processId: process.id, userId: license.responsibleId } });

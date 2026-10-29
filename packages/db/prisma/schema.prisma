@@ -127,6 +127,7 @@ model Tenant {
   companies        Company[]
   tags             Tag[]
   serviceTypes     ServiceType[]
+  taskTemplates    TaskTemplate[]
   processes        Process[]
   kanbanStages     KanbanStage[]
   workspaces       Workspace[]
@@ -359,11 +360,58 @@ model ServiceType {
 
   tenant             Tenant                         @relation(fields: [tenantId], references: [id])
   processes          Process[]
+  processTags        ProcessServiceType[]
   checklistTemplate  ServiceChecklistTemplateItem[]
   portalRequests     PortalRequest[]
 
   @@unique([tenantId, name])
   @@map("service_types")
+}
+
+// Todas as etiquetas (tipos de solicitação) de uma tarefa. Process.serviceTypeId guarda a principal (a primeira).
+model ProcessServiceType {
+  processId     String @map("process_id") @db.Uuid
+  serviceTypeId String @map("service_type_id") @db.Uuid
+
+  process     Process     @relation(fields: [processId], references: [id], onDelete: Cascade)
+  serviceType ServiceType @relation(fields: [serviceTypeId], references: [id], onDelete: Cascade)
+
+  @@id([processId, serviceTypeId])
+  @@index([serviceTypeId])
+  @@map("process_service_types")
+}
+
+// Modelo de tarefa: tarefa genérica pré-pronta (valor, prazo, prioridade, anotações e checklist padrão).
+// Diferente do tipo de solicitação (ServiceType), que é só uma etiqueta. O checklist é copiado para a tarefa.
+model TaskTemplate {
+  id                  String          @id @default(uuid()) @db.Uuid
+  tenantId            String          @map("tenant_id") @db.Uuid
+  name                String
+  defaultPrice        Decimal?        @map("default_price") @db.Decimal(12, 2)
+  defaultDeadlineDays Int?            @map("default_deadline_days")
+  defaultPriority     DemandPriority? @map("default_priority")
+  defaultNotes        String?         @map("default_notes")
+  active              Boolean         @default(true)
+  createdAt           DateTime        @default(now()) @map("created_at")
+
+  tenant    Tenant                     @relation(fields: [tenantId], references: [id])
+  checklist TaskTemplateChecklistItem[]
+
+  @@unique([tenantId, name])
+  @@map("task_templates")
+}
+
+model TaskTemplateChecklistItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  templateId String   @map("template_id") @db.Uuid
+  label      String
+  position   Int
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  template TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, position])
+  @@map("task_template_checklist_items")
 }
 
 // Checklist padrão de um tipo de serviço — copiado (não referenciado) para
@@ -517,6 +565,7 @@ model Process {
   client       Client                 @relation(fields: [clientId], references: [id])
   company      Company?               @relation(fields: [companyId], references: [id])
   serviceType  ServiceType            @relation(fields: [serviceTypeId], references: [id])
+  serviceTypeTags ProcessServiceType[]
   stage        KanbanStage            @relation(fields: [stageId], references: [id])
   stageHistory ProcessStage[]
   checklist    ProcessChecklistItem[]

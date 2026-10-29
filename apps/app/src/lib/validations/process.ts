@@ -29,7 +29,10 @@ export const createProcessSchema = z.object({
   workspaceId: z.string().min(1, "Selecione a área de trabalho."),
   clientId: z.string().min(1, "Selecione um cliente."),
   companyId: z.string().optional().or(z.literal("")),
-  serviceTypeId: z.string().min(1, "Selecione o tipo de serviço."),
+  /** Tipos de solicitação (etiquetas) da tarefa — o primeiro é o principal. */
+  serviceTypeIds: z.array(z.string().min(1)).min(1, "Selecione ao menos um tipo de solicitação.").max(10, "No máximo 10 tipos por tarefa."),
+  /** Modelo de tarefa usado de base (valor, prazo, anotações e checklist padrão), se houver. */
+  templateId: z.string().optional().or(z.literal("")),
   description: z.string().min(3, "Informe o nome da tarefa."),
   priority: z.enum(DEMAND_PRIORITIES),
   value: z.string().optional(),

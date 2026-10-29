@@ -13,6 +13,7 @@ import {
   getProcessPaymentSummary,
   isPresenceActive,
   isDueToday,
+  serviceTypeLabel,
 } from "@/modules/processes/labels";
 import { updateProcessStage, createWorkspace, createProcess, createCategory } from "@/modules/processes/actions";
 import { NewTaskWizard } from "@/modules/processes/process-wizard";
@@ -93,7 +94,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
             where: { tenantId: user.tenantId },
             select: { id: true, clientId: true, razaoSocial: true },
           }),
-          prisma.serviceType.findMany({
+          prisma.taskTemplate.findMany({
             where: { tenantId: user.tenantId, active: true },
             orderBy: { name: "asc" },
             select: {
@@ -102,8 +103,14 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
               defaultPrice: true,
               defaultDeadlineDays: true,
               defaultPriority: true,
-              checklistTemplate: { orderBy: { position: "asc" }, select: { label: true } },
+              defaultNotes: true,
+              checklist: { orderBy: { position: "asc" }, select: { label: true } },
             },
+          }),
+          prisma.serviceType.findMany({
+            where: { tenantId: user.tenantId, active: true },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true },
           }),
         ])
       : Promise.resolve(null),
@@ -120,6 +127,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       include: {
         client: { select: { name: true } },
         serviceType: { select: { name: true } },
+        serviceTypeTags: { select: { serviceType: { select: { name: true } } } },
         assignees: { include: { user: { select: { name: true } } } },
         stage: { select: { label: true } },
         comments: {
@@ -148,7 +156,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       number: p.number,
       title: p.description,
       clientName: p.client.name,
-      serviceTypeName: p.serviceType.name,
+      serviceTypeName: serviceTypeLabel(p.serviceType.name, p.serviceTypeTags.map((t) => t.serviceType.name)),
       priority: p.priority,
       stageId: p.stageId,
       assigneeNames: p.assignees.map((a) => a.user.name),
@@ -200,20 +208,27 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
               <Button variant="outline">Modelos</Button>
             </Link>
           )}
+          {canManage && (
+            <Link href="/processos/tipos">
+              <Button variant="outline">Tipos de solicitação</Button>
+            </Link>
+          )}
           {canManage && activeWorkspace && wizardData && (
             <NewTaskWizard
               workspaces={wizardData[0]}
               defaultWorkspaceId={activeWorkspace.id}
               clients={wizardData[1]}
               companies={wizardData[2]}
-              serviceTypes={wizardData[3].map((st) => ({
-                id: st.id,
-                name: st.name,
-                defaultPrice: st.defaultPrice ? String(st.defaultPrice) : null,
-                defaultDeadlineDays: st.defaultDeadlineDays,
-                defaultPriority: st.defaultPriority,
-                checklist: st.checklistTemplate.map((c) => c.label),
+              templates={wizardData[3].map((t) => ({
+                id: t.id,
+                name: t.name,
+                defaultPrice: t.defaultPrice ? String(t.defaultPrice) : null,
+                defaultDeadlineDays: t.defaultDeadlineDays,
+                defaultPriority: t.defaultPriority,
+                defaultNotes: t.defaultNotes ?? "",
+                checklist: t.checklist.map((c) => c.label),
               }))}
+              serviceTypes={wizardData[4]}
               onSubmit={createProcess}
               createCategory={createCategory}
               autoOpen={searchParams.nova === "1"}

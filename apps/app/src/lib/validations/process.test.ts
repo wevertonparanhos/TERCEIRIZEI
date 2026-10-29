@@ -22,13 +22,21 @@ describe("createProcessSchema", () => {
   const valid = {
     workspaceId: "workspace-1",
     clientId: "client-1",
-    serviceTypeId: "service-1",
+    serviceTypeIds: ["service-1"],
     description: "Abertura de empresa para o cliente.",
     priority: "MEDIA" as const,
   };
 
   it("aceita um processo novo válido (staff)", () => {
     expect(createProcessSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("aceita mais de um tipo de solicitação e um modelo", () => {
+    expect(createProcessSchema.safeParse({ ...valid, serviceTypeIds: ["a", "b"], templateId: "modelo-1" }).success).toBe(true);
+  });
+
+  it("rejeita sem nenhum tipo de solicitação", () => {
+    expect(createProcessSchema.safeParse({ ...valid, serviceTypeIds: [] }).success).toBe(false);
   });
 
   it("aceita valor opcional", () => {

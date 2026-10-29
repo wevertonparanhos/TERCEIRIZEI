@@ -20,6 +20,7 @@ import {
   getProcessPaymentSummary,
   isPresenceActive,
   PAYMENT_STATUS_LABELS,
+  serviceTypeLabel,
 } from "@/modules/processes/labels";
 import { ProcessTabs } from "@/modules/processes/process-tabs";
 import {
@@ -51,7 +52,7 @@ import {
   deleteChecklistItem,
   addProcessComment,
   setCommentClientVisible,
-  setProcessCategory,
+  setProcessServiceTypes,
   createCategory,
   setProcessValue,
   updateInstallment,
@@ -122,6 +123,7 @@ export default async function ProcessoDetalhePage({
         select: { id: true, razaoSocial: true, nomeFantasia: true, cnpj: true, address: true, city: true, state: true },
       },
       serviceType: { select: { name: true } },
+      serviceTypeTags: { select: { serviceTypeId: true, serviceType: { select: { name: true } } } },
       assignees: { select: { userId: true } },
       stage: { select: { label: true, color: true } },
       checklist: { orderBy: { createdAt: "asc" } },
@@ -176,6 +178,9 @@ export default async function ProcessoDetalhePage({
   );
   const hasOpenImpediment = process.impediments.some((i) => !i.resolvedAt);
 
+  // Tipos de solicitação da tarefa: o principal primeiro, depois os outros.
+  const taskTypeIds = [process.serviceTypeId, ...process.serviceTypeTags.map((t) => t.serviceTypeId).filter((id) => id !== process.serviceTypeId)];
+
   const [staff, stageUsers, stages, categories] = await Promise.all([
     prisma.user.findMany({
       where: { tenantId: user.tenantId, role: { name: { in: ["ADMIN", "GESTOR", "OPERACIONAL"] } }, active: true },
@@ -192,7 +197,7 @@ export default async function ProcessoDetalhePage({
       select: { id: true, label: true, color: true },
     }),
     prisma.serviceType.findMany({
-      where: { tenantId: user.tenantId, OR: [{ active: true }, { id: process.serviceTypeId }] },
+      where: { tenantId: user.tenantId, OR: [{ active: true }, { id: { in: taskTypeIds } }] },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
@@ -219,9 +224,9 @@ export default async function ProcessoDetalhePage({
         stages={stages}
         staff={staff}
         client={{ id: process.client.id, name: process.client.name }}
-        categoryId={process.serviceTypeId}
+        categoryIds={taskTypeIds}
         categories={categories}
-        setCategory={setProcessCategory.bind(null, process.id)}
+        setCategories={setProcessServiceTypes.bind(null, process.id)}
         newCategory={createCategory}
         finance={{
           total: paymentSummary.totalValue,
@@ -273,7 +278,7 @@ export default async function ProcessoDetalhePage({
             <SaveIndicator />
             <WhatsAppLink
               phone={process.client.whatsapp || process.client.phone}
-              message={`Olá! Sobre a tarefa #${process.number} (${process.serviceType.name})...`}
+              message={`Olá! Sobre a tarefa #${process.number} (${serviceTypeLabel(process.serviceType.name, process.serviceTypeTags.map((t) => t.serviceType.name))})...`}
               className={buttonVariants({ variant: "ghost", size: "sm" })}
             >
               WhatsApp

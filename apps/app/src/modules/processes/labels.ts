@@ -135,3 +135,9 @@ export function isDueToday(dueAt: Date | null, now: Date = new Date()): boolean 
     dueAt.getUTCDate() === now.getUTCDate()
   );
 }
+
+/** Texto com todos os tipos de solicitação da tarefa (o principal primeiro), separados por " · ". */
+export function serviceTypeLabel(primary: string, all: string[]): string {
+  const others = Array.from(new Set(all)).filter((name) => name !== primary).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return [primary, ...others].join(" · ");
+}

@@ -11,6 +11,7 @@ import {
   PRESENCE_EXPIRY_MINUTES,
   initials,
   isDueToday,
+  serviceTypeLabel,
 } from "./labels";
 
 function daysFromNow(days: number): Date {
@@ -209,5 +210,16 @@ describe("isDueToday", () => {
   it("é false quando o prazo é outro dia", () => {
     expect(isDueToday(new Date(Date.UTC(2026, 8, 3)), now)).toBe(false);
     expect(isDueToday(new Date(Date.UTC(2026, 8, 1)), now)).toBe(false);
+  });
+});
+
+describe("serviceTypeLabel", () => {
+  it("mostra só o tipo principal quando é o único", () => {
+    expect(serviceTypeLabel("Alvará", ["Alvará"])).toBe("Alvará");
+    expect(serviceTypeLabel("Alvará", [])).toBe("Alvará");
+  });
+
+  it("põe o principal primeiro e os demais em ordem alfabética, sem repetir", () => {
+    expect(serviceTypeLabel("Alvará", ["Certidões", "Alvará", "Abertura", "Certidões"])).toBe("Alvará · Abertura · Certidões");
   });
 });

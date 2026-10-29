@@ -311,50 +311,57 @@ export function PropertiesCard({
   stages,
   staff,
   client,
-  categoryId,
+  categoryIds,
   categories,
-  setCategory,
+  setCategories,
   newCategory,
   finance,
 }: {
   stages: { id: string; label: string; color: string }[];
   staff: { id: string; name: string }[];
   client: { id: string; name: string };
-  categoryId: string;
+  /** Tipos de solicitação (etiquetas) da tarefa; o primeiro é o principal. */
+  categoryIds: string[];
   categories: { id: string; name: string }[];
-  setCategory: (categoryId: string) => Promise<void>;
+  setCategories: (categoryIds: string[]) => Promise<{ ok: true } | { ok: false; error: string }>;
   newCategory: (name: string) => Promise<{ id: string; name: string }>;
   finance: FinanceProps;
 }) {
   const { fields, stageId, save, changeStage, readOnly } = useFields();
   const router = useRouter();
-  const [category, setCategoryState] = useState(categoryId);
+  const [selected, setSelected] = useState<string[]>(categoryIds);
   const [extra, setExtra] = useState<{ id: string; name: string }[]>([]);
   const [catError, setCatError] = useState<string | null>(null);
   const allCategories = [...categories, ...extra.filter((e) => !categories.some((c) => c.id === e.id))];
+  const nameById = new Map(allCategories.map((c) => [c.id, c.name]));
 
-  async function pickCategory(id: string) {
-    const previous = category;
-    setCategoryState(id);
+  async function changeCategories(next: string[]) {
+    const previous = selected;
+    setSelected(next);
     setCatError(null);
     try {
-      await setCategory(id);
+      const result = await setCategories(next);
+      if (!result.ok) {
+        setSelected(previous);
+        setCatError(result.error);
+        return;
+      }
       router.refresh();
     } catch (err) {
-      setCategoryState(previous);
-      setCatError(err instanceof Error ? err.message : "Não foi possível alterar a categoria.");
+      setSelected(previous);
+      setCatError(err instanceof Error ? err.message : "Não foi possível alterar os tipos.");
     }
   }
 
   async function addCategory() {
-    const typed = window.prompt("Nome da nova categoria:");
+    const typed = window.prompt("Nome do novo tipo de solicitação:");
     if (!typed || !typed.trim()) return;
     try {
       const created = await newCategory(typed);
       setExtra((prev) => [...prev, created]);
-      await pickCategory(created.id);
+      if (!selected.includes(created.id)) await changeCategories([...selected, created.id]);
     } catch (err) {
-      setCatError(err instanceof Error ? err.message : "Não foi possível criar a categoria.");
+      setCatError(err instanceof Error ? err.message : "Não foi possível criar o tipo.");
     }
   }
   const stageColor = stages.find((s) => s.id === stageId)?.color;
@@ -401,21 +408,44 @@ export function PropertiesCard({
             {client.name}
           </Link>
         </Row>
-        <Row icon={Tag} label="Categorias">
+        <Row icon={Tag} label="Tipos">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1">
-              <Briefcase className="h-3.5 w-3.5 text-accent" />
-              <select value={category} disabled={readOnly} onChange={(e) => pickCategory(e.target.value)} className={selectClass}>
-                {allCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+            {selected.map((id) => (
+              <span key={id} className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
+                <Briefcase className="h-3 w-3" />
+                {nameById.get(id) ?? "Tipo"}
+                {!readOnly && (
+                  <button
+                    type="button"
+                    aria-label={`Remover o tipo ${nameById.get(id) ?? ""}`}
+                    onClick={() => changeCategories(selected.filter((x) => x !== id))}
+                    className="ml-0.5 text-accent/70 hover:text-red-600"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+            {!readOnly && (
+              <select
+                value=""
+                aria-label="Adicionar tipo de solicitação"
+                onChange={(e) => e.target.value && changeCategories([...selected, e.target.value])}
+                className={selectClass}
+              >
+                <option value="">+ Adicionar tipo</option>
+                {allCategories
+                  .filter((c) => !selected.includes(c.id))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
               </select>
-            </span>
+            )}
             {!readOnly && (
               <button type="button" onClick={addCategory} className="text-xs font-medium text-accent hover:underline">
-                + Nova categoria
+                + Novo tipo
               </button>
             )}
             {catError && <span className="text-xs text-red-600">{catError}</span>}

@@ -15,12 +15,17 @@ import type { CreateProcessInput } from "@/lib/validations/process";
 type Workspace = { id: string; name: string; stages: { id: string; label: string }[] };
 type Client = { id: string; name: string };
 type Company = { id: string; clientId: string; razaoSocial: string };
-type ServiceType = {
+/** Tipo de solicitação: só uma etiqueta que identifica o serviço. */
+type ServiceType = { id: string; name: string };
+
+/** Modelo de tarefa: tarefa genérica pré-pronta (valor, prazo, prioridade, anotações e checklist). */
+type TaskTemplate = {
   id: string;
   name: string;
   defaultPrice: string | null;
   defaultDeadlineDays: number | null;
   defaultPriority: string | null;
+  defaultNotes: string;
   checklist: string[];
 };
 
@@ -57,6 +62,7 @@ export function NewTaskWizard({
   defaultWorkspaceId,
   clients,
   companies,
+  templates,
   serviceTypes,
   onSubmit,
   createCategory,
@@ -66,6 +72,7 @@ export function NewTaskWizard({
   defaultWorkspaceId?: string;
   clients: Client[];
   companies: Company[];
+  templates: TaskTemplate[];
   serviceTypes: ServiceType[];
   onSubmit: (data: CreateProcessInput) => Promise<{ id: string } | void>;
   createCategory?: (name: string) => Promise<{ id: string; name: string }>;
@@ -88,7 +95,7 @@ export function NewTaskWizard({
   const [priority, setPriority] = useState<CreateProcessInput["priority"]>("MEDIA");
   const [clientId, setClientId] = useState("");
   const [companyId, setCompanyId] = useState("");
-  const [serviceTypeId, setServiceTypeId] = useState("");
+  const [serviceTypeIds, setServiceTypeIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [checklist, setChecklist] = useState<string[]>([]);
   const [newItem, setNewItem] = useState("");
@@ -113,7 +120,7 @@ export function NewTaskWizard({
     setPriority("MEDIA");
     setClientId("");
     setCompanyId("");
-    setServiceTypeId("");
+    setServiceTypeIds([]);
     setNotes("");
     setChecklist([]);
     setNewItem("");
@@ -134,26 +141,29 @@ export function NewTaskWizard({
   function pickTemplate(id: string | null) {
     setTemplateId(id);
     if (!id) {
-      setServiceTypeId("");
       setChecklist([]);
       return;
     }
-    const st = serviceTypes.find((s) => s.id === id);
-    if (!st) return;
-    setServiceTypeId(st.id);
-    setChecklist(st.checklist);
-    if (st.defaultPriority) setPriority(st.defaultPriority as CreateProcessInput["priority"]);
-    if (st.defaultPrice) {
+    const tpl = templates.find((t) => t.id === id);
+    if (!tpl) return;
+    setChecklist(tpl.checklist);
+    if (tpl.defaultPriority) setPriority(tpl.defaultPriority as CreateProcessInput["priority"]);
+    if (tpl.defaultPrice) {
       setHasPayment(true);
-      setValue(st.defaultPrice);
+      setValue(tpl.defaultPrice);
     }
-    if (st.defaultDeadlineDays) setDueAt(inputDateFromNow(st.defaultDeadlineDays));
+    if (tpl.defaultDeadlineDays) setDueAt(inputDateFromNow(tpl.defaultDeadlineDays));
+    if (tpl.defaultNotes) setNotes(tpl.defaultNotes);
+  }
+
+  function toggleServiceType(id: string) {
+    setServiceTypeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   }
 
   function stepError(): string | null {
     if (step === 2 && name.trim().length < 3) return "Informe o nome da tarefa.";
     if (step === 3 && !clientId) return "Selecione um cliente.";
-    if (step === 3 && !serviceTypeId) return "Selecione o tipo de serviço.";
+    if (step === 3 && serviceTypeIds.length === 0) return "Selecione ao menos um tipo de solicitação.";
     if (step === 6 && hasPayment && Number(value) > 0 && !paymentDueDate) {
       return "Informe a data prevista de pagamento — sem ela o valor não aparece no Financeiro.";
     }
@@ -181,7 +191,8 @@ export function NewTaskWizard({
         stageId,
         clientId,
         companyId,
-        serviceTypeId,
+        serviceTypeIds,
+        templateId: templateId ?? "",
         description: name.trim(),
         priority,
         notes,
@@ -249,10 +260,11 @@ export function NewTaskWizard({
         {step === 1 && (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm text-muted">Escolha um serviço para pré-preencher a tarefa, ou comece em branco.</p>
+              <p className="text-sm text-muted">Escolha um modelo de tarefa para pré-preencher valor, prazo e checklist, ou comece em branco.</p>
               <a href="/processos/modelos" className="text-xs font-medium text-accent hover:underline">
                 Editar modelos
               </a>
+              {templates.length === 0 && <span className="w-full text-xs text-muted-soft">Nenhum modelo cadastrado — comece em branco ou crie um em Editar modelos.</span>}
             </div>
             <button
               type="button"
@@ -270,22 +282,22 @@ export function NewTaskWizard({
               </span>
             </button>
             <div className="grid gap-2 sm:grid-cols-2">
-              {serviceTypes.map((st) => (
+              {templates.map((tpl) => (
                 <button
-                  key={st.id}
+                  key={tpl.id}
                   type="button"
-                  onClick={() => pickTemplate(st.id)}
+                  onClick={() => pickTemplate(tpl.id)}
                   className={`rounded-xl border p-3 text-left transition-colors ${
-                    templateId === st.id ? "border-accent bg-accent-soft/60" : "border-border hover:bg-surface-alt"
+                    templateId === tpl.id ? "border-accent bg-accent-soft/60" : "border-border hover:bg-surface-alt"
                   }`}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-ink">{st.name}</span>
-                    {templateId === st.id && <Check className="h-4 w-4 text-accent" />}
+                    <span className="text-sm font-semibold text-ink">{tpl.name}</span>
+                    {templateId === tpl.id && <Check className="h-4 w-4 text-accent" />}
                   </span>
                   <span className="mt-1 flex gap-2 text-xs text-muted">
-                    {st.defaultPrice && <span>R$ {Number(st.defaultPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>}
-                    {st.checklist.length > 0 && <span>{st.checklist.length} etapas</span>}
+                    {tpl.defaultPrice && <span>R$ {Number(tpl.defaultPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>}
+                    {tpl.checklist.length > 0 && <span>{tpl.checklist.length} etapas</span>}
                   </span>
                 </button>
               ))}
@@ -378,36 +390,49 @@ export function NewTaskWizard({
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="wz-service">Categoria (tipo de serviço) *</Label>
-              <Select id="wz-service" value={serviceTypeId} onChange={(e) => setServiceTypeId(e.target.value)}>
-                <option value="">Selecione...</option>
-                {allServiceTypes.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
+              <Label>Tipos de solicitação *</Label>
+              <p className="text-xs text-muted">Etiquetas que identificam o serviço. Marque um ou mais.</p>
+              <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto rounded-xl border border-border bg-surface-alt/40 p-2">
+                {allServiceTypes.map((s) => {
+                  const selected = serviceTypeIds.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => toggleServiceType(s.id)}
+                      className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        selected ? "border-accent bg-accent text-white" : "border-border bg-surface text-ink hover:bg-surface-alt"
+                      }`}
+                    >
+                      {selected && <Check className="h-3 w-3" />}
+                      {s.name}
+                    </button>
+                  );
+                })}
+                {allServiceTypes.length === 0 && <span className="px-1 py-0.5 text-xs text-muted-soft">Nenhum tipo cadastrado ainda — crie o primeiro abaixo.</span>}
+              </div>
               {createCategory && (
                 <button
                   type="button"
                   className="text-xs font-medium text-accent hover:underline"
                   onClick={async () => {
-                    const typed = window.prompt("Nome da nova categoria:");
+                    const typed = window.prompt("Nome do novo tipo de solicitação:");
                     if (!typed || !typed.trim()) return;
                     try {
                       const created = await createCategory(typed);
                       setExtraCategories((prev) =>
                         allServiceTypes.some((s) => s.id === created.id)
                           ? prev
-                          : [...prev, { id: created.id, name: created.name, defaultPrice: null, defaultDeadlineDays: null, defaultPriority: null, checklist: [] }]
+                          : [...prev, { id: created.id, name: created.name }]
                       );
-                      setServiceTypeId(created.id);
+                      setServiceTypeIds((ids) => (ids.includes(created.id) ? ids : [...ids, created.id]));
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : "Não foi possível criar a categoria.");
+                      setError(err instanceof Error ? err.message : "Não foi possível criar o tipo.");
                     }
                   }}
                 >
-                  + Nova categoria
+                  + Novo tipo de solicitação
                 </button>
               )}
             </div>

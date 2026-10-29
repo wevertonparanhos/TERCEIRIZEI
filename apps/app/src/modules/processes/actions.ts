@@ -48,18 +48,11 @@ async function loadProcessForWrite(processId: string, user: CurrentUser) {
   return process;
 }
 
-/** Copia o checklist padrão do modelo de serviço pro processo recém-aberto —
- * é uma cópia (não referência), então cada processo pode editar livremente
- * sem afetar o modelo. */
-async function seedChecklistFromTemplate(processId: string, serviceTypeId: string) {
-  const templateItems = await prisma.serviceChecklistTemplateItem.findMany({
-    where: { serviceTypeId },
-    orderBy: { position: "asc" },
-  });
-  if (templateItems.length === 0) return;
-
-  await prisma.processChecklistItem.createMany({
-    data: templateItems.map((item) => ({ processId, label: item.label, category: item.category })),
+/** Guarda todas as etiquetas (tipos de solicitação) da tarefa; a primeira também fica em Process.serviceTypeId. */
+async function saveServiceTypeTags(processId: string, serviceTypeIds: string[]) {
+  await prisma.processServiceType.createMany({
+    data: serviceTypeIds.map((serviceTypeId) => ({ processId, serviceTypeId })),
+    skipDuplicates: true,
   });
 }
 
@@ -91,10 +84,17 @@ export async function createProcess(input: CreateProcessInput) {
   });
   if (!workspace) throw new Error("Área de trabalho não encontrada.");
 
-  const serviceType = await prisma.serviceType.findFirst({
-    where: { id: data.serviceTypeId, tenantId: user.tenantId },
-  });
-  if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
+  const serviceTypeIds = Array.from(new Set(data.serviceTypeIds));
+  const serviceTypes = await prisma.serviceType.findMany({ where: { id: { in: serviceTypeIds }, tenantId: user.tenantId }, select: { id: true } });
+  if (serviceTypes.length !== serviceTypeIds.length) throw new Error("Tipo de solicitação não encontrado.");
+
+  const template = data.templateId
+    ? await prisma.taskTemplate.findFirst({
+        where: { id: data.templateId, tenantId: user.tenantId },
+        include: { checklist: { orderBy: { position: "asc" }, select: { label: true } } },
+      })
+    : null;
+  if (data.templateId && !template) throw new Error("Modelo de tarefa não encontrado.");
 
   const firstStage = data.stageId
     ? await prisma.kanbanStage.findFirst({ where: { id: data.stageId, workspaceId: workspace.id } })
@@ -110,16 +110,16 @@ export async function createProcess(input: CreateProcessInput) {
       number,
       clientId: data.clientId,
       companyId: data.companyId || null,
-      serviceTypeId: data.serviceTypeId,
+      serviceTypeId: serviceTypeIds[0],
       stageId: firstStage.id,
       description: data.description,
       priority: data.priority,
       requestedDeadline: data.requestedDeadline
         ? new Date(data.requestedDeadline)
-        : serviceType.defaultDeadlineDays
-          ? addDays(new Date(), serviceType.defaultDeadlineDays)
+        : template?.defaultDeadlineDays
+          ? addDays(new Date(), template.defaultDeadlineDays)
           : null,
-      notes: data.notes || serviceType.defaultNotes || null,
+      notes: data.notes || template?.defaultNotes || null,
       dueAt: data.dueAt ? new Date(data.dueAt) : null,
       plannedStartAt: data.plannedStartAt ? new Date(data.plannedStartAt) : null,
       plannedDeliveryAt: data.plannedDeliveryAt ? new Date(data.plannedDeliveryAt) : null,
@@ -132,17 +132,17 @@ export async function createProcess(input: CreateProcessInput) {
     data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: user.id },
   });
 
-  if (data.checklist) {
-    if (data.checklist.length > 0) {
-      await prisma.processChecklistItem.createMany({
-        data: data.checklist.map((label) => ({ processId: process.id, label })),
-      });
-    }
-  } else {
-    await seedChecklistFromTemplate(process.id, data.serviceTypeId);
+  await saveServiceTypeTags(process.id, serviceTypeIds);
+
+  // O checklist enviado pela tela (já editado pela pessoa) vale; sem ele, copia o do modelo.
+  const checklistLabels = data.checklist ?? template?.checklist.map((c) => c.label) ?? [];
+  if (checklistLabels.length > 0) {
+    await prisma.processChecklistItem.createMany({
+      data: checklistLabels.map((label) => ({ processId: process.id, label })),
+    });
   }
 
-  const initialValue = data.value ? Number(data.value) : serviceType.defaultPrice ? Number(serviceType.defaultPrice) : null;
+  const initialValue = data.value ? Number(data.value) : template?.defaultPrice ? Number(template.defaultPrice) : null;
   if (initialValue) {
     await prisma.processInstallment.create({
       data: {
@@ -180,11 +180,11 @@ type OpenRequestProcessParams = {
   notes: string | null;
 };
 
-/** Abre a tarefa de um pedido do cliente: primeira etapa da área escolhida (ou da primeira área),
- * checklist e valor padrão do serviço. Usada na criação direta e na importação de um pedido. */
+/** Abre a tarefa de um pedido do cliente: primeira etapa da área escolhida (ou da primeira área), com o tipo
+ * de solicitação como etiqueta. Usada na criação direta e na importação de um pedido. */
 async function openProcessForClientRequest(p: OpenRequestProcessParams) {
   const serviceType = await prisma.serviceType.findFirst({ where: { id: p.serviceTypeId, tenantId: p.tenantId } });
-  if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
+  if (!serviceType) throw new Error("Tipo de solicitação não encontrado.");
 
   const workspace = p.workspaceId
     ? await prisma.workspace.findFirst({ where: { id: p.workspaceId, tenantId: p.tenantId } })
@@ -207,17 +207,14 @@ async function openProcessForClientRequest(p: OpenRequestProcessParams) {
       stageId: firstStage.id,
       description: p.description,
       priority: p.priority,
-      requestedDeadline: p.requestedDeadline ?? (serviceType.defaultDeadlineDays ? addDays(new Date(), serviceType.defaultDeadlineDays) : null),
-      notes: p.notes || serviceType.defaultNotes || null,
+      requestedDeadline: p.requestedDeadline,
+      notes: p.notes || null,
       requestedByClient: true,
     },
   });
 
   await prisma.processStage.create({ data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: p.userId } });
-  await seedChecklistFromTemplate(process.id, p.serviceTypeId);
-  if (serviceType.defaultPrice) {
-    await prisma.processInstallment.create({ data: { processId: process.id, position: 1, value: Number(serviceType.defaultPrice) } });
-  }
+  await saveServiceTypeTags(process.id, [serviceType.id]);
   return process;
 }
 
@@ -1031,13 +1028,23 @@ export async function createCategory(name: string): Promise<{ id: string; name: 
   return created;
 }
 
-export async function setProcessCategory(processId: string, serviceTypeId: string) {
+/** Define os tipos de solicitação (etiquetas) da tarefa. O primeiro é o principal. */
+export async function setProcessServiceTypes(processId: string, serviceTypeIds: string[]): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await requireInfoAccess(processId);
-  const type = await prisma.serviceType.findFirst({ where: { id: serviceTypeId, tenantId: user.tenantId }, select: { id: true } });
-  if (!type) throw new Error("Categoria não encontrada.");
-  await prisma.process.update({ where: { id: processId }, data: { serviceTypeId } });
+  const ids = Array.from(new Set(serviceTypeIds));
+  if (ids.length === 0) return { ok: false, error: "A tarefa precisa ter pelo menos um tipo de solicitação." };
+  if (ids.length > 10) return { ok: false, error: "No máximo 10 tipos por tarefa." };
+  const found = await prisma.serviceType.findMany({ where: { id: { in: ids }, tenantId: user.tenantId }, select: { id: true } });
+  if (found.length !== ids.length) return { ok: false, error: "Tipo de solicitação não encontrado. Atualize a página." };
+
+  await prisma.$transaction([
+    prisma.processServiceType.deleteMany({ where: { processId } }),
+    prisma.processServiceType.createMany({ data: ids.map((serviceTypeId) => ({ processId, serviceTypeId })) }),
+    prisma.process.update({ where: { id: processId }, data: { serviceTypeId: ids[0] } }),
+  ]);
   revalidatePath(`/processos/${processId}`);
   revalidatePath("/processos");
+  return { ok: true };
 }
 
 // --- Aba "Informações": campos livres só da equipe ---
