@@ -1,6 +1,33 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Search, X } from "lucide-react";
+
+/** Texto da busca que sobrevive à navegação: abrir uma tarefa e voltar (ou usar o "Voltar" do
+ * navegador) devolve o quadro já filtrado. Fica guardado só nesta aba (sessionStorage). */
+export function usePersistentSearch(storageKey: string): [string, (v: string) => void] {
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    try {
+      setQuery(window.sessionStorage.getItem(storageKey) ?? "");
+    } catch {
+      // armazenamento indisponível: a busca só não é lembrada
+    }
+  }, [storageKey]);
+
+  function update(value: string) {
+    setQuery(value);
+    try {
+      if (value) window.sessionStorage.setItem(storageKey, value);
+      else window.sessionStorage.removeItem(storageKey);
+    } catch {
+      // ignora
+    }
+  }
+
+  return [query, update];
+}
 
 export function SearchInput({
   value,

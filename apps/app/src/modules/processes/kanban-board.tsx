@@ -18,7 +18,7 @@ import { Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, type PaymentStatus } from "@/modules/processes/labels";
 import { matchesSearch } from "@/modules/processes/search";
-import { SearchInput } from "@/modules/processes/search-input";
+import { SearchInput, usePersistentSearch } from "@/modules/processes/search-input";
 
 export type Stage = { id: string; label: string; color: string };
 
@@ -200,11 +200,14 @@ export function KanbanBoard({
   cards,
   canDrag,
   updateStage,
+  searchKey = "busca-tarefas",
 }: {
   stages: Stage[];
   cards: KanbanCard[];
   canDrag: boolean;
   updateStage: (processId: string, stageId: string) => Promise<void>;
+  /** Chave onde a busca digitada fica guardada (uma por área de trabalho). */
+  searchKey?: string;
 }) {
   const router = useRouter();
   // Sem "distância mínima" o arrasto começa no clique e engole o clique do mouse:
@@ -215,7 +218,7 @@ export function KanbanBoard({
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } })
   );
   const [items, setItems] = useState(cards);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = usePersistentSearch(searchKey);
   const searching = query.trim().length > 0;
   const visibleItems = searching
     ? items.filter((c) => matchesSearch([String(c.number), c.title, c.clientName, c.serviceTypeName, ...c.assigneeNames], query))

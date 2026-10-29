@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { matchesSearch } from "@/modules/processes/search";
-import { SearchInput } from "@/modules/processes/search-input";
+import { SearchInput, usePersistentSearch } from "@/modules/processes/search-input";
 
 export type ArchivedRow = {
   id: string;
@@ -17,8 +16,8 @@ export type ArchivedRow = {
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-export function ArchivedTable({ rows }: { rows: ArchivedRow[] }) {
-  const [query, setQuery] = useState("");
+export function ArchivedTable({ rows, searchKey = "busca-arquivadas" }: { rows: ArchivedRow[]; searchKey?: string }) {
+  const [query, setQuery] = usePersistentSearch(searchKey);
   const visible = rows.filter((r) => matchesSearch([String(r.number), r.title, r.clientName, r.stageLabel], query));
 
   return (

@@ -240,6 +240,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       <div className="mt-4 flex-1 overflow-hidden">
         {showArchived ? (
           <ArchivedTable
+            searchKey={`busca-arquivadas:${activeWorkspace?.id ?? ""}`}
             rows={cards.map((c) => ({
               id: c.id,
               number: c.number,
@@ -251,7 +252,13 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
             }))}
           />
         ) : (
-          <KanbanBoard stages={stageList} cards={cards} canDrag={canDrag} updateStage={updateProcessStage} />
+          <KanbanBoard
+            stages={stageList}
+            cards={cards}
+            canDrag={canDrag}
+            updateStage={updateProcessStage}
+            searchKey={`busca-tarefas:${activeWorkspace?.id ?? ""}`}
+          />
         )}
       </div>
     </div>
