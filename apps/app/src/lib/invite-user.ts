@@ -2,7 +2,8 @@ import "server-only";
 import { headers } from "next/headers";
 import { prisma } from "@terceirizei/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { buildConfirmLink } from "@/lib/auth-links";
+import { env } from "@/lib/env";
+import { buildInviteLink, createInviteToken, readInviteToken } from "@/lib/invite-token";
 
 export function getOrigin(): string {
   const host = headers().get("host") ?? "";
@@ -10,15 +11,37 @@ export function getOrigin(): string {
   return `${protocol}://${host}`;
 }
 
+const INVITE_TTL_HOURS = 24 * 7;
+
+/** Impressão da senha atual: muda quando a senha é trocada, o que invalida os links já emitidos. */
+async function passwordFingerprint(userId: string): Promise<string | null> {
+  const rows = await prisma.$queryRaw<{ f: string }[]>`select md5(coalesce(encrypted_password, '')) as f from auth.users where id = ${userId}::uuid`;
+  return rows[0]?.f ?? null;
+}
+
 /**
- * Gera um link novo para a pessoa (re)definir a senha — serve para convite, reenvio e redefinição.
- * O link abre /auth/confirm (nossa rota), que valida o código no servidor e cria a sessão.
+ * Gera um link novo para a pessoa criar a senha de acesso — serve para convite, reenvio e redefinição.
+ * O link abre /convite/<token>: só pede a senha e já entra, sem confirmação por e-mail. Vale por 7 dias
+ * (ou o prazo informado) e deixa de valer assim que a senha é criada.
  */
-export async function generateAccessLink(email: string): Promise<string> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email });
-  if (error || !data?.properties?.hashed_token) throw new Error("Não foi possível gerar o link de acesso.");
-  return buildConfirmLink(getOrigin(), data.properties.hashed_token, "recovery");
+export async function generateAccessLink(email: string, ttlHours = INVITE_TTL_HOURS): Promise<string> {
+  const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() }, select: { id: true } });
+  const fingerprint = user ? await passwordFingerprint(user.id) : null;
+  if (!user || fingerprint === null) throw new Error("Não foi possível gerar o link de acesso.");
+  const token = createInviteToken({ userId: user.id, fingerprint, ttlHours, secret: env.supabaseServiceRoleKey() });
+  return buildInviteLink(getOrigin(), token);
+}
+
+export type ResolvedInvite = { userId: string; email: string; name: string; isClient: boolean };
+
+/** Valida o token do link (assinatura, validade, uso único e usuário ativo). */
+export async function resolveInvite(token: string): Promise<ResolvedInvite | null> {
+  const payload = readInviteToken(token, env.supabaseServiceRoleKey());
+  if (!payload) return null;
+  const user = await prisma.user.findUnique({ where: { id: payload.u }, select: { id: true, email: true, name: true, active: true, clientId: true } });
+  if (!user || !user.active || user.email.endsWith(".invalid")) return null;
+  if ((await passwordFingerprint(user.id)) !== payload.f) return null;
+  return { userId: user.id, email: user.email, name: user.name, isClient: user.clientId !== null };
 }
 
 /**

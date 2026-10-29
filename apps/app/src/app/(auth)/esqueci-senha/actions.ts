@@ -20,7 +20,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
   let emailed = false;
   try {
-    const link = await generateAccessLink(clean);
+    const link = await generateAccessLink(clean, 2);
     const message = user.clientId
       ? portalAccessEmail({ clientName: user.name, link, mode: "reset" })
       : passwordResetEmail({ name: user.name, link });
