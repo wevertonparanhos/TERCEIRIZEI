@@ -10,9 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { createProposal, createTemplate, deleteTemplate, cancelProposal, deleteProposal } from "./actions";
 
-type TemplateSummary = { id: string; name: string; services: number; total: number };
-
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+type TemplateSummary = { id: string; name: string; services: number };
 
 export function ProposalsToolbar({ clients, templates }: { clients: { id: string; name: string }[]; templates: TemplateSummary[] }) {
   const router = useRouter();
@@ -173,7 +171,7 @@ export function ProposalsToolbar({ clients, templates }: { clients: { id: string
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink">{t.name}</p>
                   <p className="text-xs text-muted">
-                    {t.services} serviço(s) · {brl.format(t.total)}
+                    {t.services} serviço(s) · contrato com cláusulas
                   </p>
                 </div>
                 {confirmDelete === t.id ? (

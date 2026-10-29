@@ -16,7 +16,7 @@ export default async function PortalPropostaDetalhePage({ params }: { params: { 
 
   const proposal = await prisma.proposal.findFirst({
     where: { id: params.id, clientId: user.clientId, status: { notIn: ["RASCUNHO", "CANCELADA"] } },
-    include: { items: { orderBy: { position: "asc" } }, client: { select: { name: true } } },
+    include: { items: { orderBy: { position: "asc" } }, client: { select: { id: true, name: true, doc: true, address: true, zipCode: true, city: true, state: true, email: true } } },
   });
   if (!proposal) notFound();
 
@@ -41,7 +41,12 @@ export default async function PortalPropostaDetalhePage({ params }: { params: { 
       <ProposalDocument
         content={proposalToContent(proposal)}
         number={proposal.number}
-        clientName={proposal.client?.name}
+        client={proposal.client}
+        acceptance={
+          proposal.status === "ACEITA" && proposal.respondedAt
+            ? { name: proposal.acceptedByName ?? "cliente", at: proposal.respondedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }), ip: proposal.acceptedIp }
+            : null
+        }
         issuedAt={(proposal.sentAt ?? proposal.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
         validUntil={proposal.validUntil ? proposal.validUntil.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : null}
       />

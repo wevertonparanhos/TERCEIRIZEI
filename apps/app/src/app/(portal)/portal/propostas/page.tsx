@@ -4,15 +4,13 @@ import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE_VARIANT, getProposalDisplayStatus } from "@/modules/proposals/labels";
 
-const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
 export default async function PortalPropostasPage() {
   const user = await getCurrentUser();
   if (!user || !user.clientId) return null;
 
   const proposals = await prisma.proposal.findMany({
     where: { clientId: user.clientId, status: { notIn: ["RASCUNHO", "CANCELADA"] } },
-    include: { items: { select: { value: true } } },
+    include: { _count: { select: { items: true } } },
     orderBy: { createdAt: "desc" },
   });
 
@@ -25,8 +23,7 @@ export default async function PortalPropostasPage() {
         {proposals.length === 0 && <p className="text-sm text-muted-soft">Nenhuma proposta recebida ainda.</p>}
         {proposals.map((p) => {
           const status = getProposalDisplayStatus(p.status, p.validUntil);
-          const total = Math.max(0, p.items.reduce((sum, item) => sum + Number(item.value), 0) - Number(p.discount));
-          return (
+                    return (
             <Link
               key={p.id}
               href={`/portal/propostas/${p.id}`}
@@ -41,7 +38,7 @@ export default async function PortalPropostasPage() {
                   {p.title}
                   {p.validUntil ? ` · válida até ${p.validUntil.toLocaleDateString("pt-BR", { timeZone: "UTC" })}` : ""}
                 </p>
-                <span className="font-mono text-lg font-semibold text-ink">{currencyFormatter.format(total)}</span>
+                <span className="text-sm text-muted">{p._count.items} serviço(s)</span>
               </div>
             </Link>
           );

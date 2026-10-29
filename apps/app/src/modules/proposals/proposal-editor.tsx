@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PAYMENT_METHODS, type ProposalContent } from "@/lib/validations/proposal";
+import { DEFAULT_UNIT, PAYMENT_METHODS, type ProposalContent } from "@/lib/validations/proposal";
 import { parseBrl } from "@/modules/processes/process-fields";
-import { ProposalDocument, ProposalPrintStyles } from "./proposal-document";
-import { subtotalOf, totalOf } from "./content";
+import { ProposalDocument, ProposalPrintStyles, type DocumentClient } from "./proposal-document";
+import { DEFAULT_CLAUSES } from "./contract-clauses";
 import {
   saveProposal,
   sendProposal,
@@ -30,14 +30,14 @@ type Rest = Omit<ProposalContent, "items">;
 
 const STEPS = [
   { title: "Apresentação", hint: "Título, cliente e texto de abertura." },
-  { title: "Escopo e Investimento", hint: "Liste os serviços e o valor de cada um." },
-  { title: "Logística e Condições", hint: "Prazos, pagamento e validade." },
+  { title: "Serviços e Valores", hint: "Tabela dos serviços oferecidos e o valor de cada um, cobrado quando solicitado." },
+  { title: "Pagamento e Prazos", hint: "Faturamento mensal, vencimento, atraso, vigência e validade." },
+  { title: "Cláusulas do Contrato", hint: "Cláusulas obrigatórias e cláusulas adicionais." },
   { title: "Acabamento", hint: "Capa e ajustes finais." },
 ];
 
 const SECTION_PRESETS = ["O que não está incluso", "Bônus", "Sobre a Terceirizei", "Perguntas frequentes"];
 
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 let seq = 0;
 const newKey = () => `i${Date.now().toString(36)}${seq++}`;
 
@@ -162,7 +162,7 @@ export function ProposalEditor({
   initialName?: string;
   initialClientId?: string | null;
   initialContent: ProposalContent;
-  clients: { id: string; name: string }[];
+  clients: (DocumentClient & { id: string })[];
   initialBlocks: Block[];
 }) {
   const router = useRouter();
@@ -191,7 +191,7 @@ export function ProposalEditor({
     () => ({ ...rest, items: items.map(({ k: _k, ...item }) => (void _k, item)) }),
     [rest, items]
   );
-  const clientName = clients.find((c) => c.id === clientId)?.name ?? null;
+  const client = clients.find((c) => c.id === clientId) ?? null;
   const issuedAt = useMemo(() => new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }), []);
 
   function patch(p: Partial<Rest>) {
@@ -203,6 +203,9 @@ export function ProposalEditor({
     setItems((list) => list.map((it) => (it.k === k ? { ...it, ...p } : it)));
     setDirty(true);
     setNotice(null);
+  }
+  function patchClause(key: string, p: Partial<ProposalContent["clauses"][number]>) {
+    patch({ clauses: rest.clauses.map((c) => (c.key === key ? { ...c, ...p } : c)) });
   }
   function moveItem(index: number, dir: -1 | 1) {
     setItems((list) => {
@@ -309,8 +312,6 @@ export function ProposalEditor({
     }
   }
 
-  const subtotal = subtotalOf(content);
-  const total = totalOf(content);
   const addBlock = (b: Block) => setBlocks((list) => [...list, b]);
   const busyAny = busy !== null;
 
@@ -342,7 +343,7 @@ export function ProposalEditor({
         </div>
       </div>
 
-      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {STEPS.map((s, i) => (
           <li key={s.title}>
             <button
@@ -441,6 +442,9 @@ export function ProposalEditor({
 
           {step === 1 && (
             <div className="space-y-4">
+              <p className="rounded-lg bg-accent-soft px-3 py-2 text-xs text-ink">
+                A proposta não tem valor total: cada serviço tem o seu preço e é cobrado quando o cliente solicita, no relatório do cliente do mês.
+              </p>
               <div className="space-y-3">
                 {items.length === 0 && <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-soft">Nenhum serviço ainda. Adicione o primeiro abaixo.</p>}
                 {items.map((item, index) => (
@@ -453,9 +457,18 @@ export function ProposalEditor({
                         onChange={(e) => patchItem(item.k, { description: e.target.value })}
                         placeholder="Nome do serviço"
                       />
-                      <div className="w-36 flex-none">
+                      <div className="w-32 flex-none">
                         <MoneyInput value={item.value} onChange={(n) => patchItem(item.k, { value: n })} />
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        aria-label={`Quando o serviço ${index + 1} é cobrado`}
+                        value={item.unit}
+                        onChange={(e) => patchItem(item.k, { unit: e.target.value })}
+                        placeholder={`Cobrança: ${DEFAULT_UNIT} (ou mensal, por hora…)`}
+                        className="h-9 text-xs"
+                      />
                     </div>
                     <Textarea
                       aria-label={`Detalhes do serviço ${index + 1}`}
@@ -491,85 +504,44 @@ export function ProposalEditor({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setItems((list) => [...list, { k: newKey(), description: "", detail: "", value: 0 }]);
+                  setItems((list) => [...list, { k: newKey(), description: "", detail: "", unit: "", value: 0 }]);
                   setDirty(true);
                 }}
               >
                 <Plus className="mr-1.5 h-4 w-4" />
                 Adicionar serviço
               </Button>
-
-              <div className="space-y-2 border-t border-border pt-4">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="p-discount">Desconto (R$)</Label>
-                  <div className="w-36">
-                    <MoneyInput id="p-discount" value={rest.discount} onChange={(n) => patch({ discount: n })} />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm text-muted">
-                  <span>Subtotal</span>
-                  <span className="font-mono">{brl.format(subtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-base font-semibold text-ink">
-                  <span>Total</span>
-                  <span className="font-mono">{brl.format(total)}</span>
-                </div>
-              </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-5">
-              <div className="space-y-2">
-                <Label>Disponibilidade</Label>
-                <label className="flex items-center gap-2 text-sm text-ink">
-                  <input type="checkbox" checked={rest.startImmediately} onChange={(e) => patch({ startImmediately: e.target.checked })} />
-                  Tenho disponibilidade imediata
-                </label>
-                {!rest.startImmediately && (
-                  <Input aria-label="Data de início" type="date" value={rest.startDate} onChange={(e) => patch({ startDate: e.target.value })} className="max-w-[200px]" />
-                )}
+              <div className="rounded-lg border border-border bg-surface-alt/40 p-3 text-sm text-ink">
+                <p className="font-medium">Faturamento</p>
+                <p className="text-xs text-muted">
+                  Os serviços solicitados no mês são enviados ao cliente no <b>Relatório do Cliente</b>, no <b>último dia útil do mês</b>.
+                </p>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="p-duration">Duração do projeto</Label>
-                <Input id="p-duration" value={rest.duration} onChange={(e) => patch({ duration: e.target.value })} placeholder="Ex.: 3 meses, contrato mensal recorrente…" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Estrutura do pagamento</Label>
-                <div className="flex gap-2">
-                  {(["AVISTA", "PARCELADO"] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => patch({ paymentStructure: opt, installments: opt === "PARCELADO" ? rest.installments ?? 2 : null })}
-                      className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                        rest.paymentStructure === opt ? "border-accent bg-accent-soft text-ink" : "border-border bg-surface text-muted hover:bg-surface-alt"
-                      }`}
-                    >
-                      {opt === "AVISTA" ? "À vista" : "Parcelado"}
-                    </button>
-                  ))}
+                <Label htmlFor="p-due">Vencimento (dia útil do mês seguinte)</Label>
+                <div className="flex items-center gap-2 text-sm text-ink">
+                  Até o
+                  <Input
+                    id="p-due"
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={rest.dueBusinessDay}
+                    onChange={(e) => patch({ dueBusinessDay: Math.min(20, Math.max(1, Number(e.target.value) || 1)) })}
+                    className="w-20"
+                  />
+                  º dia útil do mês seguinte
                 </div>
-                {rest.paymentStructure === "PARCELADO" && (
-                  <div className="flex items-center gap-2 text-sm text-ink">
-                    <Input
-                      aria-label="Número de parcelas"
-                      type="number"
-                      min={2}
-                      max={60}
-                      value={rest.installments ?? 2}
-                      onChange={(e) => patch({ installments: Math.min(60, Math.max(2, Number(e.target.value) || 2)) })}
-                      className="w-24"
-                    />
-                    parcelas
-                  </div>
-                )}
               </div>
 
               <div className="space-y-2">
-                <Label>Forma de pagamento</Label>
+                <Label>Formas de pagamento aceitas</Label>
                 <div className="flex flex-wrap gap-x-5 gap-y-2">
                   {PAYMENT_METHODS.map((m) => (
                     <label key={m} className="flex items-center gap-2 text-sm text-ink">
@@ -584,8 +556,58 @@ export function ProposalEditor({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="p-fee">Multa por atraso (%)</Label>
+                  <Input id="p-fee" type="number" min={0} max={20} step="0.1" value={rest.lateFeePercent} onChange={(e) => patch({ lateFeePercent: Math.max(0, Number(e.target.value) || 0) })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p-interest">Juros de mora (% ao mês)</Label>
+                  <Input id="p-interest" type="number" min={0} max={10} step="0.1" value={rest.lateInterestPercent} onChange={(e) => patch({ lateInterestPercent: Math.max(0, Number(e.target.value) || 0) })} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Vigência do contrato</Label>
+                <div className="flex flex-wrap items-center gap-3 text-sm text-ink">
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="vigencia" checked={rest.termMonths === null} onChange={() => patch({ termMonths: null })} />
+                    Prazo indeterminado
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="vigencia" checked={rest.termMonths !== null} onChange={() => patch({ termMonths: rest.termMonths ?? 12 })} />
+                    Prazo determinado
+                  </label>
+                  {rest.termMonths !== null && (
+                    <span className="flex items-center gap-2">
+                      <Input
+                        aria-label="Meses de vigência"
+                        type="number"
+                        min={1}
+                        max={120}
+                        value={rest.termMonths}
+                        onChange={(e) => patch({ termMonths: Math.min(120, Math.max(1, Number(e.target.value) || 1)) })}
+                        className="w-20"
+                      />
+                      meses
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="p-notice">Aviso prévio para rescisão (dias)</Label>
+                  <Input id="p-notice" type="number" min={0} max={180} value={rest.noticeDays} onChange={(e) => patch({ noticeDays: Math.min(180, Math.max(0, Number(e.target.value) || 0)) })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p-foro">Foro (comarca)</Label>
+                  <Input id="p-foro" value={rest.foro} onChange={(e) => patch({ foro: e.target.value })} placeholder="Belo Horizonte/MG" />
+                </div>
+              </div>
+
               <div className="space-y-1.5">
-                <Label htmlFor="p-valid">Validade (dias corridos)</Label>
+                <Label htmlFor="p-valid">Validade da proposta (dias corridos)</Label>
                 <Input
                   id="p-valid"
                   type="number"
@@ -595,7 +617,7 @@ export function ProposalEditor({
                   onChange={(e) => patch({ validDays: Math.min(365, Math.max(1, Number(e.target.value) || 1)) })}
                   className="w-28"
                 />
-                <p className="text-xs text-muted-soft">Conta a partir do envio. Depois desse prazo a proposta aparece como “Expirada”.</p>
+                <p className="text-xs text-muted-soft">Conta a partir do envio. Depois desse prazo sem aceite a proposta aparece como “Expirada”.</p>
               </div>
 
               <BlockTextarea
@@ -607,11 +629,69 @@ export function ProposalEditor({
                 blocks={blocks}
                 onBlockSaved={addBlock}
               />
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-5">
+              <p className="rounded-lg bg-accent-soft px-3 py-2 text-xs text-ink">
+                As cláusulas abaixo formam o contrato de prestação de serviços. As <b>obrigatórias</b> têm o texto editável, mas não podem ser removidas. Os trechos entre chaves duplas
+                são preenchidos sozinhos com os dados da etapa anterior (vencimento, multa, juros, aviso prévio, vigência e foro).
+              </p>
+
+              <div className="space-y-2">
+                {rest.clauses.map((clause, i) => {
+                  const original = DEFAULT_CLAUSES.find((d) => d.key === clause.key);
+                  return (
+                    <details key={clause.key} className="rounded-xl border border-border bg-surface-alt/40 p-3">
+                      <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold text-ink">
+                        <span>
+                          Cláusula {i + 1}ª — {clause.title}
+                        </span>
+                        {clause.mandatory && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">Obrigatória</span>}
+                      </summary>
+                      <div className="mt-3 space-y-2">
+                        {!clause.mandatory && (
+                          <Input aria-label="Título da cláusula" value={clause.title} onChange={(e) => patchClause(clause.key, { title: e.target.value.toUpperCase() })} placeholder="TÍTULO DA CLÁUSULA" />
+                        )}
+                        <Textarea aria-label={`Texto da cláusula ${i + 1}`} rows={clause.body.length > 500 ? 12 : 6} value={clause.body} onChange={(e) => patchClause(clause.key, { body: e.target.value })} />
+                        <div className="flex items-center justify-between">
+                          {original && original.body !== clause.body ? (
+                            <button type="button" onClick={() => patchClause(clause.key, { body: original.body })} className="text-xs font-medium text-accent hover:underline">
+                              Restaurar texto padrão
+                            </button>
+                          ) : (
+                            <span />
+                          )}
+                          {!clause.mandatory && (
+                            <button
+                              type="button"
+                              onClick={() => patch({ clauses: rest.clauses.filter((c) => c.key !== clause.key) })}
+                              className="text-xs font-medium text-red-500 hover:underline"
+                            >
+                              Remover cláusula
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => patch({ clauses: [...rest.clauses, { key: `custom-${newKey()}`, title: "NOVA CLÁUSULA", body: "", mandatory: false }] })}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Adicionar cláusula
+              </Button>
 
               <div className="space-y-3 border-t border-border pt-4">
                 <div>
                   <Label>Seções extras (opcional)</Label>
-                  <p className="text-xs text-muted-soft">O que não está incluso, bônus, sobre nós e perguntas frequentes reduzem objeções.</p>
+                  <p className="text-xs text-muted-soft">Entram ao final, também numeradas. Use para o que não está incluso, bônus, sobre nós e perguntas frequentes.</p>
                 </div>
                 {rest.extraSections.map((section, i) => (
                   <div key={i} className="space-y-2 rounded-xl border border-border bg-surface-alt/40 p-3">
@@ -643,7 +723,7 @@ export function ProposalEditor({
                   </div>
                 ))}
                 <div className="flex flex-wrap gap-2">
-                  {SECTION_PRESETS.filter((p) => !rest.extraSections.some((s) => s.title === p)).map((preset) => (
+                  {SECTION_PRESETS.filter((pr) => !rest.extraSections.some((sx) => sx.title === pr)).map((preset) => (
                     <button
                       key={preset}
                       type="button"
@@ -665,7 +745,7 @@ export function ProposalEditor({
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-5">
               <div className="space-y-1.5">
                 <Label htmlFor="p-cover">Imagem de capa (URL)</Label>
@@ -677,8 +757,8 @@ export function ProposalEditor({
                 <label className="flex items-start gap-2 text-sm text-ink">
                   <input type="checkbox" className="mt-0.5" checked={rest.hideClientContact} onChange={(e) => patch({ hideClientContact: e.target.checked })} />
                   <span>
-                    Esconder o nome do cliente
-                    <span className="block text-xs text-muted-soft">Útil quando a proposta vai ser compartilhada externamente.</span>
+                    Esconder endereço e e-mail do cliente
+                    <span className="block text-xs text-muted-soft">Útil quando a proposta vai ser compartilhada externamente. O nome e o CPF/CNPJ continuam, pois identificam a parte do contrato.</span>
                   </span>
                 </label>
               )}
@@ -794,7 +874,7 @@ export function ProposalEditor({
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Prévia em tempo real</p>
           {!previewOpen && (
             <div className="overflow-x-auto">
-              <ProposalDocument content={content} number={number} clientName={clientName} issuedAt={issuedAt} isTemplate={isTemplate} />
+              <ProposalDocument content={content} number={number} client={client} issuedAt={issuedAt} isTemplate={isTemplate} />
             </div>
           )}
         </div>
@@ -814,7 +894,7 @@ export function ProposalEditor({
               </Button>
             </div>
           </div>
-          <ProposalDocument content={content} number={number} clientName={clientName} issuedAt={issuedAt} isTemplate={isTemplate} />
+          <ProposalDocument content={content} number={number} client={client} issuedAt={issuedAt} isTemplate={isTemplate} />
         </div>
       )}
     </div>

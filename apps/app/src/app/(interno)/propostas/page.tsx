@@ -4,10 +4,8 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE_VARIANT, getProposalDisplayStatus } from "@/modules/proposals/labels";
-import { parseContent, totalOf } from "@/modules/proposals/content";
+import { parseContent } from "@/modules/proposals/content";
 import { ProposalsToolbar, ProposalRowActions } from "@/modules/proposals/proposals-toolbar";
-
-const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default async function PropostasPage() {
   const user = await getCurrentUser();
@@ -19,7 +17,7 @@ export default async function PropostasPage() {
   const [proposals, templates, clients] = await Promise.all([
     prisma.proposal.findMany({
       where: { tenantId: user.tenantId },
-      include: { client: { select: { name: true } }, items: { select: { value: true } } },
+      include: { client: { select: { name: true } }, _count: { select: { items: true } } },
       orderBy: { createdAt: "desc" },
     }),
     canManage ? prisma.proposalTemplate.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" } }) : Promise.resolve([]),
@@ -30,7 +28,7 @@ export default async function PropostasPage() {
 
   const templateSummaries = templates.map((t) => {
     const content = parseContent(t.data, t.name);
-    return { id: t.id, name: t.name, services: content.items.length, total: totalOf(content) };
+    return { id: t.id, name: t.name, services: content.items.length };
   });
 
   return (
@@ -50,7 +48,7 @@ export default async function PropostasPage() {
               <th className="px-4 py-3 font-medium">Cliente</th>
               <th className="px-4 py-3 font-medium">Título</th>
               <th className="px-4 py-3 font-medium">Validade</th>
-              <th className="px-4 py-3 font-medium">Valor</th>
+              <th className="px-4 py-3 font-medium">Serviços</th>
               <th className="px-4 py-3 font-medium">Status</th>
               {canManage && <th className="px-4 py-3 text-right font-medium">Ações</th>}
             </tr>
@@ -65,8 +63,6 @@ export default async function PropostasPage() {
             )}
             {proposals.map((p) => {
               const status = getProposalDisplayStatus(p.status, p.validUntil);
-              const subtotal = p.items.reduce((sum, item) => sum + Number(item.value), 0);
-              const total = Math.max(0, subtotal - Number(p.discount));
               return (
                 <tr key={p.id} className={`border-b border-border last:border-0 hover:bg-surface-alt ${p.status === "CANCELADA" ? "opacity-60" : ""}`}>
                   <td className="px-4 py-3 text-muted">{p.client?.name ?? <span className="text-muted-soft">Sem cliente</span>}</td>
@@ -78,7 +74,7 @@ export default async function PropostasPage() {
                   <td className="px-4 py-3 text-muted">
                     {p.validUntil ? p.validUntil.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—"}
                   </td>
-                  <td className="px-4 py-3 font-mono text-muted">{currencyFormatter.format(total)}</td>
+                  <td className="px-4 py-3 text-muted">{p._count.items}</td>
                   <td className="px-4 py-3">
                     <Badge variant={PROPOSAL_STATUS_BADGE_VARIANT[status]}>{PROPOSAL_STATUS_LABELS[status]}</Badge>
                   </td>

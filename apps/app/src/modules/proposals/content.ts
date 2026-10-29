@@ -1,4 +1,5 @@
 import { proposalContentSchema, type ProposalContent } from "@/lib/validations/proposal";
+import { defaultClauses, ensureMandatoryClauses } from "./contract-clauses";
 
 export const BRAND = {
   navy: "#1B2558",
@@ -13,40 +14,34 @@ export const BRAND = {
 };
 
 export function emptyContent(title = "Proposta comercial"): ProposalContent {
-  return proposalContentSchema.parse({ title });
+  return { ...proposalContentSchema.parse({ title }), clauses: defaultClauses() };
 }
 
-/** Lê o JSON salvo num modelo (ou qualquer valor) sem quebrar se faltar campo. */
+/** Lê o JSON salvo num modelo (ou qualquer valor) sem quebrar se faltar campo. Cláusulas sempre completas. */
 export function parseContent(raw: unknown, fallbackTitle = "Proposta comercial"): ProposalContent {
   const data = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const parsed = proposalContentSchema.safeParse({ ...data, title: typeof data.title === "string" && data.title.length >= 3 ? data.title : fallbackTitle });
-  return parsed.success ? parsed.data : emptyContent(fallbackTitle);
-}
-
-export function subtotalOf(content: Pick<ProposalContent, "items">): number {
-  return content.items.reduce((sum, item) => sum + (Number.isFinite(item.value) ? item.value : 0), 0);
-}
-
-export function totalOf(content: Pick<ProposalContent, "items" | "discount">): number {
-  return Math.max(0, subtotalOf(content) - (content.discount || 0));
+  if (!parsed.success) return emptyContent(fallbackTitle);
+  return { ...parsed.data, clauses: ensureMandatoryClauses(parsed.data.clauses) };
 }
 
 type ProposalRow = {
   title: string;
   intro: string | null;
   notes: string | null;
-  startImmediately: boolean;
-  startDate: Date | null;
-  duration: string | null;
-  paymentStructure: string;
-  installments: number | null;
   paymentMethods: string[];
+  dueBusinessDay: number;
+  lateFeePercent: { toString(): string } | number;
+  lateInterestPercent: { toString(): string } | number;
+  noticeDays: number;
+  termMonths: number | null;
+  foro: string;
   validDays: number;
-  discount: { toString(): string } | number;
   coverUrl: string | null;
   hideClientContact: boolean;
+  clauses: unknown;
   extraSections: unknown;
-  items: { description: string; detail: string | null; value: { toString(): string } | number }[];
+  items: { description: string; detail: string | null; unit: string | null; value: { toString(): string } | number }[];
 };
 
 export function proposalToContent(p: ProposalRow): ProposalContent {
@@ -54,17 +49,26 @@ export function proposalToContent(p: ProposalRow): ProposalContent {
     title: p.title,
     intro: p.intro ?? "",
     notes: p.notes ?? "",
-    startImmediately: p.startImmediately,
-    startDate: p.startDate ? p.startDate.toISOString().slice(0, 10) : "",
-    duration: p.duration ?? "",
-    paymentStructure: p.paymentStructure === "PARCELADO" ? "PARCELADO" : "AVISTA",
-    installments: p.installments,
     paymentMethods: p.paymentMethods,
+    dueBusinessDay: p.dueBusinessDay,
+    lateFeePercent: Number(p.lateFeePercent),
+    lateInterestPercent: Number(p.lateInterestPercent),
+    noticeDays: p.noticeDays,
+    termMonths: p.termMonths,
+    foro: p.foro,
     validDays: p.validDays,
-    discount: Number(p.discount),
     coverUrl: p.coverUrl ?? "",
     hideClientContact: p.hideClientContact,
+    clauses: Array.isArray(p.clauses) ? p.clauses : [],
     extraSections: Array.isArray(p.extraSections) ? p.extraSections : [],
-    items: p.items.map((i) => ({ description: i.description, detail: i.detail ?? "", value: Number(i.value) })),
+    items: p.items.map((i) => ({ description: i.description, detail: i.detail ?? "", unit: i.unit ?? "", value: Number(i.value) })),
   });
+}
+
+/** 11 dígitos = CPF, 14 = CNPJ; qualquer outro valor fica como está. */
+export function formatDoc(doc: string): string {
+  const d = doc.replace(/\D/g, "");
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return doc;
 }

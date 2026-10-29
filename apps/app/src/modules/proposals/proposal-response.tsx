@@ -16,6 +16,7 @@ export function ProposalResponse({
   const [mode, setMode] = useState<"idle" | "accept" | "reject">("idle");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
 
   async function action(formData: FormData) {
     const responseNote = (formData.get("responseNote") as string) ?? "";
@@ -48,11 +49,17 @@ export function ProposalResponse({
         {mode === "accept" ? "Confirmar aceite da proposta:" : "Confirmar recusa da proposta:"}
       </p>
       <Textarea name="responseNote" rows={2} placeholder="Comentário (opcional)" />
+      {mode === "accept" && (
+        <label className="flex items-start gap-2 text-sm text-ink">
+          <input type="checkbox" className="mt-0.5" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+          <span>Li e concordo com todas as cláusulas do contrato de prestação de serviços. Entendo que este aceite digital, com registro de data, hora, usuário e IP, equivale à minha assinatura.</span>
+        </label>
+      )}
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting || (mode === "accept" && !agreed)}>
           {submitting ? "Enviando..." : mode === "accept" ? "Confirmar aceite" : "Confirmar recusa"}
         </Button>
-        <Button type="button" variant="outline" onClick={() => setMode("idle")} disabled={submitting}>
+        <Button type="button" variant="outline" onClick={() => { setMode("idle"); setAgreed(false); }} disabled={submitting}>
           Voltar
         </Button>
       </div>

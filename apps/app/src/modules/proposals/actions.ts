@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { Prisma, prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { todayBRT } from "@/modules/finance/ledger";
 import { emptyContent, parseContent, proposalToContent } from "@/modules/proposals/content";
+import { ensureMandatoryClauses } from "@/modules/proposals/contract-clauses";
 import {
   proposalContentSchema,
   proposalResponseSchema,
@@ -46,16 +48,18 @@ function contentColumns(c: ProposalContent) {
     title: c.title,
     intro: c.intro.trim() || null,
     notes: c.notes.trim() || null,
-    startImmediately: c.startImmediately,
-    startDate: !c.startImmediately && c.startDate ? new Date(`${c.startDate}T00:00:00.000Z`) : null,
-    duration: c.duration.trim() || null,
-    paymentStructure: c.paymentStructure,
-    installments: c.paymentStructure === "PARCELADO" ? c.installments : null,
     paymentMethods: c.paymentMethods,
+    dueBusinessDay: c.dueBusinessDay,
+    lateFeePercent: c.lateFeePercent,
+    lateInterestPercent: c.lateInterestPercent,
+    noticeDays: c.noticeDays,
+    termMonths: c.termMonths,
+    foro: c.foro,
     validDays: c.validDays,
-    discount: c.discount,
     coverUrl: c.coverUrl || null,
     hideClientContact: c.hideClientContact,
+    // As cláusulas obrigatórias nunca saem: o servidor recoloca as que faltarem.
+    clauses: ensureMandatoryClauses(c.clauses) as unknown as Prisma.InputJsonValue,
     extraSections: c.extraSections as unknown as Prisma.InputJsonValue,
   };
 }
@@ -65,6 +69,7 @@ function itemRows(proposalId: string, c: ProposalContent) {
     proposalId,
     description: item.description,
     detail: item.detail.trim() || null,
+    unit: item.unit.trim() || null,
     value: item.value,
     position,
   }));
@@ -313,9 +318,17 @@ export async function clientRespondProposal(proposalId: string, accept: boolean,
 
   const newStatus = accept ? "ACEITA" : "RECUSADA";
 
+  const forwarded = headers().get("x-forwarded-for");
+  const ip = forwarded ? forwarded.split(",")[0].trim() : headers().get("x-real-ip");
+
   await prisma.proposal.update({
     where: { id: proposalId },
-    data: { status: newStatus, respondedAt: new Date(), responseNote: data.responseNote || null },
+    data: {
+      status: newStatus,
+      respondedAt: new Date(),
+      responseNote: data.responseNote || null,
+      ...(accept ? { acceptedByName: user.name, acceptedIp: ip || null } : {}),
+    },
   });
 
   await logAudit({

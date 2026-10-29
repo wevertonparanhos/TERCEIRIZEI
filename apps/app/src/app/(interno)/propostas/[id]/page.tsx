@@ -21,7 +21,7 @@ export default async function PropostaDetalhePage({ params }: { params: { id: st
   const proposal = await prisma.proposal.findFirst({
     where: { id: params.id, tenantId: user.tenantId },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, doc: true, address: true, zipCode: true, city: true, state: true, email: true } },
       createdBy: { select: { name: true } },
       items: { orderBy: { position: "asc" } },
     },
@@ -32,7 +32,11 @@ export default async function PropostaDetalhePage({ params }: { params: { id: st
 
   if (proposal.status === "RASCUNHO" && canManage) {
     const [clients, blocks] = await Promise.all([
-      prisma.client.findMany({ where: { tenantId: user.tenantId, status: "ativo" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.client.findMany({
+        where: { tenantId: user.tenantId, status: "ativo" },
+        select: { id: true, name: true, doc: true, address: true, zipCode: true, city: true, state: true, email: true },
+        orderBy: { name: "asc" },
+      }),
       prisma.proposalBlock.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true, body: true } }),
     ]);
     return (
@@ -96,7 +100,16 @@ export default async function PropostaDetalhePage({ params }: { params: { id: st
       <ProposalDocument
         content={content}
         number={proposal.number}
-        clientName={proposal.client?.name}
+        client={proposal.client}
+        acceptance={
+          proposal.status === "ACEITA" && proposal.respondedAt
+            ? {
+                name: proposal.acceptedByName ?? proposal.client?.name ?? "cliente",
+                at: proposal.respondedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+                ip: proposal.acceptedIp,
+              }
+            : null
+        }
         issuedAt={dateBR(proposal.sentAt ?? proposal.createdAt)}
         validUntil={proposal.validUntil ? proposal.validUntil.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : null}
       />
