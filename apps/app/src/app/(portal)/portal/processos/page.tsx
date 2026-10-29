@@ -28,7 +28,7 @@ export default async function PortalProcessosPage() {
  // Etapas dos quadros das tarefas listadas, para calcular o % de conclusão.
   const stages = await prisma.kanbanStage.findMany({
     where: { workspaceId: { in: Array.from(new Set(processes.map((p) => p.workspaceId))) } },
-    select: { id: true, workspaceId: true, label: true, position: true },
+    select: { id: true, workspaceId: true, label: true, position: true, progressPercent: true },
   });
   const progressOf = (p: (typeof processes)[number]) => taskProgress(stages.filter((s) => s.workspaceId === p.workspaceId), p.stageId);
 

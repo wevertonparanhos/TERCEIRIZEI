@@ -609,6 +609,8 @@ model KanbanStage {
   label       String
   position    Int
   color       String   @default("#64748B")
+  /// % de conclusao que o cliente ve no portal quando a tarefa esta nesta etapa (vazio = calculado pela posicao)
+  progressPercent Int?   @map("progress_percent")
   createdAt   DateTime @default(now()) @map("created_at")
 
   tenant       Tenant         @relation(fields: [tenantId], references: [id])

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stageKind, taskProgress } from "@/modules/portal/progress";
+import { stageKind, taskProgress, type StageInfo } from "@/modules/portal/progress";
 
 // Quadro "Principal" simplificado, com as etapas de pausa no fim como no sistema real.
 const stages = [
@@ -59,5 +59,34 @@ describe("taskProgress", () => {
 
   it("etapa desconhecida não quebra", () => {
     expect(taskProgress(stages, "zzz").percent).toBe(0);
+  });
+});
+
+describe("% configurado por etapa", () => {
+  const custom: StageInfo[] = stages.map((s) => (s.id === "org" ? { ...s, progressPercent: 70 } : s.id === "dbe" ? { ...s, progressPercent: 10 } : s));
+
+  it("o % definido na etapa vale mais do que o calculado", () => {
+    expect(taskProgress(custom, "org").percent).toBe(70);
+    expect(taskProgress(custom, "dbe").percent).toBe(10);
+  });
+
+  it("etapas sem % definido continuam calculadas", () => {
+    expect(taskProgress(custom, "alv").percent).toBe(75);
+  });
+
+  it("em pausa usa o % configurado da última etapa normal", () => {
+    expect(taskProgress(custom, "par", ["nao", "dbe", "org", "par"]).percent).toBe(70);
+  });
+
+  it("zero é um valor válido e 100 marca como concluída", () => {
+    const zero: StageInfo[] = stages.map((s) => (s.id === "dbe" ? { ...s, progressPercent: 0 } : s));
+    expect(taskProgress(zero, "dbe").percent).toBe(0);
+    const full: StageInfo[] = stages.map((s) => (s.id === "alv" ? { ...s, progressPercent: 100 } : s));
+    expect(taskProgress(full, "alv").finished).toBe(true);
+  });
+
+  it("limita valores fora de 0 a 100", () => {
+    const wild: StageInfo[] = stages.map((s) => (s.id === "dbe" ? { ...s, progressPercent: 250 } : s));
+    expect(taskProgress(wild, "dbe").percent).toBe(100);
   });
 });

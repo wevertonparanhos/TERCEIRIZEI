@@ -1,4 +1,4 @@
-export type StageInfo = { id: string; label: string; position: number };
+export type StageInfo = { id: string; label: string; position: number; /** % definido pela equipe para esta etapa (vazio = calculado) */ progressPercent?: number | null };
 export type StageKind = "pause" | "done" | "step";
 
 const PAUSE = /paralis|suspens|pend[eê]ncia|parad|cancel/i;
@@ -52,7 +52,10 @@ export function taskProgress(stages: StageInfo[], currentStageId: string, histor
 
   const currentIndex = effective ? path.findIndex((s) => s.id === effective!.id) : -1;
   const finished = !!effective && stageKind(effective.label) === "done";
-  const percent = !effective || currentIndex < 0 ? 0 : finished ? 100 : path.length < 2 ? 0 : Math.round((currentIndex / (path.length - 1)) * 100);
+  const automatic = !effective || currentIndex < 0 ? 0 : finished ? 100 : path.length < 2 ? 0 : Math.round((currentIndex / (path.length - 1)) * 100);
+  // O % definido pela equipe para a etapa vale mais do que o cálculo automático.
+  const configured = effective?.progressPercent;
+  const percent = configured !== null && configured !== undefined ? Math.min(100, Math.max(0, Math.round(configured))) : automatic;
 
-  return { percent, path, currentIndex, paused, pauseLabel: paused && current ? current.label : null, finished };
+  return { percent, path, currentIndex, paused, pauseLabel: paused && current ? current.label : null, finished: finished || percent === 100 };
 }

@@ -793,6 +793,18 @@ export async function renameStage(stageId: string, label: string, color?: string
   revalidatePath("/processos/etapas");
 }
 
+/** Define (ou limpa, com null) o % de conclusão que o cliente vê quando a tarefa está nesta etapa. */
+export async function setStageProgress(stageId: string, percent: number | null) {
+  const user = await requireManageAccess();
+  if (percent !== null && (!Number.isInteger(percent) || percent < 0 || percent > 100)) throw new Error("Use um número inteiro de 0 a 100.");
+
+  const result = await prisma.kanbanStage.updateMany({ where: { id: stageId, tenantId: user.tenantId }, data: { progressPercent: percent } });
+  if (result.count === 0) throw new Error("Etapa não encontrada.");
+
+  revalidatePath("/processos/etapas");
+  revalidatePath("/portal/processos");
+}
+
 export async function deleteStage(stageId: string) {
   const user = await requireManageAccess();
 

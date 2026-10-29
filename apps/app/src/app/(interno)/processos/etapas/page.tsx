@@ -4,11 +4,13 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { StageManager } from "@/modules/processes/stage-manager";
 import { WorkspaceTabs } from "@/modules/processes/workspace-tabs";
+import { stageKind, taskProgress } from "@/modules/portal/progress";
 import {
   createStage,
   renameStage,
   deleteStage,
   moveStage,
+  setStageProgress,
   createWorkspace,
   renameWorkspace,
   deleteWorkspace,
@@ -57,7 +59,16 @@ export default async function EtapasPage({ searchParams }: { searchParams: { are
 
       <div className="mt-4">
         <StageManager
-          stages={stages.map((s) => ({ id: s.id, label: s.label, color: s.color, processCount: s._count.processes }))}
+          stages={stages.map((s) => ({
+            id: s.id,
+            label: s.label,
+            color: s.color,
+            processCount: s._count.processes,
+            progressPercent: s.progressPercent,
+            // sugestão automática (sem % definido); etapas de pausa não entram no cálculo
+            autoPercent: stageKind(s.label) === "pause" ? null : taskProgress(stages.map((x) => ({ id: x.id, label: x.label, position: x.position })), s.id).percent,
+          }))}
+          setProgress={setStageProgress}
           createStage={createStage.bind(null, activeWorkspace.id)}
           renameStage={renameStage}
           deleteStage={deleteStage}

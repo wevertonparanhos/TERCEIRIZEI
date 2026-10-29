@@ -64,7 +64,7 @@ export default async function PortalProcessoDetalhePage({
 
   const [portalSettings, workspaceStages] = await Promise.all([
     prisma.clientPortalSettings.findUnique({ where: { clientId: user.clientId }, select: { allowApprovals: true } }),
-    prisma.kanbanStage.findMany({ where: { workspaceId: process.workspaceId }, orderBy: { position: "asc" }, select: { id: true, label: true, position: true } }),
+    prisma.kanbanStage.findMany({ where: { workspaceId: process.workspaceId }, orderBy: { position: "asc" }, select: { id: true, label: true, position: true, progressPercent: true } }),
   ]);
   const allowApprovals = portalSettings?.allowApprovals ?? true;
 
