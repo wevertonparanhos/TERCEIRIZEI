@@ -44,6 +44,7 @@ import { DocumentRequests } from "@/modules/documents/document-requests";
 import { Deliverables } from "@/modules/processes/deliverables";
 import { ClientInfoTab } from "@/modules/processes/client-info";
 import { ArchiveButton } from "@/modules/processes/archive-button";
+import { DeleteTaskButton } from "@/modules/processes/delete-button";
 import {
   updateProcess,
   updateProcessStage,
@@ -73,6 +74,7 @@ import {
   addDeliverable,
   deleteDeliverable,
   setProcessArchived,
+  deleteProcess,
 } from "@/modules/processes/actions";
 import {
   uploadNewDocument,
@@ -287,6 +289,9 @@ export default async function ProcessoDetalhePage({
             </WhatsAppLink>
             <CopyLinkButton />
             {canWrite && <ArchiveButton processId={process.id} archived={!!process.archivedAt} setArchived={setProcessArchived} />}
+            {(user.role === "ADMIN" || user.role === "GESTOR") && (
+              <DeleteTaskButton processId={process.id} number={process.number} title={process.description} deleteTask={deleteProcess} />
+            )}
           </div>
         </div>
 

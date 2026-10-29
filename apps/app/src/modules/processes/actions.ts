@@ -464,6 +464,45 @@ export async function updateInstallment(
 }
 
 /** Marca/desmarca uma parcela como paga. */
+/** Exclui a tarefa de vez (só administrador/gestor). Some o quadro, o financeiro e os relatórios dela —
+ * para guardar o histórico use Arquivar. Arquivos enviados continuam nos documentos do cliente. Tarefa que
+ * já está numa fatura não pode ser excluída. */
+export async function deleteProcess(processId: string) {
+  const user = await requireManageAccess();
+
+  const process = await prisma.process.findFirst({
+    where: { id: processId, tenantId: user.tenantId },
+    select: { id: true, number: true, description: true, client: { select: { name: true } }, _count: { select: { invoiceItems: true } } },
+  });
+  if (!process) throw new Error("Tarefa não encontrada.");
+  if (process._count.invoiceItems > 0) {
+    throw new Error("Esta tarefa já está em uma fatura e não pode ser excluída. Use Arquivar para tirá-la do quadro.");
+  }
+
+  try {
+  await prisma.$transaction([
+    // arquivos e pedidos de documento ficam com o cliente, só perdem o vínculo com a tarefa
+    prisma.document.updateMany({ where: { processId }, data: { processId: null } }),
+    prisma.documentRequest.updateMany({ where: { processId }, data: { processId: null } }),
+    prisma.licenseDocument.updateMany({ where: { autoTaskId: processId }, data: { autoTaskId: null } }),
+    prisma.process.delete({ where: { id: processId } }),
+  ]);
+  } catch (err) {
+    console.error("[excluir tarefa] falhou:", err);
+    throw new Error("Não foi possível excluir: a tarefa tem vínculos que impedem a exclusão. Use Arquivar.");
+  }
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.delete",
+    entityType: "process",
+    description: `Tarefa #${process.number} "${process.description}" (${process.client.name}) excluída.`,
+  });
+
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+}
+
 /** Arquiva/desarquiva a tarefa: sai do quadro e dos alertas, mas continua no
  * financeiro, nos relatórios do cliente e no histórico. */
 export async function setProcessArchived(processId: string, archived: boolean) {

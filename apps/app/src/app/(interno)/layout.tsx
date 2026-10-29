@@ -46,8 +46,8 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Operações",
     items: [
       { href: "/dashboard", label: "Dashboard", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: LayoutDashboard },
-      { href: "/calendario", label: "Calendário", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Calendar },
       { href: "/processos", label: "Área de Trabalho", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: ClipboardList },
+      { href: "/calendario", label: "Calendário", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Calendar },
       { href: "/tarefas-recorrentes", label: "Tarefas Recorrentes", roles: ["ADMIN", "GESTOR", "OPERACIONAL"], icon: Repeat },
       { href: "/propostas", label: "Propostas", roles: ["ADMIN", "GESTOR", "FINANCEIRO"], icon: FileSignature },
     ],
