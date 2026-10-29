@@ -11,7 +11,6 @@ import {
   Wallet,
   AlertTriangle,
   ListChecks,
-  FileText,
   PackageCheck,
   Building2,
   ChevronLeft,
@@ -33,7 +32,6 @@ import {
   CopyLinkButton,
 } from "@/modules/processes/process-fields";
 import { Checklist } from "@/modules/processes/checklist";
-import { InfoFields } from "@/modules/processes/info-fields";
 import { ProcessComments } from "@/modules/processes/process-comments";
 import { MarkCommentsRead } from "@/modules/processes/mark-comments-read";
 import { Impediments } from "@/modules/processes/impediments";
@@ -59,9 +57,6 @@ import {
   updateInstallment,
   setProcessPaymentStatus,
   setNextPaymentDate,
-  addInfoField,
-  updateInfoField,
-  deleteInfoField,
   markCommentsRead,
   addInstallment,
   markInstallmentPaid,
@@ -89,7 +84,7 @@ const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "
 const isoDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
 // Ordem das abas: Atividade logo depois de Detalhes.
-const TAB_ORDER = ["detalhes", "atividade", "informacoes", "checklist", "impedimentos", "entregas", "financeiro", "cliente"];
+const TAB_ORDER = ["detalhes", "atividade", "checklist", "impedimentos", "entregas", "financeiro", "cliente"];
 const sortTabs = <T extends { key: string }>(tabs: T[]): T[] =>
   [...tabs].sort((a, b) => TAB_ORDER.indexOf(a.key) - TAB_ORDER.indexOf(b.key));
 
@@ -147,10 +142,6 @@ export default async function ProcessoDetalhePage({
         },
       },
       commentReads: { where: { userId: user.id }, select: { lastReadAt: true } },
-      infoFields: {
-        orderBy: { position: "asc" },
-        include: { updatedBy: { select: { name: true } } },
-      },
       impediments: {
         orderBy: { createdAt: "desc" },
         include: { createdBy: { select: { name: true } }, resolvedBy: { select: { name: true } } },
@@ -320,31 +311,6 @@ export default async function ProcessoDetalhePage({
                   icon: <LayoutList className="h-4 w-4" />,
                   content: detailsTab,
                 },
-                ...(user.role !== "FINANCEIRO"
-                  ? [
-                      {
-                        key: "informacoes",
-                        label: "Informações",
-                        icon: <FileText className="h-4 w-4" />,
-                        content: (
-                          <InfoFields
-                            processId={process.id}
-                            canWrite={canWrite}
-                            fields={process.infoFields.map((f) => ({
-                              id: f.id,
-                              label: f.label,
-                              value: f.value,
-                              updatedAt: f.updatedAt.toISOString(),
-                              updatedByName: f.updatedBy?.name ?? null,
-                            }))}
-                            addField={addInfoField}
-                            updateField={updateInfoField}
-                            deleteField={deleteInfoField}
-                          />
-                        ),
-                      },
-                    ]
-                  : []),
                 {
                   key: "checklist",
                   label: "Checklist",
