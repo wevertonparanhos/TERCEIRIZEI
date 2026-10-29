@@ -56,3 +56,34 @@ describe("cláusulas obrigatórias", () => {
     expect(vigenciaText(12)).toContain("12 meses");
   });
 });
+
+describe("revisão jurídica das cláusulas padrão", () => {
+  const body = (key: string) => DEFAULT_CLAUSES.find((c) => c.key === key)!.body;
+
+  it("o aceite digital se apoia na MP 2.200-2/2001 (a Lei 14.063/2020 não vale entre particulares)", () => {
+    expect(body("aceite")).toContain("Medida Provisória nº 2.200-2/2001");
+    expect(body("aceite")).not.toContain("14.063");
+  });
+
+  it("o atraso prevê multa única, juros simples e correção pelo IPCA", () => {
+    const text = body("atraso");
+    expect(text).toContain("aplicada uma única vez");
+    expect(text).toContain("simples");
+    expect(text).toContain("IPCA");
+  });
+
+  it("inclui reajuste, representação perante órgãos e comunicações como obrigatórias", () => {
+    for (const key of ["reajuste", "representacao", "comunicacoes"]) {
+      expect(DEFAULT_CLAUSES.find((c) => c.key === key)?.mandatory).toBe(true);
+    }
+  });
+
+  it("a limitação de responsabilidade ressalva dolo e culpa grave", () => {
+    expect(body("responsabilidade")).toContain("dolo ou culpa grave");
+  });
+
+  it("nenhuma variável fica sem preencher", () => {
+    const vars = { diaVencimento: 5, multa: 2, juros: 1, aviso: 30, termMonths: 12, foro: "Belo Horizonte/MG" };
+    for (const c of DEFAULT_CLAUSES) expect(fillClause(c.body, vars)).not.toContain("{{");
+  });
+});
