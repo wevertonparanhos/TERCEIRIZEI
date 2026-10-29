@@ -18,6 +18,7 @@ import {
   LogOut,
   Bell,
   Settings,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/rbac";
@@ -58,6 +59,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/equipe", label: "Equipe", roles: ["ADMIN", "GESTOR"], icon: Users },
       { href: "/clientes", label: "Clientes", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Handshake },
       { href: "/clientes/portal", label: "Portal de Clientes", roles: ["ADMIN", "GESTOR"], icon: ExternalLink },
+      { href: "/pedidos", label: "Pedidos do Portal", roles: ["ADMIN", "GESTOR", "OPERACIONAL"], icon: Inbox },
       {
         href: "/licencas",
         label: "Licenças e Certidões",
@@ -89,11 +91,21 @@ export default async function InternoLayout({ children }: { children: React.Reac
   if (!user) redirect("/login");
   if (user.role === "CLIENTE") redirect("/");
 
+  // Pedidos de clientes esperando revisão (selo no menu).
+  const pendingRequests = ["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)
+    ? await prisma.portalRequest.count({ where: { tenantId: user.tenantId, status: "PENDENTE" } })
+    : 0;
+
   const navGroups: NavGroup[] = NAV_GROUPS.map((group) => ({
     label: group.label,
     items: group.items
       .filter((item) => item.roles.includes(user.role))
-      .map((item) => ({ href: item.href, label: item.label, icon: <item.icon className="h-4 w-4" /> })),
+      .map((item) => ({
+        href: item.href,
+        label: item.label,
+        icon: <item.icon className="h-4 w-4" />,
+        badge: item.href === "/pedidos" ? pendingRequests : undefined,
+      })),
   })).filter((group) => group.items.length > 0);
 
   const unreadMentions = await prisma.processCommentMention.count({

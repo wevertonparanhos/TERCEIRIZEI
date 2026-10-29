@@ -61,6 +61,9 @@ export default async function PortalProcessoDetalhePage({
 
   if (!process) notFound();
 
+  const portalSettings = await prisma.clientPortalSettings.findUnique({ where: { clientId: user.clientId }, select: { allowApprovals: true } });
+  const allowApprovals = portalSettings?.allowApprovals ?? true;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-8">
       <RealtimeRefresh table="processes" filterColumn="client_id" filterValue={user.clientId} />
@@ -228,7 +231,7 @@ export default async function PortalProcessoDetalhePage({
                       <Deliverables
                         processId={process.id}
                         canWrite={false}
-                        canRespond
+                        canRespond={allowApprovals}
                         deliverables={process.deliverables.map((d) => ({
                           id: d.id,
                           type: d.type,
@@ -242,7 +245,7 @@ export default async function PortalProcessoDetalhePage({
                           createdAt: d.createdAt.toISOString(),
                         }))}
                         availableDocuments={[]}
-                        respondDeliverable={respondDeliverable}
+                        respondDeliverable={allowApprovals ? respondDeliverable : undefined}
                       />
                     ),
                   },

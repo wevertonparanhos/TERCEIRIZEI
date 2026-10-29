@@ -140,6 +140,9 @@ model Tenant {
   proposals        Proposal[]
   proposalTemplates ProposalTemplate[]
   proposalBlocks   ProposalBlock[]
+  clientPortalSettings ClientPortalSettings[]
+  portalRequests   PortalRequest[]
+  clientPortalQuestions ClientPortalQuestion[]
   clientMessages   ClientMessage[]
   licenseDocuments LicenseDocument[]
   notificationLogs NotificationLog[]
@@ -259,6 +262,9 @@ model Client {
   messages         ClientMessage[]
   messageReads     ClientMessageRead[]
   licenseDocuments LicenseDocument[]
+  portalSettings   ClientPortalSettings?
+  portalRequests   PortalRequest[]
+  portalQuestions  ClientPortalQuestion[]
 
   @@unique([tenantId, doc])
   @@unique([tenantId, email])
@@ -308,6 +314,7 @@ model Company {
   processes Process[]
   invoices  Invoice[]
   licenseDocuments LicenseDocument[]
+  portalRequests PortalRequest[]
 
   @@unique([tenantId, cnpj])
   @@index([clientId])
@@ -353,6 +360,7 @@ model ServiceType {
   tenant             Tenant                         @relation(fields: [tenantId], references: [id])
   processes          Process[]
   checklistTemplate  ServiceChecklistTemplateItem[]
+  portalRequests     PortalRequest[]
 
   @@unique([tenantId, name])
   @@map("service_types")
@@ -521,6 +529,7 @@ model Process {
   commentReads ProcessCommentRead[]
   impediments  ProcessImpediment[]
   assignees    ProcessAssignee[]
+  portalRequest PortalRequest?
   installments ProcessInstallment[]
   presence     ProcessPresence[]
   deliverables ProcessDeliverable[]
@@ -676,6 +685,7 @@ model Document {
   tenantId       String           @map("tenant_id") @db.Uuid
   clientId       String           @map("client_id") @db.Uuid
   processId      String?          @map("process_id") @db.Uuid
+  portalRequestId String?         @map("portal_request_id") @db.Uuid
   category       DocumentCategory
   name           String
   currentVersion Int              @default(1) @map("current_version")
@@ -688,6 +698,7 @@ model Document {
   tenant      Tenant               @relation(fields: [tenantId], references: [id])
   client      Client               @relation(fields: [clientId], references: [id])
   process     Process?             @relation(fields: [processId], references: [id])
+  portalRequest PortalRequest?     @relation(fields: [portalRequestId], references: [id], onDelete: SetNull)
   uploadedBy  User                 @relation(fields: [uploadedById], references: [id])
   versions    DocumentVersion[]
   requests    DocumentRequest[]
@@ -1034,6 +1045,75 @@ model ProposalTemplate {
 
   @@index([tenantId])
   @@map("proposal_templates")
+}
+
+// Portal do cliente configuravel por cliente. Sem linha = padrao.
+model ClientPortalSettings {
+  clientId       String   @id @map("client_id") @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  welcomeMessage String?  @map("welcome_message")
+  accentColor    String   @default("#14528D") @map("accent_color")
+  allowRequests  Boolean  @default(true) @map("allow_requests")
+  /// pedidos do cliente passam pela caixa de revisao (false = viram tarefa na hora)
+  reviewRequests Boolean  @default(true) @map("review_requests")
+  allowApprovals Boolean  @default(true) @map("allow_approvals")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("client_portal_settings")
+}
+
+// Pedido feito pelo cliente no portal: espera a revisao da equipe (importar como tarefa ou recusar).
+model PortalRequest {
+  id                String         @id @default(uuid()) @db.Uuid
+  tenantId          String         @map("tenant_id") @db.Uuid
+  clientId          String         @map("client_id") @db.Uuid
+  companyId         String?        @map("company_id") @db.Uuid
+  serviceTypeId     String         @map("service_type_id") @db.Uuid
+  description       String
+  priority          DemandPriority @default(MEDIA)
+  requestedDeadline DateTime?      @map("requested_deadline")
+  /// respostas as perguntas personalizadas: [{ label, value }]
+  answers           Json           @default("[]")
+  status            String         @default("PENDENTE")
+  processId         String?        @unique @map("process_id") @db.Uuid
+  reviewNote        String?        @map("review_note")
+  reviewedById      String?        @map("reviewed_by_id") @db.Uuid
+  reviewedAt        DateTime?      @map("reviewed_at")
+  createdById       String         @map("created_by_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  company     Company?     @relation(fields: [companyId], references: [id])
+  serviceType ServiceType  @relation(fields: [serviceTypeId], references: [id])
+  process     Process?     @relation(fields: [processId], references: [id], onDelete: SetNull)
+  documents   Document[]
+
+  @@index([tenantId, status])
+  @@index([clientId])
+  @@map("portal_requests")
+}
+
+// Pergunta extra do formulario de pedido de um cliente.
+model ClientPortalQuestion {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  label     String
+  kind      String   @default("TEXTO_LONGO")
+  required  Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_portal_questions")
 }
 
 // Bloco de texto reutilizavel nas propostas.

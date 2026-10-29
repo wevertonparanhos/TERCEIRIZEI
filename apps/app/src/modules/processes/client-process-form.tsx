@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { clientCreateProcessSchema, type ClientCreateProcessInput } from "@/lib/validations/process";
+import { clientCreateProcessSchema, type ClientCreateProcessInput, type ClientRequestInput } from "@/lib/validations/process";
 import { PRIORITY_LABELS } from "@/modules/processes/labels";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import { Paperclip, X } from "lucide-react";
 
 type Company = { id: string; razaoSocial: string };
 type ServiceType = { id: string; name: string; defaultDeadlineDays: number | null; defaultPriority: string | null };
+export type RequestQuestion = { id: string; label: string; kind: "TEXTO" | "TEXTO_LONGO"; required: boolean };
 
 function addDaysAsInputDate(days: number): string {
   const d = new Date();
@@ -28,18 +29,26 @@ export function ClientProcessForm({
   onSubmit,
   clientId,
   uploadDocument,
+  uploadRequestAttachment,
+  questions = [],
 }: {
   companies: Company[];
   serviceTypes: ServiceType[];
-  onSubmit: (data: ClientCreateProcessInput) => Promise<{ id: string } | void>;
+  onSubmit: (data: ClientRequestInput) => Promise<{ kind?: "request" | "process"; id: string } | void>;
   clientId?: string;
   uploadDocument?: (clientId: string, processId: string | null, requestId: string | null, formData: FormData) => Promise<void>;
+  /** anexo de um pedido que ainda está em análise */
+  uploadRequestAttachment?: (requestId: string, formData: FormData) => Promise<void>;
+  /** perguntas extras configuradas para este cliente */
+  questions?: RequestQuestion[];
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [sentKind, setSentKind] = useState<"request" | "process">("process");
 
   const {
     register,
@@ -66,26 +75,34 @@ export function ClientProcessForm({
     setServerError(null);
     setSubmitting(true);
     try {
-      const result = await onSubmit(data);
+      const missing = questions.find((q) => q.required && !(answers[q.id] ?? "").trim());
+      if (missing) throw new Error(`Responda: ${missing.label}`);
+      const result = await onSubmit({ ...data, answers });
       if (result?.id) {
-        // Anexos escolhidos na criação são enviados já vinculados à nova demanda.
+        const kind = result.kind ?? "process";
+        // Anexos escolhidos na criação são enviados já vinculados ao pedido (em análise) ou à tarefa criada.
         const failed: string[] = [];
-        if (uploadDocument && clientId) {
-          for (const file of files) {
-            const fd = new FormData();
-            fd.set("name", file.name.replace(/\.[^.]+$/, "").slice(0, 120) || "Anexo");
-            fd.set("category", "OUTROS");
-            fd.set("file", file);
-            try {
+        for (const file of files) {
+          const fd = new FormData();
+          fd.set("name", file.name.replace(/\.[^.]+$/, "").slice(0, 120) || "Anexo");
+          fd.set("category", "OUTROS");
+          fd.set("file", file);
+          try {
+            if (kind === "request") {
+              if (!uploadRequestAttachment) throw new Error("envio indisponível");
+              await uploadRequestAttachment(result.id, fd);
+            } else if (uploadDocument && clientId) {
               await uploadDocument(clientId, result.id, null, fd);
-            } catch (err) {
-              failed.push(`${file.name}: ${err instanceof Error ? err.message : "falhou"}`);
             }
+          } catch (err) {
+            failed.push(`${file.name}: ${err instanceof Error ? err.message : "falhou"}`);
           }
         }
+        setSentKind(kind);
         setSent(true);
-        router.push(`/portal/processos/${result.id}${failed.length ? "?tab=arquivos" : ""}`);
-        if (failed.length) window.alert(`A demanda foi criada, mas alguns arquivos não foram enviados:\n${failed.join("\n")}\nVocê pode anexá-los na aba Arquivos.`);
+        if (kind === "process") router.push(`/portal/processos/${result.id}${failed.length ? "?tab=arquivos" : ""}`);
+        else router.push("/portal/processos");
+        if (failed.length) window.alert(`A solicitação foi enviada, mas alguns arquivos não subiram:\n${failed.join("\n")}\nFale com a equipe pelo chat para enviá-los.`);
       }
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Não foi possível enviar sua solicitação.");
@@ -97,7 +114,9 @@ export function ClientProcessForm({
   if (sent) {
     return (
       <p className="rounded-md bg-emerald-50 dark:bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
-        Solicitação enviada! Nossa equipe vai analisar e entrar em contato.
+        {sentKind === "request"
+          ? "Pedido enviado! Nossa equipe vai analisar e você acompanha a resposta em Minhas Tarefas."
+          : "Solicitação enviada! Nossa equipe vai analisar e entrar em contato."}
       </p>
     );
   }
@@ -161,6 +180,20 @@ export function ClientProcessForm({
         <Textarea id="description" rows={4} {...register("description")} />
         {errors.description && <p className="text-xs text-red-600">{errors.description.message}</p>}
       </div>
+
+      {questions.map((q) => (
+        <div key={q.id} className="space-y-1.5">
+          <Label htmlFor={`q-${q.id}`}>
+            {q.label}
+            {q.required ? <span className="text-red-600"> *</span> : <span className="text-muted-soft"> (opcional)</span>}
+          </Label>
+          {q.kind === "TEXTO_LONGO" ? (
+            <Textarea id={`q-${q.id}`} rows={3} value={answers[q.id] ?? ""} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))} />
+          ) : (
+            <Input id={`q-${q.id}`} value={answers[q.id] ?? ""} onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))} />
+          )}
+        </div>
+      ))}
 
       {uploadDocument && clientId && (
         <div className="space-y-2">

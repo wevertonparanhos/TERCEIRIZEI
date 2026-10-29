@@ -56,3 +56,9 @@ export const clientCreateProcessSchema = z.object({
   notes: z.string().optional(),
 });
 export type ClientCreateProcessInput = z.infer<typeof clientCreateProcessSchema>;
+
+// Pedido do portal com as respostas das perguntas personalizadas do cliente (id da pergunta → resposta).
+export const clientRequestSchema = clientCreateProcessSchema.extend({
+  answers: z.record(z.string(), z.string()).default({}),
+});
+export type ClientRequestInput = z.input<typeof clientRequestSchema>;

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-export type NavItem = { href: string; label: string; icon: ReactNode };
+export type NavItem = { href: string; label: string; icon: ReactNode; /** contador (ex.: pedidos para revisar) */ badge?: number };
 export type NavGroup = { label: string; items: NavItem[] };
 
 function isActive(pathname: string, href: string): boolean {
@@ -34,7 +34,12 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
                   }`}
                 >
                   <span className={`flex-none ${active ? "text-white" : "text-muted-soft group-hover:text-ink"}`}>{item.icon}</span>
-                  {item.label}
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {item.badge ? (
+                    <span className={`flex h-5 min-w-5 flex-none items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${active ? "bg-white text-accent" : "bg-brand-orange text-white"}`}>
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

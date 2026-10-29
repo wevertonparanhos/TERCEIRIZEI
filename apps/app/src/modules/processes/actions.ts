@@ -1,16 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@terceirizei/db";
+import { Prisma, prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import {
   processSchema,
   createProcessSchema,
-  clientCreateProcessSchema,
+  clientRequestSchema,
   type ProcessInput,
   type CreateProcessInput,
-  type ClientCreateProcessInput,
+  type ClientRequestInput,
 } from "@/lib/validations/process";
 import { addDays } from "@/modules/processes/labels";
 import { sendEmail } from "@/lib/email";
@@ -167,76 +167,235 @@ export async function createProcess(input: CreateProcessInput) {
   return { id: process.id };
 }
 
-/** Cliente abrindo processo pelo Portal — clientId vem da sessão, nunca do formulário. */
-export async function clientCreateProcess(input: ClientCreateProcessInput) {
+type OpenRequestProcessParams = {
+  tenantId: string;
+  clientId: string;
+  userId: string;
+  workspaceId?: string | null;
+  companyId: string | null;
+  serviceTypeId: string;
+  description: string;
+  priority: ProcessInput["priority"];
+  requestedDeadline: Date | null;
+  notes: string | null;
+};
+
+/** Abre a tarefa de um pedido do cliente: primeira etapa da área escolhida (ou da primeira área),
+ * checklist e valor padrão do serviço. Usada na criação direta e na importação de um pedido. */
+async function openProcessForClientRequest(p: OpenRequestProcessParams) {
+  const serviceType = await prisma.serviceType.findFirst({ where: { id: p.serviceTypeId, tenantId: p.tenantId } });
+  if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
+
+  const workspace = p.workspaceId
+    ? await prisma.workspace.findFirst({ where: { id: p.workspaceId, tenantId: p.tenantId } })
+    : await prisma.workspace.findFirst({ where: { tenantId: p.tenantId }, orderBy: { position: "asc" } });
+  if (!workspace) throw new Error("Nenhuma área de trabalho configurada para este tenant.");
+
+  const firstStage = await prisma.kanbanStage.findFirst({ where: { workspaceId: workspace.id }, orderBy: { position: "asc" } });
+  if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para esta área de trabalho.");
+
+  const number = await nextProcessNumber(p.tenantId);
+
+  const process = await prisma.process.create({
+    data: {
+      tenantId: p.tenantId,
+      workspaceId: workspace.id,
+      number,
+      clientId: p.clientId,
+      companyId: p.companyId,
+      serviceTypeId: p.serviceTypeId,
+      stageId: firstStage.id,
+      description: p.description,
+      priority: p.priority,
+      requestedDeadline: p.requestedDeadline ?? (serviceType.defaultDeadlineDays ? addDays(new Date(), serviceType.defaultDeadlineDays) : null),
+      notes: p.notes || serviceType.defaultNotes || null,
+      requestedByClient: true,
+    },
+  });
+
+  await prisma.processStage.create({ data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: p.userId } });
+  await seedChecklistFromTemplate(process.id, p.serviceTypeId);
+  if (serviceType.defaultPrice) {
+    await prisma.processInstallment.create({ data: { processId: process.id, position: 1, value: Number(serviceType.defaultPrice) } });
+  }
+  return process;
+}
+
+type RequestAnswer = { label: string; value: string };
+
+function answersAsNotes(answers: unknown, extra?: string | null): string | null {
+  const list = Array.isArray(answers) ? (answers as RequestAnswer[]).filter((a) => a && a.value && String(a.value).trim()) : [];
+  const parts = [extra?.trim() || "", list.length ? `Respostas do cliente:\n${list.map((a) => `• ${a.label}: ${String(a.value).trim()}`).join("\n")}` : ""].filter(Boolean);
+  return parts.length ? parts.join("\n\n") : null;
+}
+
+/**
+ * Cliente enviando um pedido pelo Portal — clientId vem da sessão, nunca do formulário.
+ * Por padrão o pedido vai para a caixa de revisão da equipe; se o cliente estiver configurado sem
+ * revisão, já nasce como tarefa. Retorna o que foi criado para o formulário anexar os arquivos.
+ */
+export async function clientSubmitRequest(input: ClientRequestInput): Promise<{ kind: "request" | "process"; id: string }> {
   const user = await getCurrentUser();
   if (!user || user.role !== "CLIENTE" || !user.clientId) throw new Error("Acesso negado.");
 
-  const data = clientCreateProcessSchema.parse(input);
+  const settings = await prisma.clientPortalSettings.findUnique({ where: { clientId: user.clientId }, select: { allowRequests: true, reviewRequests: true } });
+  if (settings && !settings.allowRequests) throw new Error("Seu portal não permite abrir novas demandas. Fale com a Terceirizei pelo chat.");
+
+  const data = clientRequestSchema.parse(input);
 
   if (data.companyId) {
     const company = await prisma.company.findFirst({ where: { id: data.companyId, clientId: user.clientId } });
     if (!company) throw new Error("Empresa não encontrada.");
   }
-
-  const serviceType = await prisma.serviceType.findFirst({
-    where: { id: data.serviceTypeId, tenantId: user.tenantId },
-  });
+  const serviceType = await prisma.serviceType.findFirst({ where: { id: data.serviceTypeId, tenantId: user.tenantId } });
   if (!serviceType) throw new Error("Tipo de serviço não encontrado.");
 
-  // Cliente não escolhe área de trabalho — processo aberto pelo portal sempre
-  // cai na primeira área do tenant (normalmente "Principal").
-  const workspace = await prisma.workspace.findFirst({
-    where: { tenantId: user.tenantId },
-    orderBy: { position: "asc" },
-  });
-  if (!workspace) throw new Error("Nenhuma área de trabalho configurada para este tenant.");
+  const questions = await prisma.clientPortalQuestion.findMany({ where: { clientId: user.clientId, tenantId: user.tenantId }, orderBy: { position: "asc" } });
+  const answers: RequestAnswer[] = questions.map((q) => ({ label: q.label, value: (data.answers[q.id] ?? "").trim() }));
+  const missing = questions.find((q, i) => q.required && !answers[i].value);
+  if (missing) throw new Error(`Responda: ${missing.label}`);
 
-  const firstStage = await prisma.kanbanStage.findFirst({
-    where: { workspaceId: workspace.id },
-    orderBy: { position: "asc" },
-  });
-  if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para este tenant.");
+  const deadline = data.requestedDeadline ? new Date(data.requestedDeadline) : null;
 
-  const number = await nextProcessNumber(user.tenantId);
+  if (settings && !settings.reviewRequests) {
+    const process = await openProcessForClientRequest({
+      tenantId: user.tenantId,
+      clientId: user.clientId,
+      userId: user.id,
+      companyId: data.companyId || null,
+      serviceTypeId: data.serviceTypeId,
+      description: data.description,
+      priority: data.priority,
+      requestedDeadline: deadline,
+      notes: answersAsNotes(answers, data.notes),
+    });
+    revalidatePath("/processos");
+    revalidatePath("/portal");
+    revalidatePath("/portal/processos");
+    return { kind: "process", id: process.id };
+  }
 
-  const process = await prisma.process.create({
+  const request = await prisma.portalRequest.create({
     data: {
       tenantId: user.tenantId,
-      workspaceId: workspace.id,
-      number,
       clientId: user.clientId,
       companyId: data.companyId || null,
       serviceTypeId: data.serviceTypeId,
-      stageId: firstStage.id,
       description: data.description,
       priority: data.priority,
-      requestedDeadline: data.requestedDeadline
-        ? new Date(data.requestedDeadline)
-        : serviceType.defaultDeadlineDays
-          ? addDays(new Date(), serviceType.defaultDeadlineDays)
-          : null,
-      notes: data.notes || serviceType.defaultNotes || null,
-      requestedByClient: true,
+      requestedDeadline: deadline,
+      answers: answers as unknown as Prisma.InputJsonValue,
+      createdById: user.id,
     },
   });
 
-  await prisma.processStage.create({
-    data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: user.id },
-  });
+  revalidatePath("/pedidos");
+  revalidatePath("/portal");
+  revalidatePath("/portal/processos");
 
-  await seedChecklistFromTemplate(process.id, data.serviceTypeId);
-
-  if (serviceType.defaultPrice) {
-    await prisma.processInstallment.create({
-      data: { processId: process.id, position: 1, value: Number(serviceType.defaultPrice) },
-    });
+  // Avisa gestores por e-mail (sem travar o pedido se o envio falhar).
+  try {
+    const managers = await prisma.user.findMany({ where: { tenantId: user.tenantId, active: true, role: { name: { in: ["ADMIN", "GESTOR"] } } }, select: { email: true } });
+    const client = await prisma.client.findFirst({ where: { id: user.clientId }, select: { name: true } });
+    for (const m of managers) {
+      await sendEmail({
+        to: m.email,
+        subject: `Novo pedido de ${client?.name ?? "cliente"} no portal`,
+        html: `<p>${client?.name ?? "Um cliente"} enviou um pedido pelo portal: <b>${serviceType.name}</b>.</p><p>Abra <b>Pedidos do Portal</b> no sistema para revisar, importar como tarefa ou recusar.</p>`,
+      });
+    }
+  } catch {
+    // e-mail é só um aviso: o pedido já está na caixa de revisão
   }
 
+  return { kind: "request", id: request.id };
+}
+
+async function requireRequestReviewer(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) throw new Error("Você não tem permissão para revisar pedidos.");
+  return user;
+}
+
+/** Equipe aceitando um pedido: vira tarefa (com os anexos e as respostas) e o cliente passa a acompanhá-la. */
+export async function importPortalRequest(requestId: string, input: { workspaceId?: string }) {
+  const user = await requireRequestReviewer();
+  const request = await prisma.portalRequest.findFirst({ where: { id: requestId, tenantId: user.tenantId } });
+  if (!request) throw new Error("Pedido não encontrado.");
+  if (request.status !== "PENDENTE") throw new Error("Este pedido já foi respondido.");
+
+  const process = await openProcessForClientRequest({
+    tenantId: user.tenantId,
+    clientId: request.clientId,
+    userId: user.id,
+    workspaceId: input.workspaceId || null,
+    companyId: request.companyId,
+    serviceTypeId: request.serviceTypeId,
+    description: request.description,
+    priority: request.priority,
+    requestedDeadline: request.requestedDeadline,
+    notes: answersAsNotes(request.answers),
+  });
+
+  await prisma.portalRequest.update({
+    where: { id: request.id },
+    data: { status: "IMPORTADO", processId: process.id, reviewedById: user.id, reviewedAt: new Date() },
+  });
+  await prisma.document.updateMany({ where: { portalRequestId: request.id, tenantId: user.tenantId }, data: { processId: process.id } });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "portal_request.import",
+    entityType: "portal_request",
+    entityId: request.id,
+    description: `Pedido do portal importado como tarefa #${process.number}.`,
+  });
+
+  revalidatePath("/pedidos");
   revalidatePath("/processos");
   revalidatePath("/portal");
   revalidatePath("/portal/processos");
-  return { id: process.id };
+  return { id: process.id, number: process.number };
+}
+
+/** Equipe recusando um pedido, com o motivo (o cliente vê no portal). */
+export async function rejectPortalRequest(requestId: string, note: string) {
+  const user = await requireRequestReviewer();
+  const reason = note.trim();
+  if (reason.length < 3) throw new Error("Explique o motivo da recusa para o cliente.");
+  const request = await prisma.portalRequest.findFirst({ where: { id: requestId, tenantId: user.tenantId } });
+  if (!request) throw new Error("Pedido não encontrado.");
+  if (request.status !== "PENDENTE") throw new Error("Este pedido já foi respondido.");
+
+  await prisma.portalRequest.update({
+    where: { id: request.id },
+    data: { status: "RECUSADO", reviewNote: reason, reviewedById: user.id, reviewedAt: new Date() },
+  });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "portal_request.reject",
+    entityType: "portal_request",
+    entityId: request.id,
+    description: `Pedido do portal recusado: ${reason}`,
+  });
+
+  revalidatePath("/pedidos");
+  revalidatePath("/portal");
+  revalidatePath("/portal/processos");
+}
+
+/** Volta um pedido recusado para a fila de revisão. */
+export async function reopenPortalRequest(requestId: string) {
+  const user = await requireRequestReviewer();
+  const request = await prisma.portalRequest.findFirst({ where: { id: requestId, tenantId: user.tenantId } });
+  if (!request) throw new Error("Pedido não encontrado.");
+  if (request.status !== "RECUSADO") throw new Error("Só dá para reabrir pedidos recusados.");
+  await prisma.portalRequest.update({ where: { id: request.id }, data: { status: "PENDENTE", reviewNote: null, reviewedById: null, reviewedAt: null } });
+  revalidatePath("/pedidos");
+  revalidatePath("/portal/processos");
 }
 
 export async function updateProcessStage(processId: string, toStageId: string) {
@@ -1089,6 +1248,9 @@ export async function deleteDeliverable(processId: string, deliverableId: string
 export async function respondDeliverable(processId: string, deliverableId: string, approved: boolean, note: string) {
   const user = await getCurrentUser();
   if (!user || user.role !== "CLIENTE" || !user.clientId) throw new Error("Acesso negado.");
+
+  const portalSettings = await prisma.clientPortalSettings.findUnique({ where: { clientId: user.clientId }, select: { allowApprovals: true } });
+  if (portalSettings && !portalSettings.allowApprovals) throw new Error("Seu portal não permite aprovar entregas. Fale com a Terceirizei pelo chat.");
 
   const deliverable = await prisma.processDeliverable.findFirst({
     where: { id: deliverableId, processId, process: { clientId: user.clientId } },

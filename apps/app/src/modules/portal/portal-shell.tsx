@@ -15,8 +15,13 @@ export function PortalShell({
   userName,
   themeToggle,
   logout,
+  accentRgb,
+  accentSoftRgb,
   children,
 }: {
+  /** cor de destaque deste cliente ("R G B"); sem ela vale o azul da marca */
+  accentRgb?: string | null;
+  accentSoftRgb?: string | null;
   navItems: NavItem[];
   userName: string;
   themeToggle: ReactNode;
@@ -39,7 +44,7 @@ export function PortalShell({
             href={item.href}
             className={cn(
               "block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-              active ? "bg-brand-blue text-white shadow-sm" : "text-muted hover:bg-surface-alt hover:text-ink"
+              active ? "bg-accent text-white shadow-sm" : "text-muted hover:bg-surface-alt hover:text-ink"
             )}
           >
             {item.label}
@@ -68,7 +73,10 @@ export function PortalShell({
   );
 
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div
+      className="flex min-h-screen bg-bg"
+      style={accentRgb ? ({ "--color-accent": accentRgb, ...(accentSoftRgb ? { "--color-accent-soft": accentSoftRgb } : {}) } as React.CSSProperties) : undefined}
+    >
       {/* Computador: menu fixo */}
       <aside className="sticky top-0 hidden h-screen w-60 flex-none flex-col border-r border-border bg-surface md:flex">
         <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-4">

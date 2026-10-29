@@ -47,6 +47,9 @@ export default async function PortalClientesPage() {
                   <Link href={`/clientes/${client.id}`} className="font-medium text-ink hover:underline">
                     {client.name}
                   </Link>
+                  <Link href={`/clientes/${client.id}/portal`} className="ml-3 text-xs font-medium text-accent hover:underline">
+                    Configurar portal
+                  </Link>
                 </td>
                 <td className="px-4 py-3">
                   <PortalAccessRow

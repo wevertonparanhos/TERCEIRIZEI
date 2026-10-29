@@ -9,7 +9,8 @@ export default async function PortalDashboardPage() {
   const user = await getCurrentUser();
   if (!user || !user.clientId) return null;
 
-  const [activeProcesses, pendingRequests, unpaidProcesses] = await Promise.all([
+  const [settings, activeProcesses, pendingRequests, unpaidProcesses] = await Promise.all([
+    prisma.clientPortalSettings.findUnique({ where: { clientId: user.clientId }, select: { welcomeMessage: true, allowRequests: true } }),
     prisma.process.count({
       where: { clientId: user.clientId, visibleInPortal: true, stage: { label: { notIn: ["Concluído", "Cancelado"] } } },
     }),
@@ -37,6 +38,7 @@ export default async function PortalDashboardPage() {
     <div className="p-4 sm:p-8">
       <p className="text-sm text-muted">Bem-vindo(a),</p>
       <h1 className="mt-1 text-2xl font-bold text-ink">{user.name}</h1>
+      {settings?.welcomeMessage && <p className="mt-2 max-w-2xl whitespace-pre-wrap text-sm text-muted">{settings.welcomeMessage}</p>}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link href="/portal/processos" className="rounded-2xl border border-border/70 bg-surface shadow-sm p-5 hover:shadow-sm">
@@ -56,9 +58,11 @@ export default async function PortalDashboardPage() {
       <div className="mt-8 rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink">Demandas recentes</h2>
-          <Link href="/portal/nova-demanda" className="text-sm text-accent hover:underline">
-            + Nova Demanda
-          </Link>
+          {(settings?.allowRequests ?? true) && (
+            <Link href="/portal/nova-demanda" className="text-sm text-accent hover:underline">
+              + Nova Demanda
+            </Link>
+          )}
         </div>
         {recentProcesses.length === 0 ? (
           <p className="mt-3 text-sm text-muted-soft">Nenhuma demanda registrada ainda.</p>

@@ -216,6 +216,20 @@ export async function clientUploadDocument(
   }
 }
 
+/** Cliente anexando arquivo a um pedido ainda em análise — vira anexo da tarefa quando o pedido é importado. */
+export async function clientUploadRequestAttachment(requestId: string, formData: FormData) {
+  const user = await requireOwnClient();
+  const request = await prisma.portalRequest.findFirst({
+    where: { id: requestId, clientId: user.clientId, tenantId: user.tenantId, status: "PENDENTE" },
+    select: { id: true },
+  });
+  if (!request) throw new Error("Pedido não encontrado.");
+
+  const { id } = await performUpload({ tenantId: user.tenantId, clientId: user.clientId, processId: null, requestId: null, uploaderId: user.id, formData });
+  await prisma.document.update({ where: { id }, data: { portalRequestId: request.id } });
+  revalidatePath("/pedidos");
+}
+
 export async function clientUploadNewVersion(documentId: string, formData: FormData) {
   const user = await requireOwnClient();
   const document = await prisma.document.findFirst({ where: { id: documentId, clientId: user.clientId } });
