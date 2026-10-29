@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const HEARTBEAT_INTERVAL_MS = 3 * 60 * 1000;
@@ -59,22 +60,47 @@ export function ProcessPresence({
 
   const others = activeUsers.filter((u) => u.id !== currentUserId);
 
-  if (!isPresent && others.length === 0) {
-    return (
-      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={toggle}>
-        Estou aqui
-      </Button>
-    );
-  }
-
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={toggle}>
-        {isPresent ? "Não estou mais aqui" : "Estou aqui"}
-      </Button>
-      {isPresent && <span className="text-xs font-medium text-accent">Você está trabalhando aqui</span>}
+    <div className="space-y-3">
+      {isPresent ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-3 w-3 flex-none">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Você está trabalhando aqui</p>
+              <p className="text-xs text-emerald-700/80 dark:text-emerald-300/70">A equipe vê que esta tarefa está com você.</p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={toggle}>
+            Não estou mais aqui
+          </Button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={toggle}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-60"
+        >
+          <MapPin className="h-4 w-4" />
+          Estou aqui
+        </button>
+      )}
+      {!isPresent && others.length === 0 && <p className="text-center text-xs text-muted">Clique para avisar a equipe que você está trabalhando nesta tarefa.</p>}
       {others.length > 0 && (
-        <span className="text-xs text-muted-soft">{othersLabel(others)}</span>
+        <div className="flex items-center gap-2 rounded-xl bg-surface-alt px-3 py-2">
+          <span className="flex -space-x-1.5">
+            {others.slice(0, 3).map((u) => (
+              <span key={u.id} title={u.name} className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-orange text-[10px] font-bold text-white ring-2 ring-surface">
+                {u.name.trim().charAt(0).toUpperCase()}
+              </span>
+            ))}
+          </span>
+          <span className="text-xs font-medium text-ink">{othersLabel(others)}</span>
+        </div>
       )}
     </div>
   );
