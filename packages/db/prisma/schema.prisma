@@ -640,6 +640,9 @@ model ProcessInstallment {
   value          Decimal   @db.Decimal(12, 2)
   paymentDueDate DateTime? @map("payment_due_date")
   paidAt         DateTime? @map("paid_at")
+  /// Título do pagamento (ex.: 1ª parcela, Sinal); vazio = "Parcela N"
+  title          String?
+  notes          String?
   createdAt      DateTime  @default(now()) @map("created_at")
 
   process Process @relation(fields: [processId], references: [id], onDelete: Cascade)

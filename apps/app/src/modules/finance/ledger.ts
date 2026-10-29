@@ -188,7 +188,7 @@ export async function loadLedger(params: {
     clientId: i.process.clientId,
     clientName: i.process.client.name,
     title: i.process.description,
-    installmentLabel: (countByProcess.get(i.processId) ?? 0) > 1 ? `Parcela ${i.position}` : null,
+    installmentLabel: i.title?.trim() || ((countByProcess.get(i.processId) ?? 0) > 1 ? `Parcela ${i.position}` : null),
     value: Number(i.value),
     paymentDueDate: i.paymentDueDate,
     paidAt: i.paidAt,

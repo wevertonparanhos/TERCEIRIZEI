@@ -461,16 +461,32 @@ export async function updateProcess(processId: string, input: ProcessInput) {
   revalidatePath(`/portal/processos/${processId}`);
 }
 
-/** Adiciona uma parcela de pagamento ao processo — posição sequencial
- * (Parcela 1, 2, 3...) na ordem de criação. */
-export async function addInstallment(processId: string, value: string, paymentDueDate: string) {
+export type InstallmentResult = { ok: true } | { ok: false; error: string };
+
+export type InstallmentInput = { title?: string; value: string; paymentDueDate: string; notes?: string; paidAt?: string };
+
+/** Valor digitado em reais (aceita vírgula e ponto de milhar: 1.500,50). */
+function parseInstallmentValue(raw: string): number | null {
+  const text = String(raw ?? "").trim();
+  if (!text) return null;
+  const normalized = text.includes(",") ? text.replace(/./g, "").replace(",", ".") : text;
+  const n = Number(normalized);
+  return Number.isFinite(n) && n > 0 && n < 100_000_000 ? Math.round(n * 100) / 100 : null;
+}
+
+function cleanText(value: string | undefined, max: number): string | null {
+  const t = (value ?? "").trim();
+  return t ? t.slice(0, max) : null;
+}
+
+/** Adiciona um pagamento à tarefa, com título e descrição opcionais (Parcela 1, 2, 3... na ordem de criação).
+ * Devolve o aviso como resultado: em produção o Next esconde a mensagem de erros lançados por Server Actions. */
+export async function addInstallment(processId: string, input: InstallmentInput): Promise<InstallmentResult> {
   const user = await requireStaff();
   await loadProcessForWrite(processId, user);
 
-  const numericValue = Number(value);
-  if (!value || Number.isNaN(numericValue) || numericValue <= 0) {
-    throw new Error("Informe um valor maior que zero.");
-  }
+  const numericValue = parseInstallmentValue(input.value);
+  if (numericValue === null) return { ok: false, error: "Informe um valor maior que zero." };
 
   const last = await prisma.processInstallment.findFirst({
     where: { processId },
@@ -482,16 +498,22 @@ export async function addInstallment(processId: string, value: string, paymentDu
       processId,
       position: (last?.position ?? 0) + 1,
       value: numericValue,
-      paymentDueDate: paymentDueDate ? new Date(paymentDueDate) : null,
+      paymentDueDate: input.paymentDueDate ? new Date(input.paymentDueDate) : null,
+      title: cleanText(input.title, 80),
+      notes: cleanText(input.notes, 1000),
     },
   });
 
-  revalidatePath(`/processos/${processId}`);
-  revalidatePath("/processos");
-  revalidatePath("/financeiro");
-  revalidatePath("/portal");
-  revalidatePath("/portal/processos");
-  revalidatePath(`/portal/processos/${processId}`);
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.installment_added",
+    entityType: "process",
+    entityId: processId,
+    description: `Pagamento de R$ ${numericValue.toFixed(2)} adicionado à tarefa.`,
+  });
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+  return { ok: true };
 }
 
 const FINANCE_PATHS = (processId: string) => [
@@ -583,27 +605,23 @@ export async function setNextPaymentDate(processId: string, date: string) {
   FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
 }
 
-/** Edita valor, vencimento e (se já paga) a data do pagamento de uma parcela. */
-export async function updateInstallment(
-  processId: string,
-  installmentId: string,
-  input: { value: string; paymentDueDate: string; paidAt?: string }
-) {
+/** Edita título, valor, vencimento, descrição e (se já paga) a data do pagamento. */
+export async function updateInstallment(processId: string, installmentId: string, input: InstallmentInput): Promise<InstallmentResult> {
   const user = await requireStaff();
   await loadProcessForWrite(processId, user);
 
-  const numericValue = Number(String(input.value).replace(",", "."));
-  if (!input.value || Number.isNaN(numericValue) || numericValue <= 0) {
-    throw new Error("Informe um valor maior que zero.");
-  }
+  const numericValue = parseInstallmentValue(input.value);
+  if (numericValue === null) return { ok: false, error: "Informe um valor maior que zero." };
   const installment = await prisma.processInstallment.findFirst({ where: { id: installmentId, processId } });
-  if (!installment) throw new Error("Parcela não encontrada.");
+  if (!installment) return { ok: false, error: "Pagamento não encontrado. Atualize a página." };
 
   await prisma.processInstallment.update({
     where: { id: installmentId },
     data: {
-      value: Math.round(numericValue * 100) / 100,
+      value: numericValue,
       paymentDueDate: input.paymentDueDate ? new Date(input.paymentDueDate) : null,
+      title: cleanText(input.title, 80),
+      notes: cleanText(input.notes, 1000),
       ...(installment.paidAt && input.paidAt ? { paidAt: new Date(input.paidAt) } : {}),
     },
   });
@@ -614,9 +632,10 @@ export async function updateInstallment(
     action: "process.installment_updated",
     entityType: "process",
     entityId: processId,
-    description: `Parcela ${installment.position} alterada para R$ ${numericValue.toFixed(2)}.`,
+    description: `Pagamento ${installment.position} alterado para R$ ${numericValue.toFixed(2)}.`,
   });
   FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+  return { ok: true };
 }
 
 /** Marca/desmarca uma parcela como paga. */

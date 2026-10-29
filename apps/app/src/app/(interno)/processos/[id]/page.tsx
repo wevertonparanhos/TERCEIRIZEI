@@ -468,6 +468,8 @@ export default async function ProcessoDetalhePage({
                           id: i.id,
                           position: i.position,
                           value: Number(i.value),
+                          title: i.title,
+                          notes: i.notes,
                           paymentDueDate: i.paymentDueDate ? i.paymentDueDate.toISOString() : null,
                           paidAt: i.paidAt ? i.paidAt.toISOString() : null,
                         }))}
