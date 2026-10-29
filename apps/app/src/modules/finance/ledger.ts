@@ -40,6 +40,48 @@ export type StartLedgerRow = {
   paidAt: Date | null;
 };
 
+/** Hoje no dia de Brasília, como data (meia-noite UTC) — mesma convenção dos vencimentos. */
+export function todayBRT(now: Date = new Date()): Date {
+  const br = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+  return new Date(Date.UTC(br.getUTCFullYear(), br.getUTCMonth(), br.getUTCDate()));
+}
+
+/** TODAS as parcelas do cliente que não foram pagas até a data de pagamento prevista — de qualquer mês,
+ * independente de quando a tarefa foi aberta. Mais antigas primeiro. */
+export async function loadOverdueForClient(params: {
+  tenantId: string;
+  clientId: string;
+  today?: Date;
+}): Promise<StartLedgerRow[]> {
+  const { tenantId, clientId } = params;
+  const today = params.today ?? todayBRT();
+
+  const installments = await prisma.processInstallment.findMany({
+    where: { paidAt: null, paymentDueDate: { lt: today }, process: { tenantId, clientId } },
+    select: {
+      id: true,
+      position: true,
+      value: true,
+      paymentDueDate: true,
+      paidAt: true,
+      process: { select: { id: true, number: true, description: true, createdAt: true, _count: { select: { installments: true } } } },
+    },
+    orderBy: { paymentDueDate: "asc" },
+  });
+
+  return installments.map((i) => ({
+    id: i.id,
+    processId: i.process.id,
+    number: i.process.number,
+    title: i.process.description,
+    startDate: i.process.createdAt,
+    installmentLabel: i.process._count.installments > 1 ? `Parcela ${i.position}` : null,
+    value: Number(i.value),
+    paymentDueDate: i.paymentDueDate,
+    paidAt: i.paidAt,
+  }));
+}
+
 /** Relatório mensal para enviar ao cliente: as demandas INICIADAS no período
  * (o início é a data de criação da tarefa) com o valor e a previsão de pagamento
  * de cada uma — não importa em que mês cai o vencimento. */

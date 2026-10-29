@@ -407,7 +407,7 @@ export function NewTaskWizard({
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="wz-notes">Observações</Label>
+              <Label htmlFor="wz-notes">Anotações</Label>
               <Textarea id="wz-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>

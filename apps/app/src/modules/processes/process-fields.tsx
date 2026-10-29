@@ -478,7 +478,7 @@ export function NotesCard() {
 
   return (
     <div className="space-y-3 rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-ink">Observações</h2>
+      <h2 className="text-base font-semibold text-ink">Anotações</h2>
       <Textarea
         ref={ref}
         value={text}
@@ -486,7 +486,7 @@ export function NotesCard() {
         maxLength={MAX_NOTES}
         rows={3}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Anotações e observações sobre a tarefa"
+        placeholder="Escreva as anotações da tarefa"
         className="min-h-[5rem] resize-none overflow-hidden"
       />
       <div className="flex items-center justify-between">

@@ -64,6 +64,12 @@ export const PAYMENT_STATUS_BADGE_VARIANT: Record<PaymentStatus, "neutral" | "su
   PENDENTE: "warning",
 };
 
+/** Hoje (dia de Brasília) como meia-noite UTC — mesma convenção dos vencimentos. */
+function startOfTodayBRT(now: Date = new Date()): Date {
+  const br = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+  return new Date(Date.UTC(br.getUTCFullYear(), br.getUTCMonth(), br.getUTCDate()));
+}
+
 /** Deriva o status de pagamento de uma parcela a partir de value/paymentDueDate/paidAt —
  * não é persistido, sempre calculado. */
 export function getPaymentStatus(
@@ -73,7 +79,8 @@ export function getPaymentStatus(
 ): PaymentStatus {
   if (!value) return "SEM_PAGAMENTO";
   if (paidAt) return "PAGO";
-  if (paymentDueDate && paymentDueDate.getTime() < Date.now()) return "ATRASADO";
+  // Atrasado só depois do dia do vencimento (dia de Brasília): vencendo hoje ainda é Pendente.
+  if (paymentDueDate && paymentDueDate.getTime() < startOfTodayBRT().getTime()) return "ATRASADO";
   return "PENDENTE";
 }
 
