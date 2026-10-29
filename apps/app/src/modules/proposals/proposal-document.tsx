@@ -117,8 +117,8 @@ export function ProposalDocument({
         <img src={content.coverUrl} alt="" style={{ display: "block", width: "100%", height: 150, objectFit: "cover" }} />
       )}
 
-      <div style={{ padding: "26px 32px 28px" }}>
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+      <div style={{ padding: "26px clamp(14px, 4vw, 32px) 28px" }}>
+        <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-terceirizei.png" alt="Terceirizei — Consultoria e Gestão Empresarial" style={{ height: 62, width: "auto" }} />
           <div style={{ textAlign: "right" }}>

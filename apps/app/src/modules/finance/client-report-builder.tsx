@@ -51,12 +51,23 @@ export function ClientReportBuilder({
   clientName,
   periodTitle,
   periodLabel,
+  sendDateLabel,
+  dueDateLabel,
+  dueBusinessDay,
+  contractNumber,
   rows,
   hasUndatedWarning,
 }: {
   clientName: string;
   periodTitle: string;
   periodLabel: string;
+  /** dd/mm/aaaa — último dia útil do mês de referência (envio do relatório); null se o período não for um mês */
+  sendDateLabel?: string | null;
+  /** dd/mm/aaaa — N-ésimo dia útil do mês seguinte (vencimento) */
+  dueDateLabel?: string | null;
+  dueBusinessDay?: number;
+  /** nº da proposta/contrato aceito pelo cliente, se houver */
+  contractNumber?: number | null;
   rows: ReportRow[];
   hasUndatedWarning?: string | null;
 }) {
@@ -122,6 +133,7 @@ export function ClientReportBuilder({
     <section style={{ marginTop: 22 }}>
       <h2 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: NAVY, letterSpacing: 0.4, textTransform: "uppercase" }}>{title}</h2>
       <p style={{ margin: "2px 0 8px", fontSize: 11, color: "#64748B" }}>{subtitle}</p>
+      <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead>
           <tr style={{ background: NAVY, color: "#FFFFFF" }}>
@@ -174,6 +186,7 @@ export function ClientReportBuilder({
           )}
         </tbody>
       </table>
+      </div>
     </section>
   );
 
@@ -254,8 +267,8 @@ export function ClientReportBuilder({
       {/* Documento (é isto que sai no PDF) */}
       <div className="report-doc mx-auto max-w-[820px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" style={{ color: "#0F172A", fontFamily: "'Montserrat', 'Inter', system-ui, sans-serif" }}>
         <div style={{ height: 6, background: `linear-gradient(90deg, ${NAVY}, ${BLUE} 55%, ${ORANGE})` }} />
-        <div style={{ padding: "26px 32px 28px" }}>
-          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+        <div style={{ padding: "26px clamp(14px, 4vw, 32px) 28px" }}>
+          <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo-terceirizei.png" alt="Terceirizei — Consultoria e Gestão Empresarial" style={{ height: 62, width: "auto" }} />
             <div style={{ textAlign: "right" }}>
@@ -276,6 +289,21 @@ export function ClientReportBuilder({
               <p style={{ margin: 0, fontSize: 10, color: "#64748B" }}>{periodLabel}</p>
             </div>
           </div>
+
+          {sendDateLabel && dueDateLabel && (
+            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+              <div style={{ border: "1px solid #E2E8F0", borderTop: `3px solid ${CYAN}`, borderRadius: 8, padding: "9px 12px" }}>
+                <p style={{ margin: 0, fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Fechamento e envio</p>
+                <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 800, color: NAVY }}>{sendDateLabel}</p>
+                <p style={{ margin: 0, fontSize: 10, color: "#64748B" }}>último dia útil do mês</p>
+              </div>
+              <div style={{ border: "1px solid #E2E8F0", borderTop: `3px solid ${ORANGE}`, borderRadius: 8, padding: "9px 12px" }}>
+                <p style={{ margin: 0, fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Vencimento</p>
+                <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 800, color: NAVY }}>até {dueDateLabel}</p>
+                <p style={{ margin: 0, fontSize: 10, color: "#64748B" }}>{dueBusinessDay ?? 5}º dia útil do mês seguinte{contractNumber ? ` · contrato nº ${contractNumber}` : ""}</p>
+              </div>
+            </div>
+          )}
 
           {message.trim() && (
             <p style={{ margin: "16px 0 0", fontSize: 12.5, lineHeight: 1.55, color: "#334155", whiteSpace: "pre-wrap" }}>{message.trim()}</p>
@@ -309,6 +337,7 @@ export function ClientReportBuilder({
                   : finalOverdue.some((r) => !r.paid)
                     ? "Pagamentos em atraso"
                     : "Demandas do período"}
+                {dueDateLabel ? ` · vencimento até ${dueDateLabel}` : ""}
               </p>
             </div>
             <p style={{ margin: 0, fontSize: 26, fontWeight: 800, color: "#FFFFFF" }}>{brl.format(totals.aPagar)}</p>

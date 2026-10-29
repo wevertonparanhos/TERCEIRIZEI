@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/rbac";
 import { PeriodFilter } from "@/modules/finance/period-filter";
 import { resolvePeriod, PERIOD_KEYS, type PeriodKey } from "@/modules/finance/period";
 import { loadStartLedger, loadOverdueForClient, todayBRT } from "@/modules/finance/ledger";
+import { billingCycle } from "@/modules/finance/business-days";
 import { ClientReportBuilder, type ReportRow } from "@/modules/finance/client-report-builder";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -83,6 +84,15 @@ export default async function ClienteRelatorioPage({
   const undatedOpenTotal = undatedOpen.reduce((sum, r) => sum + r.value, 0);
   const periodLabel = `${start.toLocaleDateString("pt-BR", { timeZone: "UTC" })} a ${end.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`;
   const sameMonth = start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth();
+  // Ciclo de cobrança do contrato: relatório enviado no último dia útil do mês; vence no N-ésimo dia útil do seguinte.
+  // O N vem da proposta aceita pelo cliente (padrão 5).
+  const acceptedProposal = await prisma.proposal.findFirst({
+    where: { tenantId: user.tenantId, clientId: client.id, status: "ACEITA" },
+    orderBy: { respondedAt: "desc" },
+    select: { dueBusinessDay: true, number: true },
+  });
+  const dueBusinessDay = acceptedProposal?.dueBusinessDay ?? 5;
+  const cycle = sameMonth ? billingCycle(start.getUTCFullYear(), start.getUTCMonth(), dueBusinessDay) : null;
   const monthName = start.toLocaleDateString("pt-BR", { month: "long", timeZone: "UTC" });
   const periodTitle = sameMonth ? `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} de ${start.getUTCFullYear()}` : periodLabel;
 
@@ -125,6 +135,10 @@ export default async function ClienteRelatorioPage({
         clientName={client.name}
         periodTitle={periodTitle}
         periodLabel={periodLabel}
+        sendDateLabel={cycle ? dueBR(cycle.sendDate) : null}
+        dueDateLabel={cycle ? dueBR(cycle.dueDate) : null}
+        dueBusinessDay={dueBusinessDay}
+        contractNumber={acceptedProposal?.number ?? null}
         rows={reportRows}
         hasUndatedWarning={
           undatedOpen.length > 0

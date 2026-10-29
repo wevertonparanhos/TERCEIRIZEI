@@ -25,7 +25,7 @@ export default async function ChatThreadPage({ params }: { params: { clientId: s
   const sendToThisClient = sendStaffMessage.bind(null, client.id);
 
   return (
-    <div className="flex h-screen flex-col p-8">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col p-4 sm:p-8 md:h-screen">
       <div className="flex-none">
         <Link href="/chat" className="text-sm text-accent hover:underline">
           ← Voltar para Chat

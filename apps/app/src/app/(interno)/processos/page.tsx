@@ -175,7 +175,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
   };
 
   return (
-    <div className="flex h-screen flex-col p-8">
+    <div className="flex min-h-screen flex-col p-8 md:h-screen">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Área de Trabalho</h1>
@@ -239,7 +239,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       </div>
       )}
 
-      <div className="mt-4 flex-1 overflow-hidden">
+      <div className="mt-4 flex-1 md:overflow-hidden">
         {showArchived ? (
           <ArchivedTable
             searchKey={`busca-arquivadas:${activeWorkspace?.id ?? ""}`}

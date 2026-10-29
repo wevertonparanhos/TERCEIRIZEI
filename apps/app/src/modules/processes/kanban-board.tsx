@@ -318,7 +318,7 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col md:h-full">
       <div className="mb-4 grid flex-none grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <KpiFilterCard value={items.length} label="Total" icon={ClipboardList} active={!filtering} onClick={() => toggle("all")} />
         <KpiFilterCard value={counts.entregaHoje} label="Entrega hoje" icon={CalendarClock} active={filter === "entregaHoje"} onClick={() => toggle("entregaHoje")} />
@@ -341,7 +341,7 @@ export function KanbanBoard({
         </p>
       )}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
+        <div className="flex h-[70vh] gap-3 overflow-x-auto pb-2 md:h-auto md:min-h-0 md:flex-1">
           {stages.map((stage) => (
             <DroppableColumn
               key={stage.id}
