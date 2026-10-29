@@ -102,7 +102,7 @@ export default async function InternoLayout({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <aside className="sticky top-0 flex h-screen w-60 flex-none flex-col border-r border-border bg-surface">
+      <aside className="sticky top-0 flex h-screen w-60 flex-none flex-col border-r border-border bg-surface print:hidden">
         <div className="flex h-14 items-center gap-2.5 px-4">
           <span className="flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-accent text-white shadow-sm">
             <Building2 className="h-4 w-4" />
@@ -135,7 +135,7 @@ export default async function InternoLayout({ children }: { children: React.Reac
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 flex-none items-center justify-end gap-1 border-b border-border bg-bg/80 px-6 backdrop-blur">
+        <header className="sticky top-0 z-20 flex h-14 flex-none items-center justify-end gap-1 border-b border-border bg-bg/80 px-6 backdrop-blur print:hidden">
           <ThemeToggle className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-alt hover:text-ink" />
           <Link
             href="/atividades"
