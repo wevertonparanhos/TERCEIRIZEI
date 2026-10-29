@@ -2,23 +2,23 @@ import "server-only";
 import { headers } from "next/headers";
 import { prisma } from "@terceirizei/db";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { buildConfirmLink } from "@/lib/auth-links";
 
-function getOrigin(): string {
+export function getOrigin(): string {
   const host = headers().get("host") ?? "";
   const protocol = host.startsWith("localhost") ? "http" : "https";
   return `${protocol}://${host}`;
 }
 
-/** Gera um link novo para a pessoa (re)definir a senha — serve para reenviar convite e para redefinir a senha. */
+/**
+ * Gera um link novo para a pessoa (re)definir a senha — serve para convite, reenvio e redefinição.
+ * O link abre /auth/confirm (nossa rota), que valida o código no servidor e cria a sessão.
+ */
 export async function generateAccessLink(email: string): Promise<string> {
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "recovery",
-    email,
-    options: { redirectTo: `${getOrigin()}/auth/callback?next=/redefinir-senha` },
-  });
-  if (error || !data) throw new Error("Não foi possível gerar o link de acesso.");
-  return data.properties.action_link;
+  const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email });
+  if (error || !data?.properties?.hashed_token) throw new Error("Não foi possível gerar o link de acesso.");
+  return buildConfirmLink(getOrigin(), data.properties.hashed_token, "recovery");
 }
 
 /**
@@ -65,13 +65,9 @@ export async function provisionInvitedUser(params: {
   `;
   if (rows.length === 0) throw new Error("Não foi possível criar o usuário.");
 
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "recovery",
-    email: params.email,
-    options: { redirectTo: `${getOrigin()}/auth/callback?next=/redefinir-senha` },
-  });
-  if (error || !data) throw new Error("Usuário criado, mas não foi possível gerar o link de convite.");
-
-  return data.properties.action_link;
+  try {
+    return await generateAccessLink(params.email);
+  } catch {
+    throw new Error("Usuário criado, mas não foi possível gerar o link de convite.");
+  }
 }

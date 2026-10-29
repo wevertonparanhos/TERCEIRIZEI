@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { env } from "@/lib/env";
 import { getAuthUserId } from "@/lib/supabase/auth-user";
 
-const PUBLIC_ROUTES = ["/login", "/cadastro", "/esqueci-senha", "/redefinir-senha", "/auth/callback", "/api/backup"];
+const PUBLIC_ROUTES = ["/login", "/cadastro", "/esqueci-senha", "/redefinir-senha", "/auth/callback", "/auth/confirm", "/api/backup"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });

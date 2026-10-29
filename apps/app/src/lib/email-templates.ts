@@ -127,3 +127,17 @@ export function portalAccessEmail(params: { clientName: string; link: string; mo
     ),
   };
 }
+
+/** Redefinição de senha de quem usa o sistema (equipe). */
+export function passwordResetEmail(params: { name: string; link: string }) {
+  return {
+    subject: "Redefinir sua senha do Terceirizei OS",
+    html: layout(
+      "Crie uma nova senha",
+      "Redefinição de senha",
+      `<p>Olá, ${params.name}! Recebemos o pedido para redefinir a sua senha do <b>Terceirizei OS</b>.</p><p>Clique no botão abaixo para criar uma nova senha. Se não foi você, pode ignorar este e-mail.</p>`,
+      params.link,
+      "Criar nova senha"
+    ),
+  };
+}

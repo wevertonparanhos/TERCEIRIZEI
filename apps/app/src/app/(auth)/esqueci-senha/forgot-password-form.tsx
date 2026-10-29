@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/lib/validations/auth";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { requestPasswordReset } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,10 +21,11 @@ export function ForgotPasswordForm() {
 
   async function onSubmit(values: ForgotPasswordInput) {
     setSubmitting(true);
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.resetPasswordForEmail(values.email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/redefinir-senha`,
-    });
+    try {
+      await requestPasswordReset(values.email);
+    } catch {
+      // A resposta é sempre a mesma: não revelamos se o e-mail existe nem falhas internas.
+    }
     setSubmitting(false);
     setSent(true);
   }

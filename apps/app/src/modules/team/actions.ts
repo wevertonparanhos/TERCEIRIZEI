@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
-import { provisionInvitedUser } from "@/lib/invite-user";
+import { provisionInvitedUser, generateAccessLink } from "@/lib/invite-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { headers } from "next/headers";
 import { inviteStaffSchema, type InviteStaffInput } from "@/lib/validations/team";
 import { STAFF_ROLES, ROLE_LABELS } from "@/modules/team/permissions";
 
@@ -117,14 +116,12 @@ export async function activateMigratedMember(userId: string, email: string): Pro
     prisma.user.update({ where: { id: userId }, data: { email: clean, active: true } }),
   ]);
 
-  const host = headers().get("host") ?? "";
-  const origin = `${host.startsWith("localhost") ? "http" : "https"}://${host}`;
-  const { data, error } = await createSupabaseAdminClient().auth.admin.generateLink({
-    type: "recovery",
-    email: clean,
-    options: { redirectTo: `${origin}/auth/callback?next=/redefinir-senha` },
-  });
-  if (error || !data) throw new Error("Membro ativado, mas não foi possível gerar o link de acesso. Use \"Esqueci minha senha\" no login.");
+  let inviteLink: string;
+  try {
+    inviteLink = await generateAccessLink(clean);
+  } catch {
+    throw new Error("Membro ativado, mas não foi possível gerar o link de acesso. Use \"Esqueci minha senha\" no login.");
+  }
 
   await logAudit({
     tenantId: user.tenantId,
@@ -136,7 +133,7 @@ export async function activateMigratedMember(userId: string, email: string): Pro
   });
 
   revalidatePath("/equipe");
-  return { inviteLink: data.properties.action_link };
+  return { inviteLink };
 }
 
 /** Troca o papel de um membro. O acesso de cada papel está em modules/team/permissions.ts. */
