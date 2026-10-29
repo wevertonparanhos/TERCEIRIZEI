@@ -9,7 +9,7 @@ type Item = { href: string; label: string; hint: string; icon: "etapas" | "model
 const ICONS = { etapas: Layers, modelos: ListChecks, tipos: Tags } as const;
 
 /** Menu "Gerenciar" do cabeçalho da Área de Trabalho: reúne as telas de configuração (etapas, modelos e tipos). */
-export function ManageMenu({ items, className = "" }: { items: Item[]; className?: string }) {
+export function ManageMenu({ items, className = "", iconOnly = false }: { items: Item[]; className?: string; iconOnly?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -38,11 +38,13 @@ export function ManageMenu({ items, className = "" }: { items: Item[]; className
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex h-10 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${className}`}
+        aria-label="Gerenciar etapas, modelos e tipos"
+        title="Gerenciar etapas, modelos e tipos"
+        className={`inline-flex h-10 items-center gap-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${iconOnly ? "w-10 justify-center" : "px-3.5"} ${className}`}
       >
         <Settings2 className="h-4 w-4" />
-        Gerenciar
-        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+        {!iconOnly && "Gerenciar"}
+        {!iconOnly && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />}
       </button>
       {open && (
         <div role="menu" className="absolute right-0 z-30 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-surface p-1.5 shadow-xl">
