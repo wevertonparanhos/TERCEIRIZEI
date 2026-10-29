@@ -1,4 +1,4 @@
-export const PROPOSAL_STATUSES = ["RASCUNHO", "ENVIADA", "ACEITA", "RECUSADA"] as const;
+export const PROPOSAL_STATUSES = ["RASCUNHO", "ENVIADA", "ACEITA", "RECUSADA", "CANCELADA"] as const;
 export type ProposalStatusValue = (typeof PROPOSAL_STATUSES)[number];
 
 export type ProposalDisplayStatus = ProposalStatusValue | "EXPIRADA";
@@ -8,6 +8,7 @@ export const PROPOSAL_STATUS_LABELS: Record<ProposalDisplayStatus, string> = {
   ENVIADA: "Enviada",
   ACEITA: "Aceita",
   RECUSADA: "Recusada",
+  CANCELADA: "Cancelada",
   EXPIRADA: "Expirada",
 };
 
@@ -16,6 +17,7 @@ export const PROPOSAL_STATUS_BADGE_VARIANT: Record<ProposalDisplayStatus, "neutr
   ENVIADA: "info",
   ACEITA: "success",
   RECUSADA: "danger",
+  CANCELADA: "neutral",
   EXPIRADA: "warning",
 };
 

@@ -11,7 +11,7 @@ export default async function PortalPropostasPage() {
   if (!user || !user.clientId) return null;
 
   const proposals = await prisma.proposal.findMany({
-    where: { clientId: user.clientId, status: { not: "RASCUNHO" } },
+    where: { clientId: user.clientId, status: { notIn: ["RASCUNHO", "CANCELADA"] } },
     include: { items: { select: { value: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -25,7 +25,7 @@ export default async function PortalPropostasPage() {
         {proposals.length === 0 && <p className="text-sm text-muted-soft">Nenhuma proposta recebida ainda.</p>}
         {proposals.map((p) => {
           const status = getProposalDisplayStatus(p.status, p.validUntil);
-          const total = p.items.reduce((sum, item) => sum + Number(item.value), 0);
+          const total = Math.max(0, p.items.reduce((sum, item) => sum + Number(item.value), 0) - Number(p.discount));
           return (
             <Link
               key={p.id}

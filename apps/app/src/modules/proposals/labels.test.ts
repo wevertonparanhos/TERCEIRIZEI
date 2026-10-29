@@ -28,3 +28,9 @@ describe("getProposalDisplayStatus", () => {
     expect(getProposalDisplayStatus("RECUSADA", new Date(2026, 7, 20), now)).toBe("RECUSADA");
   });
 });
+
+describe("getProposalDisplayStatus — cancelada", () => {
+  it("não expira CANCELADA mesmo com validade vencida", () => {
+    expect(getProposalDisplayStatus("CANCELADA", new Date(2026, 7, 20), new Date(2026, 8, 2))).toBe("CANCELADA");
+  });
+});

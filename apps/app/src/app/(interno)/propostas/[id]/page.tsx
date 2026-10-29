@@ -4,11 +4,12 @@ import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE_VARIANT, getProposalDisplayStatus } from "@/modules/proposals/labels";
-import { ProposalForm } from "@/modules/proposals/proposal-form";
-import { ProposalItems } from "@/modules/proposals/proposal-items";
-import { SendProposalButton, DeleteProposalButton } from "@/modules/proposals/proposal-actions";
-import { PrintButton } from "@/modules/finance/print-button";
-import { updateProposal, addProposalItem, removeProposalItem, sendProposal, deleteProposal } from "@/modules/proposals/actions";
+import { proposalToContent } from "@/modules/proposals/content";
+import { ProposalEditor } from "@/modules/proposals/proposal-editor";
+import { ProposalDocument, ProposalPrintStyles } from "@/modules/proposals/proposal-document";
+import { ProposalViewActions } from "@/modules/proposals/proposal-view-actions";
+
+const dateBR = (d: Date) => d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
 export default async function PropostaDetalhePage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -22,93 +23,83 @@ export default async function PropostaDetalhePage({ params }: { params: { id: st
     include: {
       client: { select: { id: true, name: true } },
       createdBy: { select: { name: true } },
-      items: { orderBy: { createdAt: "asc" } },
+      items: { orderBy: { position: "asc" } },
     },
   });
   if (!proposal) notFound();
 
-  const clients = await prisma.client.findMany({
-    where: { tenantId: user.tenantId, status: "ativo" },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  const content = proposalToContent(proposal);
+
+  if (proposal.status === "RASCUNHO" && canManage) {
+    const [clients, blocks] = await Promise.all([
+      prisma.client.findMany({ where: { tenantId: user.tenantId, status: "ativo" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.proposalBlock.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true, body: true } }),
+    ]);
+    return (
+      <ProposalEditor
+        mode="proposal"
+        id={proposal.id}
+        number={proposal.number}
+        initialClientId={proposal.clientId}
+        initialContent={content}
+        clients={clients}
+        initialBlocks={blocks}
+      />
+    );
+  }
 
   const status = getProposalDisplayStatus(proposal.status, proposal.validUntil);
-  const isDraft = proposal.status === "RASCUNHO";
-  const updateThisProposal = updateProposal.bind(null, proposal.id);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-8 print:max-w-none">
+    <div className="mx-auto max-w-4xl space-y-5 p-4 sm:p-8 print:max-w-none print:p-0">
+      <ProposalPrintStyles />
       <div className="print:hidden">
         <Link href="/propostas" className="text-sm text-accent hover:underline">
           ← Voltar para Propostas
         </Link>
       </div>
-      <div>
-        <div className="flex items-center gap-3">
+      <div className="print:hidden">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-ink">
             #{proposal.number} — {proposal.title}
           </h1>
           <Badge variant={PROPOSAL_STATUS_BADGE_VARIANT[status]}>{PROPOSAL_STATUS_LABELS[status]}</Badge>
         </div>
         <p className="text-sm text-muted">
-          {proposal.client.name} · criada por {proposal.createdBy.name}
-          {proposal.validUntil ? ` · válida até ${proposal.validUntil.toLocaleDateString("pt-BR", { timeZone: "UTC" })}` : ""}
+          {proposal.client?.name ?? "Sem cliente"} · criada por {proposal.createdBy.name}
         </p>
       </div>
 
-      {isDraft && canManage ? (
-        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6 print:hidden">
-          <h2 className="mb-4 text-base font-semibold text-ink">Dados da proposta</h2>
-          <ProposalForm
-            clients={clients}
-            submitLabel="Salvar alterações"
-            defaultValues={{
-              clientId: proposal.clientId,
-              title: proposal.title,
-              validUntil: proposal.validUntil ? proposal.validUntil.toISOString().slice(0, 10) : "",
-              notes: proposal.notes ?? "",
-            }}
-            onSubmit={updateThisProposal}
-          />
+      <ProposalViewActions id={proposal.id} status={proposal.status} title={proposal.title} canManage={canManage} />
+
+      {proposal.status === "CANCELADA" && (
+        <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm print:hidden">
+          <h2 className="text-base font-semibold text-ink">Proposta cancelada</h2>
+          <p className="mt-1 text-sm text-muted">
+            {proposal.canceledAt ? `Cancelada em ${proposal.canceledAt.toLocaleString("pt-BR")}. ` : ""}
+            Ela não aparece mais para o cliente.
+          </p>
+          {proposal.cancelReason && <p className="mt-2 whitespace-pre-wrap text-sm text-ink">Motivo: {proposal.cancelReason}</p>}
         </div>
-      ) : (
-        proposal.notes && (
-          <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
-            <h2 className="text-base font-semibold text-ink">Observações</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{proposal.notes}</p>
-          </div>
-        )
       )}
 
-      <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
-        <ProposalItems
-          proposalId={proposal.id}
-          items={proposal.items.map((i) => ({ id: i.id, description: i.description, value: i.value.toString() }))}
-          canWrite={isDraft && canManage}
-          addItem={addProposalItem}
-          removeItem={removeProposalItem}
-        />
-      </div>
-
-      {proposal.status !== "RASCUNHO" && proposal.respondedAt && (
-        <div className="rounded-2xl border border-border/70 bg-surface shadow-sm p-6">
+      {proposal.respondedAt && (proposal.status === "ACEITA" || proposal.status === "RECUSADA") && (
+        <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm print:hidden">
           <h2 className="text-base font-semibold text-ink">Resposta do cliente</h2>
-          <p className="mt-2 text-sm text-muted">
-            {proposal.status === "ACEITA" ? "Aceita" : "Recusada"} em{" "}
-            {proposal.respondedAt.toLocaleString("pt-BR")}
+          <p className="mt-1 text-sm text-muted">
+            {proposal.status === "ACEITA" ? "Aceita" : "Recusada"} em {proposal.respondedAt.toLocaleString("pt-BR")}
           </p>
           {proposal.responseNote && <p className="mt-2 whitespace-pre-wrap text-sm text-ink">{proposal.responseNote}</p>}
         </div>
       )}
 
-      <div className="flex items-center justify-between print:hidden">
-        <div className="flex items-center gap-4">
-          {isDraft && canManage && <SendProposalButton proposalId={proposal.id} send={sendProposal} />}
-          {isDraft && canManage && <DeleteProposalButton proposalId={proposal.id} deleteProposal={deleteProposal} />}
-        </div>
-        <PrintButton />
-      </div>
+      <ProposalDocument
+        content={content}
+        number={proposal.number}
+        clientName={proposal.client?.name}
+        issuedAt={dateBR(proposal.sentAt ?? proposal.createdAt)}
+        validUntil={proposal.validUntil ? proposal.validUntil.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : null}
+      />
     </div>
   );
 }
