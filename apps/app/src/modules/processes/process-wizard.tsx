@@ -248,7 +248,12 @@ export function NewTaskWizard({
 
         {step === 1 && (
           <div className="space-y-3">
-            <p className="text-sm text-muted">Escolha um serviço para pré-preencher a tarefa, ou comece em branco.</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted">Escolha um serviço para pré-preencher a tarefa, ou comece em branco.</p>
+              <a href="/processos/modelos" className="text-xs font-medium text-accent hover:underline">
+                Editar modelos
+              </a>
+            </div>
             <button
               type="button"
               onClick={() => pickTemplate(null)}

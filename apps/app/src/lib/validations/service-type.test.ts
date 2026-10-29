@@ -1,39 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { serviceTypeSchema, checklistTemplateItemSchema } from "./service-type";
+import { serviceTypeSchema } from "./service-type";
 
 describe("serviceTypeSchema", () => {
-  it("aceita um modelo só com nome (demais campos opcionais)", () => {
-    expect(serviceTypeSchema.safeParse({ name: "Abertura de empresa" }).success).toBe(true);
+  it("aceita só o nome e aplica os padrões", () => {
+    const r = serviceTypeSchema.parse({ name: "Abertura de empresa" });
+    expect(r).toEqual({ name: "Abertura de empresa", defaultPrice: null, defaultDeadlineDays: null, defaultPriority: null, defaultNotes: "", active: true, checklist: [] });
   });
 
-  it("aceita um modelo completo", () => {
-    const result = serviceTypeSchema.safeParse({
-      name: "Abertura de empresa",
-      defaultPrice: "1200.00",
-      defaultDeadlineDays: "10",
-      defaultPriority: "ALTA",
-      defaultNotes: "Confirmar CNAE antes de abrir.",
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejeita nome muito curto", () => {
+  it("recusa nome curto, valor negativo e prazo quebrado", () => {
     expect(serviceTypeSchema.safeParse({ name: "A" }).success).toBe(false);
+    expect(serviceTypeSchema.safeParse({ name: "Alvará", defaultPrice: -1 }).success).toBe(false);
+    expect(serviceTypeSchema.safeParse({ name: "Alvará", defaultDeadlineDays: 2.5 }).success).toBe(false);
   });
 
-  it("rejeita prioridade fora do enum", () => {
-    expect(serviceTypeSchema.safeParse({ name: "Abertura de empresa", defaultPriority: "SUPER_URGENTE" }).success).toBe(
-      false
-    );
-  });
-});
-
-describe("checklistTemplateItemSchema", () => {
-  it("aceita um item válido", () => {
-    expect(checklistTemplateItemSchema.safeParse({ label: "Verificar contrato social" }).success).toBe(true);
+  it("aceita prioridade válida e recusa desconhecida", () => {
+    expect(serviceTypeSchema.safeParse({ name: "Alvará", defaultPriority: "ALTA" }).success).toBe(true);
+    expect(serviceTypeSchema.safeParse({ name: "Alvará", defaultPriority: "MUITO" }).success).toBe(false);
   });
 
-  it("rejeita item muito curto", () => {
-    expect(checklistTemplateItemSchema.safeParse({ label: "X" }).success).toBe(false);
+  it("limita e valida os itens do checklist", () => {
+    expect(serviceTypeSchema.safeParse({ name: "Alvará", checklist: [{ label: "" }] }).success).toBe(false);
+    expect(serviceTypeSchema.safeParse({ name: "Alvará", checklist: Array.from({ length: 61 }, () => ({ label: "x" })) }).success).toBe(false);
+    expect(serviceTypeSchema.parse({ name: "Alvará", checklist: [{ label: "  Contrato social  " }] }).checklist[0].label).toBe("Contrato social");
   });
 });

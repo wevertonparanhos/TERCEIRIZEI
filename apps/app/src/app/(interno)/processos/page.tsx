@@ -195,6 +195,11 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
               <Button variant="outline">Gerenciar etapas</Button>
             </Link>
           )}
+          {canManage && (
+            <Link href="/processos/modelos">
+              <Button variant="outline">Modelos</Button>
+            </Link>
+          )}
           {canManage && activeWorkspace && wizardData && (
             <NewTaskWizard
               workspaces={wizardData[0]}
