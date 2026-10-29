@@ -67,6 +67,7 @@ export function NewTaskWizard({
   onSubmit,
   createCategory,
   autoOpen = false,
+  triggerClassName,
 }: {
   workspaces: Workspace[];
   defaultWorkspaceId?: string;
@@ -77,6 +78,8 @@ export function NewTaskWizard({
   onSubmit: (data: CreateProcessInput) => Promise<{ id: string } | void>;
   createCategory?: (name: string) => Promise<{ id: string; name: string }>;
   autoOpen?: boolean;
+  /** Classes extras do botão "Nova Tarefa" (para combinar com o fundo do cabeçalho). */
+  triggerClassName?: string;
 }) {
   const router = useRouter();
   const initialWorkspace = workspaces.find((w) => w.id === defaultWorkspaceId) ?? workspaces[0];
@@ -222,7 +225,7 @@ export function NewTaskWizard({
 
   return (
     <>
-      <Button type="button" onClick={() => setOpen(true)}>
+      <Button type="button" onClick={() => setOpen(true)} className={triggerClassName}>
         <Plus className="mr-1.5 h-4 w-4" /> Nova Tarefa
       </Button>
       <Modal

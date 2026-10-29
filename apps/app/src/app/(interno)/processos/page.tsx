@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { ClipboardList, CalendarClock, AlertTriangle, Wallet, ShieldAlert, MessageSquare, Archive, type LucideIcon } from "lucide-react";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
-import { Button } from "@/components/ui/button";
 import { KanbanBoard, type KanbanCard, type Stage } from "@/modules/processes/kanban-board";
 import { ArchivedTable } from "@/modules/processes/archived-table";
 import { WorkspaceTabs } from "@/modules/processes/workspace-tabs";
@@ -17,6 +16,7 @@ import {
 } from "@/modules/processes/labels";
 import { updateProcessStage, createWorkspace, createProcess, createCategory } from "@/modules/processes/actions";
 import { NewTaskWizard } from "@/modules/processes/process-wizard";
+import { ManageMenu } from "@/modules/processes/manage-menu";
 
 function KpiCard({
   value,
@@ -184,37 +184,56 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
 
   return (
     <div className="flex min-h-screen flex-col p-8 md:h-screen">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Área de Trabalho</h1>
-          <p className="text-sm text-muted">{processes.length} tarefa(s)</p>
+      <header className="relative flex-none rounded-2xl bg-gradient-to-br from-brand-navy via-brand-navy to-brand-blue px-6 py-5 text-white shadow-md sm:px-8 sm:py-6">
+        {/* brilho ciano discreto no canto, no mesmo tom do login (recortado à parte para o menu Gerenciar poder sair do quadro) */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+          <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-brand-cyan/25 blur-3xl" />
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="relative flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[2px] text-[#8A9AEA]">{showArchived ? "Área de Trabalho · Arquivadas" : "Área de Trabalho"}</p>
+            <h1 className="mt-1 truncate font-display text-3xl font-bold tracking-tight">{showArchived ? "Tarefas arquivadas" : activeWorkspace?.name ?? "Área de Trabalho"}</h1>
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/75">
+              <span>
+                <b className="font-semibold text-white">{kpis.total}</b> {showArchived ? "arquivada(s)" : "tarefas ativas"}
+              </span>
+              {!showArchived && kpis.atrasadas > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" />
+                  <b className="font-semibold text-white">{kpis.atrasadas}</b> atrasadas
+                </span>
+              )}
+              {!showArchived && kpis.entregaHoje > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-cyan" />
+                  <b className="font-semibold text-white">{kpis.entregaHoje}</b> para hoje
+                </span>
+              )}
+            </p>
+          </div>
+        <div className="flex flex-wrap items-center gap-2">
           {activeWorkspace && (
-            <Link href={showArchived ? `/processos?area=${activeWorkspace.id}` : `/processos?area=${activeWorkspace.id}&arquivadas=1`}>
-              <Button variant={showArchived ? "default" : "outline"}>
-                <Archive className="mr-1.5 h-4 w-4" />
-                {showArchived ? "Voltar ao quadro" : `Arquivadas (${archivedCount})`}
-              </Button>
-            </Link>
-          )}
-          {canManage && activeWorkspace && (
-            <Link href={`/processos/etapas?area=${activeWorkspace.id}`}>
-              <Button variant="outline">Gerenciar etapas</Button>
+            <Link
+              href={showArchived ? `/processos?area=${activeWorkspace.id}` : `/processos?area=${activeWorkspace.id}&arquivadas=1`}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-white/10 px-3.5 text-sm font-medium text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/20"
+            >
+              <Archive className="h-4 w-4" />
+              {showArchived ? "Voltar ao quadro" : `Arquivadas (${archivedCount})`}
             </Link>
           )}
           {canManage && (
-            <Link href="/processos/modelos">
-              <Button variant="outline">Modelos</Button>
-            </Link>
-          )}
-          {canManage && (
-            <Link href="/processos/tipos">
-              <Button variant="outline">Tipos de solicitação</Button>
-            </Link>
+            <ManageMenu
+              className="bg-white/10 text-white ring-1 ring-inset ring-white/20 hover:bg-white/20"
+              items={[
+                ...(activeWorkspace ? [{ href: `/processos/etapas?area=${activeWorkspace.id}`, label: "Etapas do quadro", hint: "Colunas, cores e % de conclusão", icon: "etapas" as const }] : []),
+                { href: "/processos/modelos", label: "Modelos de tarefa", hint: "Tarefas prontas com valor, prazo e checklist", icon: "modelos" as const },
+                { href: "/processos/tipos", label: "Tipos de solicitação", hint: "Etiquetas que identificam o serviço", icon: "tipos" as const },
+              ]}
+            />
           )}
           {canManage && activeWorkspace && wizardData && (
             <NewTaskWizard
+              triggerClassName="h-10 bg-brand-orange text-white shadow-md hover:bg-brand-gold"
               workspaces={wizardData[0]}
               defaultWorkspaceId={activeWorkspace.id}
               clients={wizardData[1]}
@@ -235,7 +254,8 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
             />
           )}
         </div>
-      </div>
+        </div>
+      </header>
 
       {activeWorkspace && (
         <div className="mt-4 flex-none">

@@ -27,8 +27,8 @@
   --color-border: 42 56 108;
   --color-border-strong: 60 78 138;
   --color-ink: 234 238 250;
-  --color-muted: 160 172 205;
-  --color-muted-soft: 118 130 170;
+  --color-muted: 178 189 219;
+  --color-muted-soft: 144 157 197;
   --color-accent: 36 120 180;
   --color-accent-soft: 24 44 96;
   --color-good: 52 211 153;
@@ -36,6 +36,23 @@
 
 body {
   @apply bg-bg text-ink;
+}
+
+/* Listas nativas (select/datalist) seguem o tema: sem isto, no escuro a lista abre com fundo branco e letra clara. */
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+select option,
+select optgroup {
+  background-color: rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
+}
+select option:checked {
+  background-color: rgb(var(--color-accent));
+  color: #fff;
 }
 
 /* Títulos em Montserrat (como no site); o resto da interface em Inter. */
