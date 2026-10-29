@@ -17,6 +17,8 @@ import {
 import { Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, type PaymentStatus } from "@/modules/processes/labels";
+import { matchesSearch } from "@/modules/processes/search";
+import { SearchInput } from "@/modules/processes/search-input";
 
 export type Stage = { id: string; label: string; color: string };
 
@@ -213,6 +215,11 @@ export function KanbanBoard({
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } })
   );
   const [items, setItems] = useState(cards);
+  const [query, setQuery] = useState("");
+  const searching = query.trim().length > 0;
+  const visibleItems = searching
+    ? items.filter((c) => matchesSearch([String(c.number), c.title, c.clientName, c.serviceTypeName, ...c.assigneeNames], query))
+    : items;
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -245,6 +252,14 @@ export function KanbanBoard({
 
   return (
     <div className="flex h-full flex-col">
+      <div className="mb-3 flex flex-none flex-wrap items-center gap-3">
+        <SearchInput value={query} onChange={setQuery} className="w-full max-w-md" />
+        {searching && (
+          <span className="text-xs text-muted">
+            {visibleItems.length} {visibleItems.length === 1 ? "tarefa encontrada" : "tarefas encontradas"}
+          </span>
+        )}
+      </div>
       {error && (
         <p role="alert" className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
           {error}
@@ -256,7 +271,7 @@ export function KanbanBoard({
             <DroppableColumn
               key={stage.id}
               stage={stage}
-              cards={items.filter((c) => c.stageId === stage.id)}
+              cards={visibleItems.filter((c) => c.stageId === stage.id)}
               canDrag={canDrag}
             />
           ))}
