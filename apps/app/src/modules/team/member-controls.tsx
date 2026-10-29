@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { STAFF_ROLES, ROLE_LABELS } from "@/modules/team/permissions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /** Seletor de papel do membro — salva ao escolher. */
 export function RoleSelect({
@@ -109,7 +111,7 @@ export function ActivateMigratedButton({
 }: {
   userId: string;
   name: string;
-  activate: (userId: string, email: string) => Promise<{ inviteLink: string }>;
+  activate: (userId: string, email: string) => Promise<{ inviteLink: string; emailed: boolean }>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -121,8 +123,13 @@ export function ActivateMigratedButton({
     setBusy(true);
     setMessage(null);
     try {
-      const { inviteLink } = await activate(userId, email);
-      window.prompt("Acesso ativado! Copie este link e envie para a pessoa criar a senha (Ctrl+C):", inviteLink);
+      const { inviteLink, emailed } = await activate(userId, email);
+      window.prompt(
+        emailed
+          ? "Acesso ativado e e-mail enviado! Se a pessoa não receber, copie este link e mande pelo WhatsApp (Ctrl+C):"
+          : "Acesso ativado, mas o e-mail não pôde ser enviado. Copie este link e mande pelo WhatsApp (Ctrl+C):",
+        inviteLink
+      );
       router.refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Não foi possível ativar.");
@@ -172,5 +179,81 @@ export function ReactivateButton({
       </button>
       {message && <span className="ml-2 block max-w-[16rem] text-xs text-red-600">{message}</span>}
     </span>
+  );
+}
+
+/** Reenviar convite e redefinir senha de um membro ativo (o link sempre aparece para copiar). */
+export function StaffAccessControls({
+  userId,
+  email,
+  sendAccess,
+}: {
+  userId: string;
+  email: string;
+  sendAccess: (userId: string, mode: "invite" | "reset", byEmail: boolean) => Promise<{ link: string; email: string; emailed: boolean }>;
+}) {
+  const [byEmail, setByEmail] = useState(true);
+  const [busy, setBusy] = useState<null | "invite" | "reset">(null);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ kind: "invite" | "reset"; link: string; emailed: boolean | null } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function run(mode: "invite" | "reset") {
+    setBusy(mode);
+    setError(null);
+    setCopied(false);
+    try {
+      const r = await sendAccess(userId, mode, byEmail);
+      setResult({ kind: mode, link: r.link, emailed: byEmail ? r.emailed : null });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível gerar o link.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function copy() {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result.link);
+      setCopied(true);
+    } catch {
+      setError("Não foi possível copiar. Selecione o link e copie manualmente.");
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
+      <h2 className="text-base font-semibold text-ink">Acesso ao sistema</h2>
+      <p className="mt-1 text-xs text-muted">Reenvie o convite ou gere um link para {email} criar uma senha nova. Gerar um novo link invalida o anterior.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" onClick={() => run("invite")} disabled={busy !== null}>
+          {busy === "invite" ? "Gerando..." : "Reenviar convite"}
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => run("reset")} disabled={busy !== null}>
+          {busy === "reset" ? "Gerando..." : "Redefinir senha"}
+        </Button>
+        <label className="flex items-center gap-1.5 text-xs text-ink">
+          <input type="checkbox" checked={byEmail} onChange={(e) => setByEmail(e.target.checked)} />
+          Enviar por e-mail
+        </label>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {result && (
+        <div className="mt-3 space-y-2 rounded-xl border border-border bg-surface-alt/50 p-3">
+          <p className="text-xs font-medium text-ink">
+            {result.kind === "invite" ? "Convite gerado." : "Link de redefinição gerado."}{" "}
+            {result.emailed === true && <span className="text-emerald-700 dark:text-emerald-400">E-mail enviado para {email}.</span>}
+            {result.emailed === false && <span className="text-amber-700 dark:text-amber-400">O e-mail não pôde ser enviado: copie o link abaixo e mande pelo WhatsApp.</span>}
+          </p>
+          <div className="flex items-center gap-2">
+            <Input value={result.link} readOnly aria-label="Link de acesso" className="h-8 flex-1 bg-surface font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+            <Button type="button" variant="outline" size="sm" onClick={copy}>
+              {copied ? "Copiado!" : "Copiar"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

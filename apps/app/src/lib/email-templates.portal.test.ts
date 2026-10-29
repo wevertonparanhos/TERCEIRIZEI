@@ -18,3 +18,15 @@ describe("e-mail de acesso ao portal", () => {
     expect(html).toContain("Se não foi você");
   });
 });
+
+describe("e-mail de convite da equipe", () => {
+  it("traz o nome, o papel e o botão com o link", async () => {
+    const { staffInviteEmail } = await import("@/lib/email-templates");
+    const { subject, html } = staffInviteEmail({ name: "Douglas", roleLabel: "Gestor", link: "https://app.exemplo.com/auth/confirm?token_hash=x" });
+    expect(subject).toContain("Terceirizei OS");
+    expect(html).toContain("Douglas");
+    expect(html).toContain("Gestor");
+    expect(html).toContain("Criar minha senha");
+    expect(html).toContain("https://app.exemplo.com/auth/confirm?token_hash=x");
+  });
+});

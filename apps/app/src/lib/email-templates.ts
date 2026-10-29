@@ -141,3 +141,17 @@ export function passwordResetEmail(params: { name: string; link: string }) {
     ),
   };
 }
+
+/** Convite para um novo membro da equipe criar a senha e entrar no sistema. */
+export function staffInviteEmail(params: { name: string; roleLabel: string; link: string }) {
+  return {
+    subject: "Seu acesso ao Terceirizei OS",
+    html: layout(
+      "Crie sua senha e entre no sistema",
+      "Bem-vindo(a) ao Terceirizei OS",
+      `<p>Olá, ${params.name}! Você foi convidado(a) para a equipe da Terceirizei no <b>Terceirizei OS</b>, com o papel de <b>${params.roleLabel}</b>.</p><p>Clique no botão abaixo para criar a sua senha e entrar.</p>`,
+      params.link,
+      "Criar minha senha"
+    ),
+  };
+}

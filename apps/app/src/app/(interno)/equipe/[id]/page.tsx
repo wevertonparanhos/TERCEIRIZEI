@@ -4,8 +4,8 @@ import { Check, ChevronLeft, Minus, X } from "lucide-react";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { Badge } from "@/components/ui/badge";
-import { RoleSelect } from "@/modules/team/member-controls";
-import { changeStaffRole } from "@/modules/team/actions";
+import { RoleSelect, StaffAccessControls } from "@/modules/team/member-controls";
+import { changeStaffRole, sendStaffAccessLink } from "@/modules/team/actions";
 import { PERMISSION_GROUPS, ROLE_DESCRIPTIONS, ROLE_LABELS, STAFF_ROLES, type StaffRole } from "@/modules/team/permissions";
 
 export default async function MembroPermissoesPage({ params }: { params: { id: string } }) {
@@ -53,6 +53,8 @@ export default async function MembroPermissoesPage({ params }: { params: { id: s
         </div>
         <p className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-sm text-muted">{ROLE_DESCRIPTIONS[role]}</p>
       </div>
+
+      {isAdmin && member.active && !member.email.endsWith(".invalid") && <StaffAccessControls userId={member.id} email={member.email} sendAccess={sendStaffAccessLink} />}
 
       <div className="rounded-2xl border border-border/70 bg-surface shadow-sm">
         <div className="border-b border-border px-5 py-4">

@@ -6,6 +6,8 @@ import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { provisionInvitedUser, generateAccessLink } from "@/lib/invite-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email";
+import { staffInviteEmail, passwordResetEmail } from "@/lib/email-templates";
 import { inviteStaffSchema, type InviteStaffInput } from "@/lib/validations/team";
 import { STAFF_ROLES, ROLE_LABELS } from "@/modules/team/permissions";
 
@@ -45,8 +47,45 @@ export async function inviteStaffMember(input: InviteStaffInput) {
     description: `Convite criado para ${data.name} (${data.email}) como ${data.role}.`,
   });
 
+  // Envia o convite por e-mail. Se não for possível, a tela avisa e mostra o link para copiar.
+  const message = staffInviteEmail({ name: data.name, roleLabel: ROLE_LABELS[data.role as keyof typeof ROLE_LABELS] ?? data.role, link: inviteLink });
+  const emailed = await sendEmail({ to: data.email, subject: message.subject, html: message.html });
+
   revalidatePath("/equipe");
-  return { inviteLink };
+  return { inviteLink, emailed };
+}
+
+/**
+ * Reenvia o convite ou gera um link de redefinição de senha para um membro da equipe (só administrador).
+ * O link volta sempre, para poder copiar e mandar por WhatsApp se o e-mail não chegar.
+ */
+export async function sendStaffAccessLink(userId: string, mode: "invite" | "reset", byEmail: boolean) {
+  const user = await requireAdmin();
+  const target = await loadStaffTarget(userId, user.tenantId);
+  if (target.email.endsWith(".invalid")) throw new Error("Este membro veio da migração e ainda não tem e-mail real. Use \"Ativar com e-mail\".");
+  if (!target.active) throw new Error("O membro está desativado. Reative antes de enviar o link.");
+
+  const link = await generateAccessLink(target.email);
+
+  let emailed = false;
+  if (byEmail) {
+    const message =
+      mode === "invite"
+        ? staffInviteEmail({ name: target.name, roleLabel: ROLE_LABELS[target.role.name as keyof typeof ROLE_LABELS] ?? target.role.name, link })
+        : passwordResetEmail({ name: target.name, link });
+    emailed = await sendEmail({ to: target.email, subject: message.subject, html: message.html });
+  }
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: mode === "invite" ? "team.resend_invite" : "team.reset_password",
+    entityType: "user",
+    entityId: userId,
+    description: `${mode === "invite" ? "Convite reenviado" : "Link de redefinição de senha gerado"} para ${target.name}${byEmail ? (emailed ? " (e-mail enviado)" : " (e-mail não enviado)") : ""}.`,
+  });
+
+  return { link, email: target.email, emailed };
 }
 
 export async function deactivateStaffMember(userId: string) {
@@ -94,7 +133,7 @@ export async function reactivateStaffMember(userId: string) {
 /** Dá acesso de verdade a um membro que veio da migração só como histórico: troca o e-mail provisório
  * por um real, reativa e devolve um link para a pessoa definir a senha. O histórico dele (comentários,
  * tarefas) continua com o mesmo nome. */
-export async function activateMigratedMember(userId: string, email: string): Promise<{ inviteLink: string }> {
+export async function activateMigratedMember(userId: string, email: string): Promise<{ inviteLink: string; emailed: boolean }> {
   const user = await requireAdmin();
   const clean = email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) throw new Error("E-mail inválido.");
@@ -132,8 +171,12 @@ export async function activateMigratedMember(userId: string, email: string): Pro
     description: `${target.name}: membro migrado ativado com o e-mail ${clean}.`,
   });
 
+  // Membro ativado recebe o convite por e-mail também (o link continua na tela, por segurança).
+  const message = staffInviteEmail({ name: target.name, roleLabel: ROLE_LABELS[target.role.name as keyof typeof ROLE_LABELS] ?? target.role.name, link: inviteLink });
+  const emailed = await sendEmail({ to: clean, subject: message.subject, html: message.html });
+
   revalidatePath("/equipe");
-  return { inviteLink };
+  return { inviteLink, emailed };
 }
 
 /** Troca o papel de um membro. O acesso de cada papel está em modules/team/permissions.ts. */

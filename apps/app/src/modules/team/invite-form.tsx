@@ -20,12 +20,13 @@ const ROLE_LABELS: Record<string, string> = {
 export function InviteStaffForm({
   invite,
 }: {
-  invite: (data: InviteStaffInput) => Promise<{ inviteLink: string }>;
+  invite: (data: InviteStaffInput) => Promise<{ inviteLink: string; emailed: boolean }>;
 }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [invited, setInvited] = useState<{ email: string; emailed: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const {
@@ -43,6 +44,7 @@ export function InviteStaffForm({
     try {
       const result = await invite(data);
       setInviteLink(result.inviteLink);
+      setInvited({ email: data.email, emailed: result.emailed });
       reset({ name: "", email: "", role: "OPERACIONAL" });
       router.refresh();
     } catch (err) {
@@ -97,7 +99,10 @@ export function InviteStaffForm({
       {inviteLink && (
         <div className="mt-4 rounded-md border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-4">
           <p className="text-sm font-medium text-emerald-800">
-            Convite criado! Copie o link abaixo e envie pra pessoa — ela vai usá-lo pra definir a própria senha.
+            {invited?.emailed
+              ? `Convite criado e e-mail enviado para ${invited.email}.`
+              : "Convite criado, mas o e-mail não pôde ser enviado. Copie o link abaixo e mande pelo WhatsApp."}{" "}
+            O link serve para a pessoa definir a própria senha.
           </p>
           <div className="mt-2 flex items-center gap-2">
             <Input value={inviteLink} readOnly className="flex-1 bg-surface font-mono text-xs" />
