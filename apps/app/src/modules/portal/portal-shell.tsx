@@ -38,8 +38,8 @@ export function PortalShell({
             key={item.href}
             href={item.href}
             className={cn(
-              "block rounded-md px-3 py-2.5 text-sm font-medium",
-              active ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-alt hover:text-ink"
+              "block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+              active ? "bg-brand-blue text-white shadow-sm" : "text-muted hover:bg-surface-alt hover:text-ink"
             )}
           >
             {item.label}
@@ -59,8 +59,11 @@ export function PortalShell({
 
   const brand = (
     <div>
-      <span className="font-sans text-base font-extrabold tracking-tight text-ink">Terceirizei OS</span>
-      <p className="text-xs text-muted-soft">Portal do Cliente</p>
+      <div className="flex h-11 items-center rounded-xl dark:bg-white dark:px-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-terceirizei.png" alt="Terceirizei" className="h-8 w-auto" />
+      </div>
+      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-soft">Portal do Cliente</p>
     </div>
   );
 
@@ -68,7 +71,7 @@ export function PortalShell({
     <div className="flex min-h-screen bg-bg">
       {/* Computador: menu fixo */}
       <aside className="sticky top-0 hidden h-screen w-60 flex-none flex-col border-r border-border bg-surface md:flex">
-        <div className="flex items-center justify-between border-b border-border px-5 py-5">
+        <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-4">
           {brand}
           {themeToggle}
         </div>
@@ -99,7 +102,7 @@ export function PortalShell({
         <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true">
           <button type="button" aria-label="Fechar menu" className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-surface shadow-xl">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-4">
               {brand}
               <button
                 type="button"

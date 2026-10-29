@@ -18,7 +18,7 @@ const THEME_INIT_SCRIPT = `
 (function () {
   try {
     var stored = localStorage.getItem("terceirizei-theme");
-    var dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var dark = stored === "dark";
     document.documentElement.classList.toggle("dark", dark);
   } catch (e) {}
 })();

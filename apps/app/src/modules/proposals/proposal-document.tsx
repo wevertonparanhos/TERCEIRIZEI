@@ -108,7 +108,7 @@ export function ProposalDocument({
   return (
     <div
       className="proposal-doc mx-auto w-full max-w-[820px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-      style={{ color: "#0F172A", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
+      style={{ color: "#0F172A", fontFamily: "'Montserrat', 'Inter', system-ui, sans-serif" }}
     >
       <div style={{ height: 6, background: `linear-gradient(90deg, ${NAVY}, ${BLUE} 55%, ${ORANGE})` }} />
 

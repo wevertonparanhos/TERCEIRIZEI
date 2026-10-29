@@ -252,7 +252,7 @@ export function ClientReportBuilder({
       </div>
 
       {/* Documento (é isto que sai no PDF) */}
-      <div className="report-doc mx-auto max-w-[820px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" style={{ color: "#0F172A", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <div className="report-doc mx-auto max-w-[820px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" style={{ color: "#0F172A", fontFamily: "'Montserrat', 'Inter', system-ui, sans-serif" }}>
         <div style={{ height: 6, background: `linear-gradient(90deg, ${NAVY}, ${BLUE} 55%, ${ORANGE})` }} />
         <div style={{ padding: "26px 32px 28px" }}>
           <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>

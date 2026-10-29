@@ -16,7 +16,6 @@ import {
   UserCircle,
   FileClock,
   LogOut,
-  Building2,
   Bell,
   Settings,
   type LucideIcon,
@@ -103,18 +102,18 @@ export default async function InternoLayout({ children }: { children: React.Reac
   return (
     <div className="flex min-h-screen bg-bg">
       <aside className="sticky top-0 flex h-screen w-60 flex-none flex-col border-r border-border bg-surface print:hidden">
-        <div className="flex h-14 items-center gap-2.5 px-4">
-          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-accent text-white shadow-sm">
-            <Building2 className="h-4 w-4" />
-          </span>
-          <span className="text-base font-extrabold tracking-tight text-ink">
-            Terceirizei<span className="text-accent">OS</span>
-          </span>
+        <div className="px-4 pb-1 pt-4">
+          {/* No tema escuro a logo (texto navy) ganha um cartão branco para continuar legível. */}
+          <div className="flex h-12 items-center justify-center rounded-xl px-3 dark:bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-terceirizei.png" alt="Terceirizei" className="h-9 w-auto" />
+          </div>
+          <p className="mt-1 text-center text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-soft">Sistema de gestão</p>
         </div>
         <SidebarNav groups={navGroups} />
         <div className="border-t border-border p-3">
           <div className="flex items-center gap-2.5 rounded-xl border border-border/50 bg-surface-alt/50 px-2 py-2">
-            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-accent-soft text-xs font-bold text-accent">
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-brand-orange text-xs font-bold text-white">
               {initials(user.name)}
             </span>
             <div className="min-w-0 flex-1">

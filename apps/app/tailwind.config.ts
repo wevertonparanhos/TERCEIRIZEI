@@ -1,9 +1,9 @@
 import type { Config } from "tailwindcss";
 
-// Paleta oficial da marca Terceirizei (mesmos tons do site institucional em apps/site)
-// para o modo claro. As cores semânticas (bg/surface/border/ink/muted/accent) vêm de
-// variáveis CSS em globals.css, redefinidas dentro de `.dark` — permite tema claro/escuro
-// sem precisar de `dark:` em cada classe utilitária.
+// Paleta oficial da marca Terceirizei (mesmos tons do site institucional em apps/site).
+// As cores semânticas (bg/surface/border/ink/muted/accent/sidebar) vêm de variáveis CSS em
+// globals.css, redefinidas dentro de `.dark` — permite tema claro/escuro sem precisar de
+// `dark:` em cada classe utilitária.
 const config: Config = {
   darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
@@ -35,7 +35,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["Montserrat", "Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
     },

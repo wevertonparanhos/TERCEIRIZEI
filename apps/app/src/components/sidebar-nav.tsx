@@ -19,7 +19,7 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
     <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
       {groups.map((group) => (
         <div key={group.label}>
-          <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.5px] text-muted/70">{group.label}</p>
+          <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.8px] text-muted-soft">{group.label}</p>
           <div className="space-y-0.5">
             {group.items.map((item) => {
               const active = isActive(pathname, item.href);
@@ -29,11 +29,11 @@ export function SidebarNav({ groups }: { groups: NavGroup[] }) {
                   href={item.href}
                   className={`group flex h-9 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-200 active:scale-[0.98] ${
                     active
-                      ? "bg-accent text-white shadow-sm"
-                      : "text-ink/70 hover:bg-surface-alt hover:text-ink"
+                      ? "bg-brand-blue text-white shadow-sm"
+                      : "text-muted hover:bg-surface-alt hover:text-ink"
                   }`}
                 >
-                  <span className={`flex-none ${active ? "text-white" : "text-muted group-hover:text-ink"}`}>{item.icon}</span>
+                  <span className={`flex-none ${active ? "text-white" : "text-muted-soft group-hover:text-ink"}`}>{item.icon}</span>
                   {item.label}
                 </Link>
               );
