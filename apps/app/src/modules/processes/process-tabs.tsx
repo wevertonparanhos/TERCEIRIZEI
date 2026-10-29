@@ -23,22 +23,20 @@ export function ProcessTabs({
 
   return (
     <div>
-      <div className="flex gap-0.5 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex gap-1 overflow-x-auto border-b border-border pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => select(tab.key)}
             className={cn(
-              "flex flex-none items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-              tab.key === active
-                ? "border-brand-navy text-ink dark:border-accent"
-                : "border-transparent text-muted hover:text-ink"
+              "flex flex-none items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              tab.key === active ? "bg-brand-blue text-white shadow-sm" : "text-muted hover:bg-surface-alt hover:text-ink"
             )}
           >
             {tab.icon}
             {tab.label}
-            {tab.badge && <span className="h-1.5 w-1.5 flex-none rounded-full bg-accent" />}
+            {tab.badge && <span className="h-1.5 w-1.5 flex-none rounded-full bg-brand-orange" />}
           </button>
         ))}
       </div>

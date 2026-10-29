@@ -73,14 +73,14 @@ export function WorkspaceTabs({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-1 border-b border-border">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border pb-2 [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
         {workspaces.map((w) => (
           <Link
             key={w.id}
             href={`${basePath}?area=${w.id}`}
             className={cn(
-              "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-              w.id === activeId ? "border-accent text-ink" : "border-transparent text-muted hover:text-ink"
+              "flex-none whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              w.id === activeId ? "bg-brand-blue text-white shadow-sm" : "text-muted hover:bg-surface-alt hover:text-ink"
             )}
           >
             {w.name}
@@ -102,7 +102,7 @@ export function WorkspaceTabs({
             </button>
           </form>
         ) : (
-          <button type="button" onClick={() => setCreating(true)} className="px-3 py-2 text-sm text-muted hover:text-accent">
+          <button type="button" onClick={() => setCreating(true)} className="flex-none whitespace-nowrap px-3 py-2 text-sm text-muted hover:text-accent">
             + Área
           </button>
         )}

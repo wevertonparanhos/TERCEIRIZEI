@@ -46,6 +46,21 @@ h3 {
   letter-spacing: -0.01em;
 }
 
+/* Celular: as telas usam p-8 (2rem) pensando no computador; aqui sobra mais espaço para o conteúdo. */
+@media (max-width: 639px) {
+  main .p-8 {
+    padding: 1rem;
+  }
+  main .px-8 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  /* Grades que só definem colunas a partir de sm:/md:/lg: ficam em 1 coluna que não estoura a tela. */
+  main .grid:not([class^="grid-cols-"]):not([class*=" grid-cols-"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Barra de rolagem na cor da marca (igual ao site). */
 ::-webkit-scrollbar {
   width: 8px;

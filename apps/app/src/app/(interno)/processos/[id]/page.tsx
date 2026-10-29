@@ -300,7 +300,7 @@ export default async function ProcessoDetalhePage({
           <PortalToggleButton />
         </div>
 
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
             <ProcessTabs
               initialKey={searchParams.tab}

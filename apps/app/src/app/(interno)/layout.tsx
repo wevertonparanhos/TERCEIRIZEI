@@ -23,6 +23,7 @@ import {
 import { getCurrentUser } from "@/lib/rbac";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
+import { MobileMenu } from "@/components/mobile-menu";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -101,7 +102,7 @@ export default async function InternoLayout({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <aside className="sticky top-0 flex h-screen w-60 flex-none flex-col border-r border-border bg-surface print:hidden">
+      <aside className="sticky top-0 hidden h-screen w-60 flex-none flex-col border-r border-border bg-surface md:flex print:hidden">
         <div className="px-4 pb-1 pt-4">
           {/* No tema escuro a logo (texto navy) ganha um cartão branco para continuar legível. */}
           <div className="flex h-12 items-center justify-center rounded-xl px-3 dark:bg-white">
@@ -134,7 +135,8 @@ export default async function InternoLayout({ children }: { children: React.Reac
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 flex-none items-center justify-end gap-1 border-b border-border bg-bg/80 px-6 backdrop-blur print:hidden">
+        <header className="sticky top-0 z-20 flex h-14 flex-none items-center justify-end gap-1 border-b border-border bg-bg/80 px-3 backdrop-blur sm:px-6 print:hidden">
+          <MobileMenu groups={navGroups} userName={user.name} userInitials={initials(user.name)} roleLabel={ROLE_LABELS[user.role]} />
           <ThemeToggle className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-alt hover:text-ink" />
           <Link
             href="/atividades"

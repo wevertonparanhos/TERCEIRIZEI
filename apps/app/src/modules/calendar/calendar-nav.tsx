@@ -15,11 +15,11 @@ export function CalendarNav({ monthKey }: { monthKey: string }) {
   const label = monthKeyLabel(monthKey);
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="outline" size="sm" onClick={() => goTo(shiftMonthKey(monthKey, -1))}>
         ← Anterior
       </Button>
-      <h2 className="min-w-[180px] text-center text-base font-semibold capitalize text-ink">{label}</h2>
+      <h2 className="min-w-[140px] text-center sm:min-w-[180px] text-base font-semibold capitalize text-ink">{label}</h2>
       <Button type="button" variant="outline" size="sm" onClick={() => goTo(shiftMonthKey(monthKey, 1))}>
         Próximo →
       </Button>

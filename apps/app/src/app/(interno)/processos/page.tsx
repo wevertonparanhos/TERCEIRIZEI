@@ -176,12 +176,12 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
 
   return (
     <div className="flex h-screen flex-col p-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Área de Trabalho</h1>
           <p className="text-sm text-muted">{processes.length} tarefa(s)</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {activeWorkspace && (
             <Link href={showArchived ? `/processos?area=${activeWorkspace.id}` : `/processos?area=${activeWorkspace.id}&arquivadas=1`}>
               <Button variant={showArchived ? "default" : "outline"}>
