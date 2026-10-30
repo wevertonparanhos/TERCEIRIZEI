@@ -17,6 +17,8 @@ export type ReportRow = {
   paid: boolean;
   installmentLabel: string | null;
   value: number;
+  /** tarefa do período sem valor cadastrado (entra no relatório só para constar) */
+  noValue?: boolean;
 };
 
 const NAVY = "#1B2558";
@@ -51,6 +53,7 @@ function isoToLabel(iso: string): string {
 }
 
 function statusOf(row: ReportRow): { label: string; color: string; bg: string } {
+  if (row.noValue) return { label: "Sem valor", color: "#475569", bg: "#E2E8F0" };
   if (row.paid) return { label: "Pago", color: "#047857", bg: "#D1FAE5" };
   if (row.daysLate > 0) return { label: "Atrasado", color: "#B91C1C", bg: "#FEE2E2" };
   return { label: "A pagar", color: "#92400E", bg: "#FEF3C7" };
@@ -85,6 +88,7 @@ export function ClientReportBuilder({
   const [showPending, setShowPending] = useState(true);
   const [showPaid, setShowPaid] = useState(false);
   const [showOverdue, setShowOverdue] = useState(true);
+  const [showNoValue, setShowNoValue] = useState(true);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
   const [paymentInfo, setPaymentInfo] = useState(DEFAULT_PAYMENT_INFO);
@@ -116,7 +120,7 @@ export function ClientReportBuilder({
   const periodRows = rows.filter((r) => r.group === "periodo");
   const overdueRows = rows.filter((r) => r.group === "atraso");
 
-  const visiblePeriod = periodRows.filter((r) => (r.paid ? showPaid : showPending));
+  const visiblePeriod = periodRows.filter((r) => (r.noValue ? showNoValue : r.paid ? showPaid : showPending));
   const visibleOverdue = showOverdue ? overdueRows : [];
   const included = (r: ReportRow) => !excluded.has(r.id);
 
@@ -190,7 +194,7 @@ export function ClientReportBuilder({
                     </span>
                   )}
                 </td>
-                <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0F172A", whiteSpace: "nowrap" }}>{brl.format(r.value)}</td>
+                <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: r.noValue ? "#94A3B8" : "#0F172A", whiteSpace: "nowrap" }}>{r.noValue ? "—" : brl.format(r.value)}</td>
               </tr>
             );
           })}
@@ -238,11 +242,15 @@ export function ClientReportBuilder({
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink">
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={showPending} onChange={(e) => setShowPending(e.target.checked)} />
-            Demandas do período a pagar ({periodRows.filter((r) => !r.paid).length})
+            Demandas do período a pagar ({periodRows.filter((r) => !r.paid && !r.noValue).length})
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={showPaid} onChange={(e) => setShowPaid(e.target.checked)} />
             Demandas do período já pagas ({periodRows.filter((r) => r.paid).length})
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={showNoValue} onChange={(e) => setShowNoValue(e.target.checked)} />
+            Tarefas do período sem valor ({periodRows.filter((r) => r.noValue).length})
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={showOverdue} onChange={(e) => setShowOverdue(e.target.checked)} />
@@ -377,7 +385,7 @@ export function ClientReportBuilder({
             ))}
           </div>
 
-          {(showPending || showPaid) &&
+          {(showPending || showPaid || showNoValue) &&
             renderTable(`Demandas solicitadas — ${periodTitle}`, "Serviços iniciados no período, com a previsão de pagamento de cada um.", visiblePeriod, "periodo")}
           {showOverdue && visibleOverdue.length > 0 &&
             renderTable("Pagamentos em atraso", "Parcelas de outros períodos que não foram pagas até a data prevista.", visibleOverdue, "atraso")}

@@ -65,6 +65,7 @@ export default async function ClienteRelatorioPage({
       paid: !!r.paidAt,
       installmentLabel: r.installmentLabel,
       value: r.value,
+      noValue: !!r.noValue,
     })),
     ...overdueOther.map((r) => ({
       id: r.id,
@@ -80,7 +81,7 @@ export default async function ClienteRelatorioPage({
     })),
   ];
 
-  const undatedOpen = rows.filter((r) => !r.paidAt && !r.paymentDueDate);
+  const undatedOpen = rows.filter((r) => !r.noValue && !r.paidAt && !r.paymentDueDate);
   const undatedOpenTotal = undatedOpen.reduce((sum, r) => sum + r.value, 0);
   const periodLabel = `${start.toLocaleDateString("pt-BR", { timeZone: "UTC" })} a ${end.toLocaleDateString("pt-BR", { timeZone: "UTC" })}`;
   const sameMonth = start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth();

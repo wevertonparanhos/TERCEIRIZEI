@@ -38,6 +38,8 @@ export type StartLedgerRow = {
   /** Previsão de pagamento (vencimento da parcela). */
   paymentDueDate: Date | null;
   paidAt: Date | null;
+  /** Tarefa do período sem nenhum valor cadastrado: aparece no relatório mesmo assim (valor 0). */
+  noValue?: boolean;
 };
 
 /** Hoje no dia de Brasília, como data (meia-noite UTC) — mesma convenção dos vencimentos. */
@@ -113,8 +115,24 @@ export async function loadStartLedger(params: {
   });
 
   const rows: StartLedgerRow[] = processes
-    .flatMap((p) =>
-      p.installments.map((i) => ({
+    .flatMap((p): StartLedgerRow[] =>
+      // Tarefa sem valor também entra no relatório do mês: o cliente precisa ver tudo que foi solicitado.
+      p.installments.length === 0
+        ? [
+            {
+              id: `sem-valor-${p.id}`,
+              processId: p.id,
+              number: p.number,
+              title: p.description,
+              startDate: p.createdAt,
+              installmentLabel: null,
+              value: 0,
+              paymentDueDate: null,
+              paidAt: null,
+              noValue: true,
+            },
+          ]
+        : p.installments.map((i) => ({
         id: i.id,
         processId: p.id,
         number: p.number,
@@ -128,7 +146,7 @@ export async function loadStartLedger(params: {
     )
     .sort((a, b) => a.startDate.getTime() - b.startDate.getTime() || a.number - b.number);
 
-  return { rows, summary: summarizePayments(rows) };
+  return { rows, summary: summarizePayments(rows.filter((r) => !r.noValue)) };
 }
 
 /** Fonte única dos valores financeiros — usada pelo Financeiro geral e pelo
