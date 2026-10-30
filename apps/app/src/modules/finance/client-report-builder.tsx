@@ -39,6 +39,17 @@ const COMPANY = {
   site: "terceirizeibpo.com.br",
 };
 
+/** dd/mm/aaaa -> aaaa-mm-dd (campo de data); "" se não for uma data. */
+function labelToIso(label: string | null | undefined): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(label ?? "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
+/** aaaa-mm-dd -> dd/mm/aaaa */
+function isoToLabel(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
 function statusOf(row: ReportRow): { label: string; color: string; bg: string } {
   if (row.paid) return { label: "Pago", color: "#047857", bg: "#D1FAE5" };
   if (row.daysLate > 0) return { label: "Atrasado", color: "#B91C1C", bg: "#FEE2E2" };
@@ -77,6 +88,12 @@ export function ClientReportBuilder({
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
   const [paymentInfo, setPaymentInfo] = useState(DEFAULT_PAYMENT_INFO);
+  // Vencimento do pagamento: por padrão é o do contrato (N-ésimo dia útil do mês seguinte), mas a equipe pode trocar a data.
+  const defaultDueIso = labelToIso(dueDateLabel);
+  const [dueOverride, setDueOverride] = useState<string | null>(null);
+  const effectiveDueIso = dueOverride ?? defaultDueIso;
+  const effectiveDueLabel = effectiveDueIso ? isoToLabel(effectiveDueIso) : null;
+  const dueEdited = dueOverride !== null && dueOverride !== defaultDueIso;
 
   // Os dados de pagamento (PIX, banco) se repetem todo mês: ficam lembrados neste navegador.
   useEffect(() => {
@@ -261,6 +278,36 @@ export function ClientReportBuilder({
             />
           </div>
         </div>
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2 rounded-xl border border-border bg-surface-alt/60 px-4 py-3">
+          <div className="space-y-1">
+            <label htmlFor="rel-due" className="block text-xs font-medium text-muted">
+              Vencimento do pagamento
+            </label>
+            <input
+              id="rel-due"
+              type="date"
+              value={effectiveDueIso}
+              onChange={(e) => setDueOverride(e.target.value || "")}
+              className="h-9 rounded-lg border border-border-strong bg-surface px-3 text-sm text-ink"
+            />
+          </div>
+          <p className="max-w-md pb-1 text-xs text-muted">
+            {dueEdited || (dueOverride === "" && defaultDueIso) ? (
+              <>
+                Data ajustada por você.{" "}
+                {defaultDueIso && (
+                  <button type="button" className="font-medium text-accent hover:underline" onClick={() => setDueOverride(null)}>
+                    Voltar ao padrão ({dueDateLabel})
+                  </button>
+                )}
+              </>
+            ) : defaultDueIso ? (
+              <>Padrão do contrato: {dueBusinessDay ?? 5}º dia útil do mês seguinte. Você pode alterar a data e o PDF acompanha.</>
+            ) : (
+              <>Escolha a data de vencimento que sairá no relatório.</>
+            )}
+          </p>
+        </div>
         {hasUndatedWarning && <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">{hasUndatedWarning}</p>}
       </div>
 
@@ -290,18 +337,25 @@ export function ClientReportBuilder({
             </div>
           </div>
 
-          {sendDateLabel && dueDateLabel && (
+          {(sendDateLabel || effectiveDueLabel) && (
             <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
-              <div style={{ border: "1px solid #E2E8F0", borderTop: `3px solid ${CYAN}`, borderRadius: 8, padding: "9px 12px" }}>
-                <p style={{ margin: 0, fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Fechamento e envio</p>
-                <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 800, color: NAVY }}>{sendDateLabel}</p>
-                <p style={{ margin: 0, fontSize: 10, color: "#64748B" }}>último dia útil do mês</p>
-              </div>
-              <div style={{ border: "1px solid #E2E8F0", borderTop: `3px solid ${ORANGE}`, borderRadius: 8, padding: "9px 12px" }}>
-                <p style={{ margin: 0, fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Vencimento</p>
-                <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 800, color: NAVY }}>até {dueDateLabel}</p>
-                <p style={{ margin: 0, fontSize: 10, color: "#64748B" }}>{dueBusinessDay ?? 5}º dia útil do mês seguinte{contractNumber ? ` · contrato nº ${contractNumber}` : ""}</p>
-              </div>
+              {sendDateLabel && (
+                <div style={{ border: "1px solid #E2E8F0", borderTop: `3px solid ${CYAN}`, borderRadius: 8, padding: "9px 12px" }}>
+                  <p style={{ margin: 0, fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Fechamento e envio</p>
+                  <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 800, color: NAVY }}>{sendDateLabel}</p>
+                  <p style={{ margin: 0, fontSize: 10, color: "#64748B" }}>último dia útil do mês</p>
+                </div>
+              )}
+              {effectiveDueLabel && (
+                <div style={{ border: "1px solid #E2E8F0", borderTop: `3px solid ${ORANGE}`, borderRadius: 8, padding: "9px 12px" }}>
+                  <p style={{ margin: 0, fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Vencimento</p>
+                  <p style={{ margin: "3px 0 0", fontSize: 14, fontWeight: 800, color: NAVY }}>até {effectiveDueLabel}</p>
+                  <p style={{ margin: 0, fontSize: 10, color: "#64748B" }}>
+                    {dueEdited || !defaultDueIso ? "data de vencimento do pagamento" : `${dueBusinessDay ?? 5}º dia útil do mês seguinte`}
+                    {contractNumber ? ` · contrato nº ${contractNumber}` : ""}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -337,7 +391,7 @@ export function ClientReportBuilder({
                   : finalOverdue.some((r) => !r.paid)
                     ? "Pagamentos em atraso"
                     : "Demandas do período"}
-                {dueDateLabel ? ` · vencimento até ${dueDateLabel}` : ""}
+                {effectiveDueLabel ? ` · vencimento até ${effectiveDueLabel}` : ""}
               </p>
             </div>
             <p style={{ margin: 0, fontSize: 26, fontWeight: 800, color: "#FFFFFF" }}>{brl.format(totals.aPagar)}</p>
