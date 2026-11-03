@@ -53,6 +53,7 @@ import {
   addProcessComment,
   setCommentClientVisible,
   setProcessServiceTypes,
+  setProcessStartDate,
   createCategory,
   setProcessValue,
   updateInstallment,
@@ -568,7 +569,7 @@ export default async function ProcessoDetalhePage({
                 />
               </div>
             )}
-            <ScheduleCard createdAt={process.createdAt.toISOString()} />
+            <ScheduleCard createdAt={process.createdAt.toISOString()} setStartDate={["ADMIN", "GESTOR"].includes(user.role) ? setProcessStartDate.bind(null, process.id) : undefined} />
           </aside>
         </div>
       </div>

@@ -33,6 +33,8 @@ export const createProcessSchema = z.object({
   serviceTypeIds: z.array(z.string().min(1)).min(1, "Selecione ao menos um tipo de solicitação.").max(10, "No máximo 10 tipos por tarefa."),
   /** Modelo de tarefa usado de base (valor, prazo, anotações e checklist padrão), se houver. */
   templateId: z.string().optional().or(z.literal("")),
+  /** Data de início (= criação) da tarefa, AAAA-MM-DD; vazio = hoje. Define o mês em que ela entra no relatório financeiro. */
+  startedAt: z.string().optional().or(z.literal("")),
   description: z.string().min(3, "Informe o nome da tarefa."),
   priority: z.enum(DEMAND_PRIORITIES),
   value: z.string().optional(),

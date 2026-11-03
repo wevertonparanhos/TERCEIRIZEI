@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Modal, Stepper } from "@/components/ui/modal";
 import { PRIORITY_LABELS } from "@/modules/processes/labels";
 import type { CreateProcessInput } from "@/lib/validations/process";
+import { parseStartDate } from "@/modules/processes/start-date";
 
 type Workspace = { id: string; name: string; stages: { id: string; label: string }[] };
 type Client = { id: string; name: string };
@@ -104,6 +105,8 @@ export function NewTaskWizard({
   const [newItem, setNewItem] = useState("");
   const [hasDelivery, setHasDelivery] = useState(false);
   const [plannedStartAt, setPlannedStartAt] = useState("");
+  // Data de início (= criação): vazia significa hoje. Serve para incluir no relatório de outro mês uma tarefa cadastrada agora.
+  const [startedAt, setStartedAt] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [plannedDeliveryAt, setPlannedDeliveryAt] = useState("");
   const [hasPayment, setHasPayment] = useState(false);
@@ -129,6 +132,7 @@ export function NewTaskWizard({
     setNewItem("");
     setHasDelivery(false);
     setPlannedStartAt("");
+    setStartedAt("");
     setDueAt("");
     setPlannedDeliveryAt("");
     setHasPayment(false);
@@ -167,6 +171,10 @@ export function NewTaskWizard({
     if (step === 2 && name.trim().length < 3) return "Informe o nome da tarefa.";
     if (step === 3 && !clientId) return "Selecione um cliente.";
     if (step === 3 && serviceTypeIds.length === 0) return "Selecione ao menos um tipo de solicitação.";
+    if (step === 5 && startedAt) {
+      const parsed = parseStartDate(startedAt);
+      if (!parsed.ok) return parsed.error;
+    }
     if (step === 6 && hasPayment && Number(value) > 0 && !paymentDueDate) {
       return "Informe a data prevista de pagamento — sem ela o valor não aparece no Financeiro.";
     }
@@ -196,6 +204,7 @@ export function NewTaskWizard({
         companyId,
         serviceTypeIds,
         templateId: templateId ?? "",
+        startedAt,
         description: name.trim(),
         priority,
         notes,
@@ -513,7 +522,14 @@ export function NewTaskWizard({
                 </div>
               )}
             </div>
-            {!hasDelivery && <p className="text-xs text-muted-soft">O início é a data em que a tarefa é criada. Basta definir a conclusão — sem data de entrega para o cliente.</p>}
+            <div className="space-y-1.5">
+              <Label htmlFor="wz-start">Data de início</Label>
+              <Input id="wz-start" type="date" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} className="max-w-[200px]" />
+              <p className="text-xs text-muted-soft">
+                Deixe em branco para usar hoje. Altere se a tarefa pertence a outro mês: é a data de início que decide em que mês ela entra no relatório financeiro.
+              </p>
+            </div>
+            {!hasDelivery && <p className="text-xs text-muted-soft">Basta definir a conclusão — sem data de entrega para o cliente.</p>}
           </div>
         )}
 

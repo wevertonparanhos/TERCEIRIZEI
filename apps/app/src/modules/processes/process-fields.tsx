@@ -3,6 +3,7 @@
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { startDateToInput } from "@/modules/processes/start-date";
 import { Briefcase, CalendarClock, CreditCard, Globe, Link2, Signal, Tag, User, Users, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -561,14 +562,40 @@ function DateCell({
 /** Cronograma: uma única data de início (a de criação da tarefa, não editável) e
  * Previsto × Real para conclusão e entrega. O "real" fica vermelho quando passa
  * do previsto. */
-export function ScheduleCard({ createdAt }: { createdAt: string }) {
+export function ScheduleCard({
+  createdAt,
+  setStartDate,
+}: {
+  createdAt: string;
+  /** Presente só para quem pode alterar a data de início (administrador/gestor). */
+  setStartDate?: (date: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+}) {
   const { fields, save, readOnly } = useFields();
+  const router = useRouter();
+  const [startError, setStartError] = useState<string | null>(null);
+  const [savingStart, setSavingStart] = useState(false);
   const late = (planned: string, actual: string) => !!planned && !!actual && actual > planned;
   const rows: { label: string; plannedKey: keyof Fields; actualKey: keyof Fields }[] = [
     { label: "Conclusão", plannedKey: "dueAt", actualKey: "actualCompletionAt" },
     { label: "Entrega", plannedKey: "plannedDeliveryAt", actualKey: "actualDeliveryAt" },
   ];
   const startDate = new Date(createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const startInput = startDateToInput(new Date(createdAt));
+
+  async function changeStart(value: string) {
+    if (!setStartDate || !value || value === startInput) return;
+    setSavingStart(true);
+    setStartError(null);
+    try {
+      const result = await setStartDate(value);
+      if (!result.ok) setStartError(result.error);
+      else router.refresh();
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : "Não foi possível alterar a data de início.");
+    } finally {
+      setSavingStart(false);
+    }
+  }
 
   return (
     <div className="rounded-2xl border border-border/70 bg-surface p-4 shadow-sm">
@@ -576,11 +603,27 @@ export function ScheduleCard({ createdAt }: { createdAt: string }) {
         <CalendarClock className="h-4 w-4 text-muted-soft" />
         Cronograma
       </p>
-      <div className="mb-3 flex items-center justify-between text-xs">
-        <span className="text-muted">Início</span>
-        <span title="Data em que a tarefa foi criada" className="px-1 font-medium text-ink">
-          {startDate}
-        </span>
+      <div className="mb-3 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted">Início</span>
+          {setStartDate ? (
+            <input
+              type="date"
+              value={startInput}
+              disabled={savingStart}
+              onChange={(e) => changeStart(e.target.value)}
+              aria-label="Data de início da tarefa"
+              title="Data de início (criação) da tarefa — define em que mês ela entra no relatório financeiro"
+              className="rounded-md border border-border bg-transparent px-1 py-1 text-xs font-medium text-ink hover:border-border-strong focus:border-accent focus:outline-none disabled:opacity-50"
+            />
+          ) : (
+            <span title="Data em que a tarefa foi criada" className="px-1 font-medium text-ink">
+              {startDate}
+            </span>
+          )}
+        </div>
+        {setStartDate && <p className="mt-1 text-[11px] text-muted-soft">Define o mês em que a tarefa entra no relatório financeiro.</p>}
+        {startError && <p className="mt-1 text-[11px] text-red-600">{startError}</p>}
       </div>
       <div className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-x-2 gap-y-1 text-xs">
         <span />

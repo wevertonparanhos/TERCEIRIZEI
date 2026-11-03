@@ -13,6 +13,7 @@ import {
   type ClientRequestInput,
 } from "@/lib/validations/process";
 import { addDays } from "@/modules/processes/labels";
+import { parseStartDate } from "@/modules/processes/start-date";
 import { sendEmail } from "@/lib/email";
 import { syncInvoicesAfterInstallmentChange } from "@/modules/finance/sync";
 import { deliverableRespondedEmail } from "@/lib/email-templates";
@@ -101,6 +102,14 @@ export async function createProcess(input: CreateProcessInput) {
     : await prisma.kanbanStage.findFirst({ where: { workspaceId: workspace.id }, orderBy: { position: "asc" } });
   if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para esta área de trabalho.");
 
+  // Data de início escolhida (ex.: cadastrar hoje uma tarefa de outro mês): vira a data de criação da tarefa.
+  let createdAt: Date | undefined;
+  if (data.startedAt) {
+    const start = parseStartDate(data.startedAt);
+    if (!start.ok) throw new Error(start.error);
+    createdAt = start.date;
+  }
+
   const number = await nextProcessNumber(user.tenantId);
 
   const process = await prisma.process.create({
@@ -108,6 +117,7 @@ export async function createProcess(input: CreateProcessInput) {
       tenantId: user.tenantId,
       workspaceId: workspace.id,
       number,
+      ...(createdAt ? { createdAt } : {}),
       clientId: data.clientId,
       companyId: data.companyId || null,
       serviceTypeId: serviceTypeIds[0],
@@ -676,6 +686,30 @@ export async function deleteProcess(processId: string) {
   });
 
   FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+}
+
+/** Altera a data de início (= criação) da tarefa. É ela que decide em que mês a tarefa entra no relatório
+ * financeiro do cliente, então a equipe pode corrigir quando a tarefa foi cadastrada em outra data. Só administrador/gestor. */
+export async function setProcessStartDate(processId: string, date: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireManageAccess();
+  const parsed = parseStartDate(date);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
+  const process = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId }, select: { id: true, number: true, createdAt: true } });
+  if (!process) return { ok: false, error: "Tarefa não encontrada. Atualize a página." };
+
+  await prisma.process.update({ where: { id: processId }, data: { createdAt: parsed.date } });
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.start_date_changed",
+    entityType: "process",
+    entityId: processId,
+    description: `Data de início da tarefa #${process.number} alterada de ${process.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} para ${parsed.date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}.`,
+  });
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+  return { ok: true };
 }
 
 /** Arquiva/desarquiva a tarefa: sai do quadro e dos alertas, mas continua no
