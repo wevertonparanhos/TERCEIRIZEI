@@ -201,7 +201,8 @@ export default async function ProcessoDetalhePage({
       select: { id: true, label: true, color: true },
     }),
     prisma.serviceType.findMany({
-      where: { tenantId: user.tenantId, OR: [{ active: true }, { id: { in: taskTypeIds } }] },
+      // Tipos de solicitação da área de trabalho da tarefa (mais os que ela já tem, mesmo desativados).
+      where: { tenantId: user.tenantId, workspaceId: process.workspaceId, OR: [{ active: true }, { id: { in: taskTypeIds } }] },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
@@ -232,6 +233,7 @@ export default async function ProcessoDetalhePage({
         categories={categories}
         setCategories={setProcessServiceTypes.bind(null, process.id)}
         newCategory={createCategory}
+        workspaceId={process.workspaceId}
         finance={{
           total: paymentSummary.totalValue,
           installmentCount: process.installments.length,

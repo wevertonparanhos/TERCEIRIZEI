@@ -350,6 +350,8 @@ model ClientTag {
 model ServiceType {
   id                  String          @id @default(uuid()) @db.Uuid
   tenantId            String          @map("tenant_id") @db.Uuid
+  /// Área de trabalho dona do tipo (etiquetas divididas por área, como as Categorias por quadro do FreelaPRO)
+  workspaceId         String          @map("workspace_id") @db.Uuid
   name                String
   defaultPrice        Decimal?        @map("default_price") @db.Decimal(12, 2)
   defaultDeadlineDays Int?            @map("default_deadline_days")
@@ -359,12 +361,14 @@ model ServiceType {
   createdAt           DateTime        @default(now()) @map("created_at")
 
   tenant             Tenant                         @relation(fields: [tenantId], references: [id])
+  workspace          Workspace                      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   processes          Process[]
   processTags        ProcessServiceType[]
   checklistTemplate  ServiceChecklistTemplateItem[]
   portalRequests     PortalRequest[]
 
-  @@unique([tenantId, name])
+  @@unique([tenantId, workspaceId, name])
+  @@index([workspaceId])
   @@map("service_types")
 }
 
@@ -606,6 +610,7 @@ model Workspace {
   tenant    Tenant        @relation(fields: [tenantId], references: [id])
   stages    KanbanStage[]
   processes Process[]
+  serviceTypes ServiceType[]
 
   @@unique([tenantId, position])
   @@map("workspaces")

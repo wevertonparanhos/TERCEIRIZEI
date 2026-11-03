@@ -87,8 +87,12 @@ export async function createProcess(input: CreateProcessInput) {
   if (!workspace) throw new Error("Área de trabalho não encontrada.");
 
   const serviceTypeIds = Array.from(new Set(data.serviceTypeIds));
-  const serviceTypes = await prisma.serviceType.findMany({ where: { id: { in: serviceTypeIds }, tenantId: user.tenantId }, select: { id: true } });
-  if (serviceTypes.length !== serviceTypeIds.length) throw new Error("Tipo de solicitação não encontrado.");
+  // Os tipos de solicitação são divididos por área de trabalho: só valem os da área escolhida.
+  const serviceTypes = await prisma.serviceType.findMany({
+    where: { id: { in: serviceTypeIds }, tenantId: user.tenantId, workspaceId: workspace.id },
+    select: { id: true },
+  });
+  if (serviceTypes.length !== serviceTypeIds.length) throw new Error("Tipo de solicitação não encontrado nesta área de trabalho.");
 
   const template = data.templateId
     ? await prisma.taskTemplate.findFirst({
@@ -205,6 +209,14 @@ async function openProcessForClientRequest(p: OpenRequestProcessParams) {
   const firstStage = await prisma.kanbanStage.findFirst({ where: { workspaceId: workspace.id }, orderBy: { position: "asc" } });
   if (!firstStage) throw new Error("Nenhuma etapa de Kanban configurada para esta área de trabalho.");
 
+  // O tipo escolhido pelo cliente pode ser de outra área: a tarefa usa o tipo de mesmo nome da área em que abre.
+  let taskServiceType = serviceType;
+  if (serviceType.workspaceId !== workspace.id) {
+    taskServiceType =
+      (await prisma.serviceType.findFirst({ where: { tenantId: p.tenantId, workspaceId: workspace.id, name: serviceType.name } })) ??
+      (await prisma.serviceType.create({ data: { tenantId: p.tenantId, workspaceId: workspace.id, name: serviceType.name, active: true } }));
+  }
+
   const number = await nextProcessNumber(p.tenantId);
 
   const process = await prisma.process.create({
@@ -214,7 +226,7 @@ async function openProcessForClientRequest(p: OpenRequestProcessParams) {
       number,
       clientId: p.clientId,
       companyId: p.companyId,
-      serviceTypeId: p.serviceTypeId,
+      serviceTypeId: taskServiceType.id,
       stageId: firstStage.id,
       description: p.description,
       priority: p.priority,
@@ -225,7 +237,7 @@ async function openProcessForClientRequest(p: OpenRequestProcessParams) {
   });
 
   await prisma.processStage.create({ data: { processId: process.id, fromStageId: null, toStageId: firstStage.id, userId: p.userId } });
-  await saveServiceTypeTags(process.id, [serviceType.id]);
+  await saveServiceTypeTags(process.id, [taskServiceType.id]);
   return process;
 }
 
@@ -1077,23 +1089,25 @@ export async function clientAddProcessComment(processId: string, body: string, _
 
 // --- Categorias (tipos de serviço): criadas na hora, sem módulo próprio ---
 
-/** Cria a categoria (ou devolve a que já existe com o mesmo nome, sem diferenciar maiúsculas). */
-export async function createCategory(name: string): Promise<{ id: string; name: string }> {
+/** Cria o tipo de solicitação na área de trabalho (ou devolve o que já existe nela com o mesmo nome, sem diferenciar maiúsculas). */
+export async function createCategory(name: string, workspaceId: string): Promise<{ id: string; name: string }> {
   const user = await getCurrentUser();
   if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
     throw new Error("Você não tem acesso a este módulo.");
   }
   const clean = name.trim();
-  if (clean.length < 2) throw new Error("Informe o nome da categoria.");
+  if (clean.length < 2) throw new Error("Informe o nome do tipo.");
+  const workspace = await prisma.workspace.findFirst({ where: { id: workspaceId, tenantId: user.tenantId }, select: { id: true } });
+  if (!workspace) throw new Error("Área de trabalho não encontrada.");
 
   const existing = await prisma.serviceType.findFirst({
-    where: { tenantId: user.tenantId, name: { equals: clean, mode: "insensitive" } },
+    where: { tenantId: user.tenantId, workspaceId: workspace.id, name: { equals: clean, mode: "insensitive" } },
     select: { id: true, name: true },
   });
   if (existing) return existing;
 
   const created = await prisma.serviceType.create({
-    data: { tenantId: user.tenantId, name: clean, active: true },
+    data: { tenantId: user.tenantId, workspaceId: workspace.id, name: clean, active: true },
     select: { id: true, name: true },
   });
   revalidatePath("/processos");
@@ -1106,8 +1120,11 @@ export async function setProcessServiceTypes(processId: string, serviceTypeIds: 
   const ids = Array.from(new Set(serviceTypeIds));
   if (ids.length === 0) return { ok: false, error: "A tarefa precisa ter pelo menos um tipo de solicitação." };
   if (ids.length > 10) return { ok: false, error: "No máximo 10 tipos por tarefa." };
-  const found = await prisma.serviceType.findMany({ where: { id: { in: ids }, tenantId: user.tenantId }, select: { id: true } });
-  if (found.length !== ids.length) return { ok: false, error: "Tipo de solicitação não encontrado. Atualize a página." };
+  const task = await prisma.process.findFirst({ where: { id: processId, tenantId: user.tenantId }, select: { workspaceId: true } });
+  if (!task) return { ok: false, error: "Tarefa não encontrada. Atualize a página." };
+  // Só valem os tipos da área de trabalho da tarefa.
+  const found = await prisma.serviceType.findMany({ where: { id: { in: ids }, tenantId: user.tenantId, workspaceId: task.workspaceId }, select: { id: true } });
+  if (found.length !== ids.length) return { ok: false, error: "Tipo de solicitação não encontrado nesta área de trabalho. Atualize a página." };
 
   await prisma.$transaction([
     prisma.processServiceType.deleteMany({ where: { processId } }),

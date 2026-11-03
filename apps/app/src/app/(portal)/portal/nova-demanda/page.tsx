@@ -20,6 +20,8 @@ export default async function PortalNovaDemandaPage() {
     );
   }
 
+  const entryWorkspace = await prisma.workspace.findFirst({ where: { tenantId: user.tenantId }, orderBy: { position: "asc" }, select: { id: true } });
+
   const [questions, companies, serviceTypes] = await Promise.all([
     prisma.clientPortalQuestion.findMany({
       where: { clientId: user.clientId, tenantId: user.tenantId },
@@ -28,7 +30,8 @@ export default async function PortalNovaDemandaPage() {
     }),
     prisma.company.findMany({ where: { clientId: user.clientId }, select: { id: true, razaoSocial: true } }),
     prisma.serviceType.findMany({
-      where: { tenantId: user.tenantId, active: true },
+      // O cliente escolhe entre os tipos da primeira área de trabalho (a de entrada dos pedidos do portal).
+      where: { tenantId: user.tenantId, active: true, workspaceId: entryWorkspace?.id ?? "" },
       select: { id: true, name: true, defaultDeadlineDays: true, defaultPriority: true },
       orderBy: { name: "asc" },
     }),

@@ -316,6 +316,7 @@ export function PropertiesCard({
   categories,
   setCategories,
   newCategory,
+  workspaceId,
   finance,
 }: {
   stages: { id: string; label: string; color: string }[];
@@ -325,7 +326,9 @@ export function PropertiesCard({
   categoryIds: string[];
   categories: { id: string; name: string }[];
   setCategories: (categoryIds: string[]) => Promise<{ ok: true } | { ok: false; error: string }>;
-  newCategory: (name: string) => Promise<{ id: string; name: string }>;
+  newCategory: (name: string, workspaceId: string) => Promise<{ id: string; name: string }>;
+  /** Área de trabalho da tarefa: os tipos de solicitação são divididos por área. */
+  workspaceId: string;
   finance: FinanceProps;
 }) {
   const { fields, stageId, save, changeStage, readOnly } = useFields();
@@ -358,7 +361,7 @@ export function PropertiesCard({
     const typed = window.prompt("Nome do novo tipo de solicitação:");
     if (!typed || !typed.trim()) return;
     try {
-      const created = await newCategory(typed);
+      const created = await newCategory(typed, workspaceId);
       setExtra((prev) => [...prev, created]);
       if (!selected.includes(created.id)) await changeCategories([...selected, created.id]);
     } catch (err) {

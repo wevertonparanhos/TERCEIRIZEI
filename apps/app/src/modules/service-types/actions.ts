@@ -6,7 +6,8 @@ import { getCurrentUser, type CurrentUser } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit";
 import { serviceTypeNameSchema } from "@/lib/validations/service-type";
 
-// Tipo de solicitação = só uma etiqueta que identifica o serviço. Os valores padrão ficam nos Modelos de tarefa.
+// Tipo de solicitação = só uma etiqueta que identifica o serviço, e cada área de trabalho tem as suas
+// (como as Categorias por quadro do FreelaPRO). Os valores padrão ficam nos Modelos de tarefa.
 // Em produção o Next esconde a mensagem de erros lançados por Server Actions, então os avisos esperados voltam como resultado.
 export type ActionResult<T extends object = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -25,25 +26,34 @@ function refresh() {
   revalidatePath("/processos/tipos");
 }
 
-/** Cria (id = null) ou renomeia um tipo de solicitação. */
-export async function saveServiceType(id: string | null, name: string): Promise<ActionResult<{ id: string }>> {
+/** Cria (id = null) ou renomeia um tipo de solicitação. Na criação, o tipo nasce na área de trabalho informada. */
+export async function saveServiceType(id: string | null, name: string, workspaceId: string): Promise<ActionResult<{ id: string }>> {
   const user = await manageAccess();
   if (!user) return fail(NO_PERMISSION);
   const parsed = serviceTypeNameSchema.safeParse(name);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Informe o nome do tipo.");
 
+  // Para renomear, vale a área em que o tipo já está; para criar, a escolhida na tela.
+  const current = id ? await prisma.serviceType.findFirst({ where: { id, tenantId: user.tenantId }, select: { workspaceId: true } }) : null;
+  if (id && !current) return fail("Tipo não encontrado. Atualize a página.");
+  const targetWorkspaceId = current?.workspaceId ?? workspaceId;
+  const workspace = await prisma.workspace.findFirst({ where: { id: targetWorkspaceId, tenantId: user.tenantId }, select: { id: true } });
+  if (!workspace) return fail("Área de trabalho não encontrada. Atualize a página.");
+
   const duplicate = await prisma.serviceType.findFirst({
-    where: { tenantId: user.tenantId, name: { equals: parsed.data, mode: "insensitive" }, ...(id ? { id: { not: id } } : {}) },
+    where: { tenantId: user.tenantId, workspaceId: workspace.id, name: { equals: parsed.data, mode: "insensitive" }, ...(id ? { id: { not: id } } : {}) },
     select: { id: true },
   });
-  if (duplicate) return fail("Já existe um tipo com esse nome.");
+  if (duplicate) return fail("Já existe um tipo com esse nome nesta área de trabalho.");
 
   let savedId = id;
   if (id) {
-    const found = await prisma.serviceType.updateMany({ where: { id, tenantId: user.tenantId }, data: { name: parsed.data } });
-    if (found.count === 0) return fail("Tipo não encontrado. Atualize a página.");
+    await prisma.serviceType.updateMany({ where: { id, tenantId: user.tenantId }, data: { name: parsed.data } });
   } else {
-    const created = await prisma.serviceType.create({ data: { tenantId: user.tenantId, name: parsed.data }, select: { id: true } });
+    const created = await prisma.serviceType.create({
+      data: { tenantId: user.tenantId, workspaceId: workspace.id, name: parsed.data },
+      select: { id: true },
+    });
     savedId = created.id;
   }
 
@@ -57,6 +67,42 @@ export async function saveServiceType(id: string | null, name: string): Promise<
   });
   refresh();
   return { ok: true, id: savedId! };
+}
+
+/** Copia os tipos de outra área de trabalho para esta (os que já existem aqui com o mesmo nome são mantidos). */
+export async function copyServiceTypes(fromWorkspaceId: string, toWorkspaceId: string): Promise<ActionResult<{ created: number }>> {
+  const user = await manageAccess();
+  if (!user) return fail(NO_PERMISSION);
+  if (fromWorkspaceId === toWorkspaceId) return fail("Escolha outra área de trabalho para copiar.");
+
+  const [from, to] = await Promise.all([
+    prisma.workspace.findFirst({ where: { id: fromWorkspaceId, tenantId: user.tenantId }, select: { id: true, name: true } }),
+    prisma.workspace.findFirst({ where: { id: toWorkspaceId, tenantId: user.tenantId }, select: { id: true, name: true } }),
+  ]);
+  if (!from || !to) return fail("Área de trabalho não encontrada. Atualize a página.");
+
+  const [source, existing] = await Promise.all([
+    prisma.serviceType.findMany({ where: { tenantId: user.tenantId, workspaceId: from.id, active: true }, select: { name: true } }),
+    prisma.serviceType.findMany({ where: { tenantId: user.tenantId, workspaceId: to.id }, select: { name: true } }),
+  ]);
+  const have = new Set(existing.map((t) => t.name.toLowerCase()));
+  const toCreate = source.filter((t) => !have.has(t.name.toLowerCase()));
+  if (toCreate.length > 0) {
+    await prisma.serviceType.createMany({
+      data: toCreate.map((t) => ({ tenantId: user.tenantId, workspaceId: to.id, name: t.name })),
+      skipDuplicates: true,
+    });
+  }
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "service_type.copy",
+    entityType: "service_type",
+    description: `${toCreate.length} tipo(s) de solicitação copiado(s) de "${from.name}" para "${to.name}".`,
+  });
+  refresh();
+  return { ok: true, created: toCreate.length };
 }
 
 /** Ativa ou desativa o tipo (desativado some das listas de escolha, mas as tarefas antigas continuam com ele). */

@@ -17,7 +17,7 @@ type Workspace = { id: string; name: string; stages: { id: string; label: string
 type Client = { id: string; name: string };
 type Company = { id: string; clientId: string; razaoSocial: string };
 /** Tipo de solicitação: só uma etiqueta que identifica o serviço. */
-type ServiceType = { id: string; name: string };
+type ServiceType = { id: string; name: string; workspaceId: string };
 
 /** Modelo de tarefa: tarefa genérica pré-pronta (valor, prazo, prioridade, anotações e checklist). */
 type TaskTemplate = {
@@ -77,7 +77,7 @@ export function NewTaskWizard({
   templates: TaskTemplate[];
   serviceTypes: ServiceType[];
   onSubmit: (data: CreateProcessInput) => Promise<{ id: string } | void>;
-  createCategory?: (name: string) => Promise<{ id: string; name: string }>;
+  createCategory?: (name: string, workspaceId: string) => Promise<{ id: string; name: string }>;
   autoOpen?: boolean;
   /** Classes extras do botão "Nova Tarefa" (para combinar com o fundo do cabeçalho). */
   triggerClassName?: string;
@@ -91,9 +91,13 @@ export function NewTaskWizard({
   const [error, setError] = useState<string | null>(null);
 
   const [extraCategories, setExtraCategories] = useState<ServiceType[]>([]);
-  const allServiceTypes = useMemo(() => [...serviceTypes, ...extraCategories], [serviceTypes, extraCategories]);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [workspaceId, setWorkspaceId] = useState(initialWorkspace?.id ?? "");
+  // Os tipos de solicitação são divididos por área de trabalho: aparecem só os da área escolhida.
+  const allServiceTypes = useMemo(
+    () => [...serviceTypes, ...extraCategories].filter((s) => s.workspaceId === workspaceId),
+    [serviceTypes, extraCategories, workspaceId]
+  );
   const [stageId, setStageId] = useState("");
   const [name, setName] = useState("");
   const [priority, setPriority] = useState<CreateProcessInput["priority"]>("MEDIA");
@@ -333,6 +337,7 @@ export function NewTaskWizard({
                     onChange={(e) => {
                       setWorkspaceId(e.target.value);
                       setStageId("");
+                      setServiceTypeIds([]);
                     }}
                   >
                     {workspaces.map((w) => (
@@ -422,7 +427,7 @@ export function NewTaskWizard({
                     </button>
                   );
                 })}
-                {allServiceTypes.length === 0 && <span className="px-1 py-0.5 text-xs text-muted-soft">Nenhum tipo cadastrado ainda — crie o primeiro abaixo.</span>}
+                {allServiceTypes.length === 0 && <span className="px-1 py-0.5 text-xs text-muted-soft">Nenhum tipo cadastrado nesta área de trabalho — crie o primeiro abaixo.</span>}
               </div>
               {createCategory && (
                 <button
@@ -432,11 +437,11 @@ export function NewTaskWizard({
                     const typed = window.prompt("Nome do novo tipo de solicitação:");
                     if (!typed || !typed.trim()) return;
                     try {
-                      const created = await createCategory(typed);
+                      const created = await createCategory(typed, workspaceId);
                       setExtraCategories((prev) =>
                         allServiceTypes.some((s) => s.id === created.id)
                           ? prev
-                          : [...prev, { id: created.id, name: created.name }]
+                          : [...prev, { id: created.id, name: created.name, workspaceId }]
                       );
                       setServiceTypeIds((ids) => (ids.includes(created.id) ? ids : [...ids, created.id]));
                     } catch (err) {

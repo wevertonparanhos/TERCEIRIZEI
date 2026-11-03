@@ -110,7 +110,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
           prisma.serviceType.findMany({
             where: { tenantId: user.tenantId, active: true },
             orderBy: { name: "asc" },
-            select: { id: true, name: true },
+            select: { id: true, name: true, workspaceId: true },
           }),
         ])
       : Promise.resolve(null),
@@ -215,7 +215,12 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
               items={[
                 ...(activeWorkspace ? [{ href: `/processos/etapas?area=${activeWorkspace.id}`, label: "Etapas do quadro", hint: "Colunas, cores e % de conclusão", icon: "etapas" as const }] : []),
                 { href: "/processos/modelos", label: "Modelos de tarefa", hint: "Tarefas prontas com valor, prazo e checklist", icon: "modelos" as const },
-                { href: "/processos/tipos", label: "Tipos de solicitação", hint: "Etiquetas que identificam o serviço", icon: "tipos" as const },
+                {
+                  href: activeWorkspace ? `/processos/tipos?area=${activeWorkspace.id}` : "/processos/tipos",
+                  label: "Tipos de solicitação",
+                  hint: "Etiquetas do serviço, por área de trabalho",
+                  icon: "tipos" as const,
+                },
               ]}
             />
           )}

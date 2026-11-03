@@ -109,8 +109,8 @@ export async function ensureAutoRenewalTasks(tenantId: string): Promise<void> {
   if (!firstStage) return;
 
   const serviceType = await prisma.serviceType.upsert({
-    where: { tenantId_name: { tenantId, name: "Renovação de Documento" } },
-    create: { tenantId, name: "Renovação de Documento" },
+    where: { tenantId_workspaceId_name: { tenantId, workspaceId: workspace.id, name: "Renovação de Documento" } },
+    create: { tenantId, workspaceId: workspace.id, name: "Renovação de Documento" },
     update: {},
   });
 
