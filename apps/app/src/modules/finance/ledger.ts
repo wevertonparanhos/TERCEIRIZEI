@@ -1,5 +1,5 @@
 import { prisma } from "@terceirizei/db";
-import { summarizePayments, type PaymentSummary } from "@/modules/finance/period";
+import { includeInReport, summarizePayments, type PaymentSummary, type ReportCriterion } from "@/modules/finance/period";
 
 export type LedgerRow = {
   id: string;
@@ -84,41 +84,51 @@ export async function loadOverdueForClient(params: {
   }));
 }
 
-/** Relatório mensal para enviar ao cliente: as demandas INICIADAS no período
- * (o início é a data de criação da tarefa) com o valor e a previsão de pagamento
- * de cada uma — não importa em que mês cai o vencimento. */
+/** Relatório mensal para enviar ao cliente. Pelo critério escolhido traz:
+ *  - "abertas": as demandas INICIADAS no período (o início é a data de criação da tarefa), com o valor e a
+ *    previsão de pagamento de cada uma — não importa em que mês cai o vencimento;
+ *  - "vencimento": os pagamentos que VENCEM no período, de qualquer tarefa;
+ *  - "ambos": os dois conjuntos juntos, sem repetir. */
 export async function loadStartLedger(params: {
   tenantId: string;
   clientId: string;
   start: Date;
   end: Date;
+  criterion?: ReportCriterion;
 }): Promise<{ rows: StartLedgerRow[]; summary: PaymentSummary }> {
-  const { tenantId, clientId, start, end } = params;
+  const { tenantId, clientId, start, end, criterion = "abertas" } = params;
   // O período chega em dias UTC; a data de criação é um instante — alinha ao dia de Brasília (UTC-3),
   // para uma tarefa criada às 22h de 31/10 contar em outubro.
   const BRT_SHIFT = 3 * 60 * 60 * 1000;
   const inRange = { gte: new Date(start.getTime() + BRT_SHIFT), lte: new Date(end.getTime() + BRT_SHIFT) };
 
+  const openedFilter = { createdAt: inRange };
+  const dueFilter = { installments: { some: { paymentDueDate: { gte: start, lte: end } } } };
   const processes = await prisma.process.findMany({
     where: {
       tenantId,
       clientId,
-      createdAt: inRange,
+      ...(criterion === "abertas" ? openedFilter : criterion === "vencimento" ? dueFilter : { OR: [openedFilter, dueFilter] }),
     },
     select: {
       id: true,
       number: true,
       description: true,
       createdAt: true,
-      installments: { orderBy: { position: "asc" }, select: { id: true, position: true, value: true, paymentDueDate: true, paidAt: true } },
+      installments: { orderBy: { position: "asc" }, select: { id: true, position: true, title: true, value: true, paymentDueDate: true, paidAt: true } },
     },
   });
 
+  const dueInPeriod = (d: Date | null) => !!d && d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
+
   const rows: StartLedgerRow[] = processes
-    .flatMap((p): StartLedgerRow[] =>
-      // Tarefa sem valor também entra no relatório do mês: o cliente precisa ver tudo que foi solicitado.
-      p.installments.length === 0
-        ? [
+    .flatMap((p): StartLedgerRow[] => {
+      const openedInPeriod = p.createdAt.getTime() >= inRange.gte.getTime() && p.createdAt.getTime() <= inRange.lte.getTime();
+      // Tarefa sem valor também entra no relatório do mês: o cliente precisa ver tudo que foi solicitado
+      // (só quando o relatório traz as tarefas abertas no período, já que ela não tem vencimento).
+      if (p.installments.length === 0) {
+        if (!(criterion !== "vencimento" && openedInPeriod)) return [];
+        return [
             {
               id: `sem-valor-${p.id}`,
               processId: p.id,
@@ -131,19 +141,22 @@ export async function loadStartLedger(params: {
               paidAt: null,
               noValue: true,
             },
-          ]
-        : p.installments.map((i) => ({
-        id: i.id,
-        processId: p.id,
-        number: p.number,
-        title: p.description,
-        startDate: p.createdAt,
-        installmentLabel: p.installments.length > 1 ? `Parcela ${i.position}` : null,
-        value: Number(i.value),
-        paymentDueDate: i.paymentDueDate,
-        paidAt: i.paidAt,
-      }))
-    )
+        ];
+      }
+      return p.installments
+        .filter((i) => includeInReport(criterion, openedInPeriod, dueInPeriod(i.paymentDueDate)))
+        .map((i) => ({
+          id: i.id,
+          processId: p.id,
+          number: p.number,
+          title: p.description,
+          startDate: p.createdAt,
+          installmentLabel: i.title?.trim() || (p.installments.length > 1 ? `Parcela ${i.position}` : null),
+          value: Number(i.value),
+          paymentDueDate: i.paymentDueDate,
+          paidAt: i.paidAt,
+        }));
+    })
     .sort((a, b) => a.startDate.getTime() - b.startDate.getTime() || a.number - b.number);
 
   return { rows, summary: summarizePayments(rows.filter((r) => !r.noValue)) };

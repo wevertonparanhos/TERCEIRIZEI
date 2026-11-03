@@ -71,6 +71,7 @@ export function ClientReportBuilder({
   contractNumber,
   rows,
   hasUndatedWarning,
+  criterion = "abertas",
 }: {
   clientName: string;
   periodTitle: string;
@@ -84,6 +85,8 @@ export function ClientReportBuilder({
   contractNumber?: number | null;
   rows: ReportRow[];
   hasUndatedWarning?: string | null;
+  /** o que o relatório traz: tarefas abertas no mês, pagamentos com vencimento no mês, ou os dois */
+  criterion?: "abertas" | "vencimento" | "ambos";
 }) {
   const [showPending, setShowPending] = useState(true);
   const [showPaid, setShowPaid] = useState(false);
@@ -373,7 +376,7 @@ export function ClientReportBuilder({
 
           <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: `repeat(${totals.atrasado > 0 ? 4 : 3}, 1fr)`, gap: 10 }}>
             {[
-              { label: `Demandas do período (${finalPeriod.length})`, value: brl.format(totals.demandas), color: NAVY },
+              { label: `${criterion === "vencimento" ? "Vencimentos do período" : "Demandas do período"} (${finalPeriod.length})`, value: brl.format(totals.demandas), color: NAVY },
               { label: "Já pago", value: brl.format(totals.pago), color: "#047857" },
               { label: "A pagar", value: brl.format(totals.aPagar), color: BLUE },
               ...(totals.atrasado > 0 ? [{ label: "Em atraso", value: brl.format(totals.atrasado), color: "#B91C1C" }] : []),
@@ -386,7 +389,16 @@ export function ClientReportBuilder({
           </div>
 
           {(showPending || showPaid || showNoValue) &&
-            renderTable(`Demandas solicitadas — ${periodTitle}`, "Serviços iniciados no período, com a previsão de pagamento de cada um.", visiblePeriod, "periodo")}
+            renderTable(
+              criterion === "vencimento" ? `Pagamentos com vencimento — ${periodTitle}` : criterion === "ambos" ? `Demandas e vencimentos — ${periodTitle}` : `Demandas solicitadas — ${periodTitle}`,
+              criterion === "vencimento"
+                ? "Pagamentos que vencem no período, de qualquer demanda, com a data de início de cada uma."
+                : criterion === "ambos"
+                  ? "Serviços iniciados no período e pagamentos que vencem no período."
+                  : "Serviços iniciados no período, com a previsão de pagamento de cada um.",
+              visiblePeriod,
+              "periodo"
+            )}
           {showOverdue && visibleOverdue.length > 0 &&
             renderTable("Pagamentos em atraso", "Parcelas de outros períodos que não foram pagas até a data prevista.", visibleOverdue, "atraso")}
 

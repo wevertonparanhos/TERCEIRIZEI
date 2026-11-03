@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolvePeriod, summarizePayments } from "./period";
+import { includeInReport, parseReportCriterion, resolvePeriod, summarizePayments } from "./period";
 
 const REF_NOW = new Date("2026-08-20T15:00:00Z"); // quinta-feira
 
@@ -110,5 +110,23 @@ describe("summarizePayments — atraso só depois do dia do vencimento", () => {
     );
     expect(s.pendente).toBe(100);
     expect(s.atrasado).toBe(50);
+  });
+});
+
+describe("critério do relatório mensal do cliente", () => {
+  it("abertas: só pelo mês de abertura; vencimento: só pelo vencimento; ambos: qualquer um", () => {
+    expect(includeInReport("abertas", true, false)).toBe(true);
+    expect(includeInReport("abertas", false, true)).toBe(false);
+    expect(includeInReport("vencimento", false, true)).toBe(true);
+    expect(includeInReport("vencimento", true, false)).toBe(false);
+    expect(includeInReport("ambos", true, false)).toBe(true);
+    expect(includeInReport("ambos", false, true)).toBe(true);
+    expect(includeInReport("ambos", false, false)).toBe(false);
+  });
+
+  it("valor desconhecido volta para abertas no mês", () => {
+    expect(parseReportCriterion("vencimento")).toBe("vencimento");
+    expect(parseReportCriterion("qualquer")).toBe("abertas");
+    expect(parseReportCriterion(undefined)).toBe("abertas");
   });
 });

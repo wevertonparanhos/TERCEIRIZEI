@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@terceirizei/db";
 import { getCurrentUser } from "@/lib/rbac";
 import { PeriodFilter } from "@/modules/finance/period-filter";
-import { resolvePeriod, PERIOD_KEYS, type PeriodKey } from "@/modules/finance/period";
+import { resolvePeriod, PERIOD_KEYS, REPORT_CRITERIA, REPORT_CRITERION_LABELS, parseReportCriterion, type PeriodKey } from "@/modules/finance/period";
 import { loadStartLedger, loadOverdueForClient, todayBRT } from "@/modules/finance/ledger";
 import { billingCycle } from "@/modules/finance/business-days";
 import { ClientReportBuilder, type ReportRow } from "@/modules/finance/client-report-builder";
@@ -16,7 +16,7 @@ export default async function ClienteRelatorioPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { periodo?: string; inicio?: string; fim?: string; mes?: string };
+  searchParams: { periodo?: string; inicio?: string; fim?: string; mes?: string; criterio?: string };
 }) {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -40,8 +40,9 @@ export default async function ClienteRelatorioPage({
       }
     : resolvePeriod(periodKey, searchParams.inicio, searchParams.fim);
 
-  // Demandas INICIADAS no período (o início é a data de criação), com valor e previsão de pagamento.
-  const { rows } = await loadStartLedger({ tenantId: user.tenantId, clientId: client.id, start, end });
+  // Critério do relatório: tarefas abertas no período (data de criação), pagamentos com vencimento no período, ou os dois.
+  const criterion = parseReportCriterion(searchParams.criterio);
+  const { rows } = await loadStartLedger({ tenantId: user.tenantId, clientId: client.id, start, end, criterion });
   // Atrasados de TODOS os meses: tudo que o cliente não pagou até a data de pagamento prevista.
   const overdueAll = await loadOverdueForClient({ tenantId: user.tenantId, clientId: client.id });
   const monthIds = new Set(rows.map((r) => r.id));
@@ -107,7 +108,7 @@ export default async function ClienteRelatorioPage({
         <div>
           <h1 className="text-2xl font-bold text-ink">Relatório para o cliente</h1>
           <p className="text-sm text-muted">
-            {client.name} · demandas iniciadas no período, com a previsão de pagamento de cada uma
+            {client.name} · {REPORT_CRITERION_LABELS[criterion].toLowerCase()}, com a previsão de pagamento de cada uma
           </p>
         </div>
 
@@ -123,6 +124,23 @@ export default async function ClienteRelatorioPage({
               defaultValue={mes ?? ""}
               className="h-9 rounded-lg border border-border-strong bg-surface px-3 text-sm text-ink"
             />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="criterio" className="block text-xs font-medium text-muted">
+              O que trazer
+            </label>
+            <select
+              id="criterio"
+              name="criterio"
+              defaultValue={criterion}
+              className="h-9 rounded-lg border border-border-strong bg-surface px-3 text-sm text-ink"
+            >
+              {REPORT_CRITERIA.map((c) => (
+                <option key={c} value={c}>
+                  {REPORT_CRITERION_LABELS[c]}
+                </option>
+              ))}
+            </select>
           </div>
           <button type="submit" className="h-9 rounded-lg bg-accent px-4 text-sm font-medium text-white hover:bg-accent/90">
             Gerar
@@ -140,6 +158,7 @@ export default async function ClienteRelatorioPage({
         dueDateLabel={cycle ? dueBR(cycle.dueDate) : null}
         dueBusinessDay={dueBusinessDay}
         contractNumber={acceptedProposal?.number ?? null}
+        criterion={criterion}
         rows={reportRows}
         hasUndatedWarning={
           undatedOpen.length > 0

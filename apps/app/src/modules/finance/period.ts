@@ -64,6 +64,27 @@ export function resolvePeriod(key: PeriodKey, customStart?: string, customEnd?: 
   }
 }
 
+/** Critério do relatório mensal do cliente: tarefas abertas no mês, pagamentos com vencimento no mês, ou os dois. */
+export const REPORT_CRITERIA = ["abertas", "vencimento", "ambos"] as const;
+export type ReportCriterion = (typeof REPORT_CRITERIA)[number];
+
+export const REPORT_CRITERION_LABELS: Record<ReportCriterion, string> = {
+  abertas: "Tarefas abertas no mês",
+  vencimento: "Pagamentos com vencimento no mês",
+  ambos: "Abertas no mês + vencimento no mês",
+};
+
+export function parseReportCriterion(value: string | undefined | null): ReportCriterion {
+  return REPORT_CRITERIA.includes(value as ReportCriterion) ? (value as ReportCriterion) : "abertas";
+}
+
+/** Um pagamento entra no relatório conforme o critério: tarefa aberta no período e/ou vencimento dentro do período. */
+export function includeInReport(criterion: ReportCriterion, openedInPeriod: boolean, dueInPeriod: boolean): boolean {
+  if (criterion === "abertas") return openedInPeriod;
+  if (criterion === "vencimento") return dueInPeriod;
+  return openedInPeriod || dueInPeriod;
+}
+
 export type PaymentSummary = {
   total: number;
   recebido: number;
