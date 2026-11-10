@@ -688,6 +688,33 @@ export async function deleteProcess(processId: string) {
   FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
 }
 
+/** Altera o nome da tarefa. Quem pode editar a tarefa (administrador/gestor, ou o operacional responsável) pode renomear. */
+export async function renameProcess(processId: string, title: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireStaff();
+  let process;
+  try {
+    process = await loadProcessForWrite(processId, user);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Você não pode alterar esta tarefa." };
+  }
+  const next = title.trim().replace(/s+/g, " ");
+  if (next.length < 3) return { ok: false, error: "O nome precisa ter pelo menos 3 letras." };
+  if (next.length > 200) return { ok: false, error: "O nome pode ter até 200 caracteres." };
+  if (next === process.description) return { ok: true };
+
+  await prisma.process.update({ where: { id: processId }, data: { description: next } });
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.rename",
+    entityType: "process",
+    entityId: processId,
+    description: `Tarefa #${process.number} renomeada de "${process.description}" para "${next}".`,
+  });
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+  return { ok: true };
+}
+
 /** Altera a data de início (= criação) da tarefa. É ela que decide em que mês a tarefa entra no relatório
  * financeiro do cliente, então a equipe pode corrigir quando a tarefa foi cadastrada em outra data. Só administrador/gestor. */
 export async function setProcessStartDate(processId: string, date: string): Promise<{ ok: true } | { ok: false; error: string }> {

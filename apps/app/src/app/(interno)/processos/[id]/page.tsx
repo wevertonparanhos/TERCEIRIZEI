@@ -38,6 +38,7 @@ import { MarkCommentsRead } from "@/modules/processes/mark-comments-read";
 import { Impediments } from "@/modules/processes/impediments";
 import { Installments } from "@/modules/processes/installments";
 import { ProcessPresence } from "@/modules/processes/process-presence";
+import { EditableTitle } from "@/modules/processes/editable-title";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
 import { Deliverables } from "@/modules/processes/deliverables";
@@ -54,6 +55,7 @@ import {
   setCommentClientVisible,
   setProcessServiceTypes,
   setProcessStartDate,
+  renameProcess,
   createCategory,
   setProcessValue,
   updateInstallment,
@@ -294,7 +296,7 @@ export default async function ProcessoDetalhePage({
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-3xl font-bold leading-tight text-ink">{process.description}</h1>
+            <EditableTitle title={process.description} canEdit={canWrite} rename={renameProcess.bind(null, process.id)} />
             <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
               <span className="font-mono">#{process.number}</span>
               <span>· {process.client.name}</span>
