@@ -16,6 +16,9 @@ const BASE_URL = "https://app.terceirizeibpo.com.br";
 const PASTA = "Backups Terceirizei OS";
 const MANTER_DIAS = 30;
 const LINHAS_POR_PAGINA = 500;
+// Falhas passageiras (DNS, 5xx, lentidão) são comuns na rede do Google: tenta de novo antes de desistir.
+const TENTATIVAS = 4;
+const ESPERA_SEGUNDOS = [5, 15, 30];
 
 function executarBackup() {
   try {
@@ -74,14 +77,30 @@ function criarGatilho() {
 }
 
 function buscar_(caminho, token) {
-  const resposta = UrlFetchApp.fetch(BASE_URL + caminho, {
-    headers: { Authorization: "Bearer " + token },
-    muteHttpExceptions: true,
-  });
-  if (resposta.getResponseCode() !== 200) {
-    throw new Error("HTTP " + resposta.getResponseCode() + " em " + caminho + ": " + resposta.getContentText().slice(0, 200));
+  let ultimoErro = null;
+  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+    try {
+      const resposta = UrlFetchApp.fetch(BASE_URL + caminho, {
+        headers: { Authorization: "Bearer " + token },
+        muteHttpExceptions: true,
+      });
+      const codigo = resposta.getResponseCode();
+      if (codigo === 200) return JSON.parse(resposta.getContentText());
+
+      const erro = new Error("HTTP " + codigo + " em " + caminho + ": " + resposta.getContentText().slice(0, 200));
+      // 4xx (token errado, tabela inválida...) é erro de configuração: repetir não resolve.
+      if (codigo < 500 && codigo !== 408 && codigo !== 429) {
+        erro.definitivo = true;
+        throw erro;
+      }
+      ultimoErro = erro;
+    } catch (erro) {
+      if (erro.definitivo) throw erro;
+      ultimoErro = erro; // erro de DNS, tempo esgotado etc.
+    }
+    if (tentativa < TENTATIVAS) Utilities.sleep(ESPERA_SEGUNDOS[tentativa - 1] * 1000);
   }
-  return JSON.parse(resposta.getContentText());
+  throw new Error("Falhou após " + TENTATIVAS + " tentativas em " + caminho + ": " + ultimoErro);
 }
 
 function pasta_() {
