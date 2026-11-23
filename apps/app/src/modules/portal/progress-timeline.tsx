@@ -18,6 +18,7 @@ export function ProgressTimeline({
   checklist?: { done: number; total: number } | null;
 }) {
   const { percent, path, currentIndex, paused, pauseLabel, finished } = taskProgress(stages, currentStageId, history);
+  const horizontal = path.length <= 6;
 
   return (
     <section aria-label="Progresso da tarefa" className="rounded-2xl border border-border/70 bg-surface-alt/40 p-4 sm:p-5">
@@ -41,21 +42,29 @@ export function ProgressTimeline({
         </p>
       )}
 
-      <ol className="mt-5 grid gap-3 sm:auto-cols-fr sm:grid-flow-col sm:gap-2">
+      {/* Poucas etapas cabem lado a lado; com muitas (o quadro tem até 17), as legendas se sobrepõem — aí a lista fica na vertical. */}
+      <ol className={horizontal ? "mt-5 grid gap-3 sm:auto-cols-fr sm:grid-flow-col sm:gap-2" : "mt-5"}>
         {path.map((stage, i) => {
           const done = i < currentIndex || (finished && i === currentIndex);
           const current = i === currentIndex && !finished && !paused;
+          const last = i === path.length - 1;
           return (
-            <li key={stage.id} className="flex items-start gap-3 sm:flex-col sm:items-center sm:text-center">
+            <li
+              key={stage.id}
+              className={horizontal ? "flex items-start gap-3 sm:flex-col sm:items-center sm:text-center" : "relative flex items-start gap-3 pb-4 last:pb-0"}
+            >
+              {!horizontal && !last && (
+                <span aria-hidden className={`absolute left-[13px] top-7 h-[calc(100%-1.75rem)] w-0.5 ${done ? "bg-emerald-500/60" : "bg-border"}`} />
+              )}
               <span
-                className={`flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 text-xs font-bold ${
+                className={`relative flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 text-xs font-bold ${
                   done ? "border-emerald-500 bg-emerald-500 text-white" : current ? "border-accent bg-surface text-accent ring-4 ring-accent/20" : "border-border-strong bg-surface text-muted-soft"
                 }`}
               >
                 {done ? <Check className="h-4 w-4" /> : i + 1}
               </span>
-              <div className="min-w-0">
-                <p className={`text-xs leading-tight ${current ? "font-bold text-ink" : done ? "font-medium text-ink" : "text-muted"}`}>{stage.label}</p>
+              <div className="min-w-0 pt-0.5 [overflow-wrap:anywhere]">
+                <p className={`text-sm leading-tight ${horizontal ? "sm:text-xs" : ""} ${current ? "font-bold text-ink" : done ? "font-medium text-ink" : "text-muted"}`}>{stage.label}</p>
                 {reachedAt[stage.id] && <p className="mt-0.5 text-[11px] text-muted-soft">{reachedAt[stage.id]}</p>}
                 {current && <p className="mt-0.5 text-[11px] font-semibold text-accent">Etapa atual</p>}
               </div>
