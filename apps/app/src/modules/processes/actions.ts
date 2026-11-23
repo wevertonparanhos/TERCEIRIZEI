@@ -14,6 +14,7 @@ import {
 } from "@/lib/validations/process";
 import { addDays } from "@/modules/processes/labels";
 import { parseStartDate } from "@/modules/processes/start-date";
+import { excerptOf, normalizeTitle, parseMoneyInput } from "@/modules/processes/text-input";
 import { sendEmail } from "@/lib/email";
 import { syncInvoicesAfterInstallmentChange } from "@/modules/finance/sync";
 import { deliverableRespondedEmail } from "@/lib/email-templates";
@@ -475,15 +476,6 @@ export type InstallmentResult = { ok: true } | { ok: false; error: string };
 
 export type InstallmentInput = { title?: string; value: string; paymentDueDate: string; notes?: string; paidAt?: string };
 
-/** Valor digitado em reais (aceita vírgula e ponto de milhar: 1.500,50). */
-function parseInstallmentValue(raw: string): number | null {
-  const text = String(raw ?? "").trim();
-  if (!text) return null;
-  const normalized = text.includes(",") ? text.replace(/./g, "").replace(",", ".") : text;
-  const n = Number(normalized);
-  return Number.isFinite(n) && n > 0 && n < 100_000_000 ? Math.round(n * 100) / 100 : null;
-}
-
 function cleanText(value: string | undefined, max: number): string | null {
   const t = (value ?? "").trim();
   return t ? t.slice(0, max) : null;
@@ -495,7 +487,7 @@ export async function addInstallment(processId: string, input: InstallmentInput)
   const user = await requireStaff();
   await loadProcessForWrite(processId, user);
 
-  const numericValue = parseInstallmentValue(input.value);
+  const numericValue = parseMoneyInput(input.value);
   if (numericValue === null) return { ok: false, error: "Informe um valor maior que zero." };
 
   const last = await prisma.processInstallment.findFirst({
@@ -620,7 +612,7 @@ export async function updateInstallment(processId: string, installmentId: string
   const user = await requireStaff();
   await loadProcessForWrite(processId, user);
 
-  const numericValue = parseInstallmentValue(input.value);
+  const numericValue = parseMoneyInput(input.value);
   if (numericValue === null) return { ok: false, error: "Informe um valor maior que zero." };
   const installment = await prisma.processInstallment.findFirst({ where: { id: installmentId, processId } });
   if (!installment) return { ok: false, error: "Pagamento não encontrado. Atualize a página." };
@@ -697,7 +689,7 @@ export async function renameProcess(processId: string, title: string): Promise<{
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Você não pode alterar esta tarefa." };
   }
-  const next = title.trim().replace(/s+/g, " ");
+  const next = normalizeTitle(title);
   if (next.length < 3) return { ok: false, error: "O nome precisa ter pelo menos 3 letras." };
   if (next.length > 200) return { ok: false, error: "O nome pode ter até 200 caracteres." };
   if (next === process.description) return { ok: true };
@@ -1143,6 +1135,40 @@ async function requireInfoAccess(processId: string) {
     throw new Error("Você não é responsável por esta tarefa.");
   }
   return user;
+}
+
+/** Apaga um comentário da tarefa. Administrador e gestor apagam qualquer um (inclusive do cliente);
+ * o operacional só os que ele mesmo escreveu. */
+export async function deleteProcessComment(commentId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) {
+    return { ok: false, error: "Você não tem acesso a este módulo." };
+  }
+  const comment = await prisma.processComment.findFirst({
+    where: { id: commentId, process: { tenantId: user.tenantId } },
+    select: { id: true, processId: true, authorId: true, body: true, process: { select: { number: true } }, author: { select: { name: true } } },
+  });
+  if (!comment) return { ok: false, error: "Comentário não encontrado. Atualize a página." };
+  if (user.role === "OPERACIONAL" && comment.authorId !== user.id) {
+    return { ok: false, error: "Você só pode apagar os seus próprios comentários." };
+  }
+
+  await prisma.processComment.delete({ where: { id: commentId } });
+
+  const excerpt = excerptOf(comment.body, 80);
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.comment_deleted",
+    entityType: "process",
+    entityId: comment.processId,
+    description: `Comentário de ${comment.author.name} apagado da tarefa #${comment.process.number}: "${excerpt}".`,
+  });
+  revalidatePath(`/processos/${comment.processId}`);
+  revalidatePath(`/portal/processos/${comment.processId}`);
+  revalidatePath("/processos");
+  revalidatePath("/dashboard");
+  return { ok: true };
 }
 
 /** Equipe decide se um comentário aparece (ou não) para o cliente no portal. */

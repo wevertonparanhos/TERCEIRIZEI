@@ -53,6 +53,7 @@ import {
   deleteChecklistItem,
   addProcessComment,
   setCommentClientVisible,
+  deleteProcessComment,
   setProcessServiceTypes,
   setProcessStartDate,
   renameProcess,
@@ -501,7 +502,9 @@ export default async function ProcessoDetalhePage({
                           authorIsClient: c.author.role.name === "CLIENTE",
                           mentionedNames: c.mentions.map((m) => m.mentionedUser.name),
                           clientVisible: c.clientVisible,
+                          canDelete: user.role === "ADMIN" || user.role === "GESTOR" || c.authorId === user.id,
                         }))}
+                        deleteComment={deleteProcessComment}
                         mentionable={staff}
                         addComment={addProcessComment}
                         showVisibility

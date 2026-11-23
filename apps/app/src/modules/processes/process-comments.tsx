@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -13,6 +14,8 @@ type Comment = {
   authorIsClient: boolean;
   mentionedNames: string[];
   clientVisible?: boolean;
+  /** quem pode apagar este comentário (calculado no servidor) */
+  canDelete?: boolean;
 };
 type StaffUser = { id: string; name: string };
 
@@ -54,6 +57,7 @@ export function ProcessComments({
   mentionable,
   showVisibility = false,
   setCommentVisibility,
+  deleteComment,
 }: {
   processId: string;
   comments: Comment[];
@@ -62,6 +66,8 @@ export function ProcessComments({
   /** Equipe: mostra se cada comentário é interno ou visível ao cliente e permite escolher ao comentar. */
   showVisibility?: boolean;
   setCommentVisibility?: (commentId: string, visible: boolean) => Promise<void>;
+  /** Equipe: apagar comentário (só aparece o botão nos comentários que a pessoa pode apagar). */
+  deleteComment?: (commentId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -71,6 +77,24 @@ export function ProcessComments({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareWithClient, setShareWithClient] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function removeComment(commentId: string) {
+    if (!deleteComment) return;
+    setDeleting(commentId);
+    setError(null);
+    try {
+      const result = await deleteComment(commentId);
+      if (!result.ok) setError(result.error);
+      setConfirmDelete(null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível apagar o comentário.");
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   async function toggleVisibility(commentId: string, visible: boolean) {
     if (!setCommentVisibility) return;
@@ -158,6 +182,39 @@ export function ProcessComments({
                   >
                     {comment.clientVisible ? "Visível ao cliente" : "Interno"}
                   </button>
+                )}
+                {deleteComment && comment.canDelete && (
+                  <span className={`flex items-center gap-1.5 ${showVisibility && !comment.authorIsClient ? "" : "ml-auto"}`}>
+                    {confirmDelete === comment.id ? (
+                      <>
+                        <span className="text-[11px] text-muted">Apagar?</span>
+                        <button
+                          type="button"
+                          disabled={deleting === comment.id}
+                          onClick={() => removeComment(comment.id)}
+                          className="rounded-md bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 dark:bg-red-500/10 dark:text-red-400"
+                        >
+                          {deleting === comment.id ? "..." : "Sim"}
+                        </button>
+                        <button type="button" onClick={() => setConfirmDelete(null)} className="rounded-md px-2 py-0.5 text-[11px] font-medium text-muted hover:text-ink">
+                          Não
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmDelete(comment.id);
+                          setError(null);
+                        }}
+                        title="Apagar comentário"
+                        aria-label="Apagar comentário"
+                        className="rounded-md p-1 text-muted-soft transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </span>
                 )}
               </div>
               <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink">
