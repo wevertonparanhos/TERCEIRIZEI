@@ -14,7 +14,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { AlertTriangle, CalendarClock, ClipboardList, MessageSquare, Radio, ShieldAlert, Wallet, type LucideIcon } from "lucide-react";
+import { AlertTriangle, BellRing, CalendarClock, ClipboardList, MessageSquare, Radio, ShieldAlert, Wallet, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, isDueToday, type PaymentStatus } from "@/modules/processes/labels";
 import { matchesSearch } from "@/modules/processes/search";
@@ -39,11 +39,13 @@ export type KanbanCard = {
   hasOpenImpediment: boolean;
   activePresenceNames: string[];
   requestedByClient?: boolean;
+  /** Pede verificação agora: lembrete vencido/de hoje ou tarefa parada além do prazo da etapa (texto curto para o cartão). */
+  checkNote?: string | null;
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
-type CardFilter = "all" | "entregaHoje" | "atrasadas" | "pgtoAtrasado" | "impedimento" | "comentario";
+type CardFilter = "all" | "entregaHoje" | "atrasadas" | "pgtoAtrasado" | "impedimento" | "comentario" | "verificar";
 
 const FILTER_TEST: Record<Exclude<CardFilter, "all">, (c: KanbanCard) => boolean> = {
   entregaHoje: (c) => !!c.dueAt && isDueToday(new Date(c.dueAt)),
@@ -51,6 +53,7 @@ const FILTER_TEST: Record<Exclude<CardFilter, "all">, (c: KanbanCard) => boolean
   pgtoAtrasado: (c) => c.paymentStatus === "ATRASADO",
   impedimento: (c) => c.hasOpenImpediment,
   comentario: (c) => c.hasUnreadComment,
+  verificar: (c) => !!c.checkNote,
 };
 
 /** Indicador compacto que também é filtro: clicar mostra só as tarefas dele; clicar de novo (ou em Total) volta a todas. */
@@ -154,6 +157,12 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
       <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-soft">{card.clientName}</p>
       <p className="text-sm font-semibold leading-snug text-ink">{card.title}</p>
       <p className="mt-0.5 text-[11px] text-muted-soft">{card.serviceTypeName}</p>
+      {card.checkNote && (
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+          <BellRing className="mt-0.5 h-3 w-3 flex-none" />
+          <span className="min-w-0 [overflow-wrap:anywhere]">{card.checkNote}</span>
+        </p>
+      )}
 
       <div className="mt-2.5 flex items-center justify-between">
         <div className="flex -space-x-1.5" title={card.assigneeNames.length > 0 ? card.assigneeNames.join(", ") : "Sem responsável"}>
@@ -281,6 +290,7 @@ export function KanbanBoard({
     pgtoAtrasado: items.filter(FILTER_TEST.pgtoAtrasado).length,
     impedimento: items.filter(FILTER_TEST.impedimento).length,
     comentario: items.filter(FILTER_TEST.comentario).length,
+    verificar: items.filter(FILTER_TEST.verificar).length,
   };
   const toggle = (f: CardFilter) => setFilterText(filter === f ? "" : f === "all" ? "" : f);
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null);
@@ -324,6 +334,7 @@ export function KanbanBoard({
           <KpiFilterChip value={counts.pgtoAtrasado} label="Pgto. atrasado" icon={Wallet} tone="danger" active={filter === "pgtoAtrasado"} onClick={() => toggle("pgtoAtrasado")} />
           <KpiFilterChip value={counts.impedimento} label="Impedimento" icon={ShieldAlert} tone="danger" active={filter === "impedimento"} onClick={() => toggle("impedimento")} />
           <KpiFilterChip value={counts.comentario} label="Comentário não lido" icon={MessageSquare} tone="danger" active={filter === "comentario"} onClick={() => toggle("comentario")} />
+          <KpiFilterChip value={counts.verificar} label="Verificar" icon={BellRing} tone="danger" active={filter === "verificar"} onClick={() => toggle("verificar")} />
         </div>
         <div className="flex w-full items-center gap-3 sm:w-auto">
           {(searching || filtering) && (

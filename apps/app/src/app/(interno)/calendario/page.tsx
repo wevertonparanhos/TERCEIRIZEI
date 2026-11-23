@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/rbac";
 import { CalendarNav } from "@/modules/calendar/calendar-nav";
 import { CalendarGrid } from "@/modules/calendar/calendar-grid";
 import { resolveMonthKey, getMonthGridRange } from "@/modules/calendar/month";
+import { loadReminderOverview } from "@/modules/reminders/data";
 import { buildCalendarEvents, groupEventsByDay, EVENT_TYPE_LABELS, EVENT_TYPE_DOT, EVENT_TYPES } from "@/modules/calendar/events";
 
 export default async function CalendarioPage({ searchParams }: { searchParams: { mes?: string } }) {
@@ -70,6 +71,9 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
     }),
   ]);
 
+  // Lembretes marcados nas tarefas (os que a pessoa pode ver); se falhar, o calendário segue sem eles.
+  const reminders = isFinanceiro ? [] : (await loadReminderOverview(user).catch(() => ({ reminders: [] }))).reminders;
+
   const events = buildCalendarEvents({
     recurringTasks: recurringTasks.map((t) => ({ id: t.id, title: t.title, nextDueAt: t.nextDueAt, clientName: t.client.name })),
     processDeadlines: processDeadlines.map((p) => ({
@@ -94,6 +98,9 @@ export default async function CalendarioPage({ searchParams }: { searchParams: {
       clientName: d.client.name,
       processId: d.processId,
     })),
+    reminders: reminders
+      .filter((r) => r.remindOn.getTime() >= start.getTime() && r.remindOn.getTime() <= end.getTime())
+      .map((r) => ({ id: r.id, processId: r.processId, number: r.processNumber, description: r.processTitle, remindOn: r.remindOn, note: r.note, clientName: r.clientName })),
     licenseDeadlines: licenseDeadlines.map((l) => ({
       id: l.id,
       name: l.name,

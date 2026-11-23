@@ -10,7 +10,7 @@ import {
   renameStage,
   deleteStage,
   moveStage,
-  setStageProgress,
+  setStageProgress, setStageAlertDays,
   createWorkspace,
   renameWorkspace,
   deleteWorkspace,
@@ -65,10 +65,12 @@ export default async function EtapasPage({ searchParams }: { searchParams: { are
             color: s.color,
             processCount: s._count.processes,
             progressPercent: s.progressPercent,
+            alertAfterDays: s.alertAfterDays,
             // sugestão automática (sem % definido); etapas de pausa não entram no cálculo
             autoPercent: stageKind(s.label) === "pause" ? null : taskProgress(stages.map((x) => ({ id: x.id, label: x.label, position: x.position })), s.id).percent,
           }))}
           setProgress={setStageProgress}
+          setAlertDays={setStageAlertDays}
           createStage={createStage.bind(null, activeWorkspace.id)}
           renameStage={renameStage}
           deleteStage={deleteStage}

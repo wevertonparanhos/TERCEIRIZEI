@@ -17,6 +17,18 @@ import {
 import { updateProcessStage, createWorkspace, createProcess, createCategory } from "@/modules/processes/actions";
 import { NewTaskWizard } from "@/modules/processes/process-wizard";
 import { ManageMenu } from "@/modules/processes/manage-menu";
+import { loadReminderOverview, type StageAlertItem } from "@/modules/reminders/data";
+import { daysLabel } from "@/modules/reminders/logic";
+
+/** Texto do aviso no cartão: o lembrete vencido (com a nota) ou, sem lembrete, a tarefa parada além do prazo da etapa. */
+function checkNoteFor(reminder: { note: string; count: number } | undefined, alert: StageAlertItem | undefined): string | null {
+  if (reminder) {
+    const base = reminder.note ? `Lembrete: ${reminder.note}` : "Lembrete: verificar esta tarefa";
+    return reminder.count > 1 ? `${base} (+${reminder.count - 1})` : base;
+  }
+  if (alert) return `Parada há ${daysLabel(alert.daysInStage)} em ${alert.stageLabel}`;
+  return null;
+}
 
 function KpiCard({
   value,
@@ -67,7 +79,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
 
   // Tudo que depende só da área ativa roda junto (antes a contagem de arquivadas
   // esperava sozinha uma ida ao banco antes das demais consultas).
-  const [archivedCount, wizardData, stages, processes] = await Promise.all([
+  const [archivedCount, wizardData, stages, processes, reminderOverview] = await Promise.all([
     activeWorkspace
       ? prisma.process.count({
           where: {
@@ -143,7 +155,18 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       },
       orderBy: { number: "desc" },
     }),
+    // Lembretes vencidos e tarefas paradas: se falhar, o quadro continua funcionando sem os avisos.
+    loadReminderOverview(user).catch(() => ({ reminders: [], stageAlerts: [], attentionCount: 0 })),
   ]);
+
+  const dueRemindersByProcess = new Map<string, { note: string; count: number }>();
+  for (const r of reminderOverview.reminders) {
+    if (r.timing === "futuro") continue;
+    const current = dueRemindersByProcess.get(r.processId);
+    if (current) current.count += 1;
+    else dueRemindersByProcess.set(r.processId, { note: r.note, count: 1 });
+  }
+  const stageAlertByProcess = new Map(reminderOverview.stageAlerts.map((a) => [a.processId, a]));
 
   const stageLabelById = new Map(stages.map((s) => [s.id, s.label]));
   const stageList: Stage[] = stages.map((s) => ({ id: s.id, label: s.label, color: s.color }));
@@ -168,6 +191,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       hasOpenImpediment: p.impediments.length > 0,
       activePresenceNames: p.presence.filter((pr) => isPresenceActive(pr.lastSeenAt)).map((pr) => pr.user.name),
       requestedByClient: p.requestedByClient,
+      checkNote: checkNoteFor(dueRemindersByProcess.get(p.id), stageAlertByProcess.get(p.id)),
     };
   });
 

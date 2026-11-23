@@ -1,6 +1,6 @@
 import { dayKeyFromDate } from "@/modules/calendar/month";
 
-export const EVENT_TYPES = ["recorrente", "prazo_processo", "pagamento", "documento", "vencimento_licenca"] as const;
+export const EVENT_TYPES = ["recorrente", "prazo_processo", "pagamento", "documento", "vencimento_licenca", "lembrete"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
@@ -9,6 +9,7 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   pagamento: "Pagamento",
   documento: "Documento solicitado",
   vencimento_licenca: "Vencimento de licença/certidão",
+  lembrete: "Lembrete",
 };
 
 // classes Tailwind completas (não geradas dinamicamente) para o dot + badge de cada tipo
@@ -18,6 +19,7 @@ export const EVENT_TYPE_DOT: Record<EventType, string> = {
   pagamento: "bg-emerald-500",
   documento: "bg-rose-500",
   vencimento_licenca: "bg-amber-500",
+  lembrete: "bg-orange-500",
 };
 
 export type CalendarEvent = {
@@ -37,6 +39,7 @@ export function buildCalendarEvents(
     payments: { id: string; processId: string; number: number; description: string; paymentDueDate: Date; clientName: string }[];
     documentRequests: { id: string; label: string; deadline: Date; clientName: string; processId: string | null }[];
     licenseDeadlines?: { id: string; name: string; expiresAt: Date; clientName: string }[];
+    reminders?: { id: string; processId: string; number: number; description: string; remindOn: Date; note: string; clientName: string }[];
   },
   now: Date = new Date()
 ): CalendarEvent[] {
@@ -87,6 +90,18 @@ export function buildCalendarEvents(
       clientName: l.clientName,
       href: "/licencas",
       overdue: l.expiresAt.getTime() < now.getTime(),
+    });
+  }
+
+  for (const r of input.reminders ?? []) {
+    events.push({
+      id: `lembrete-${r.id}`,
+      type: "lembrete",
+      date: r.remindOn,
+      title: `#${r.number} — ${(r.note || r.description).slice(0, 40)}`,
+      clientName: r.clientName,
+      href: `/processos/${r.processId}`,
+      overdue: r.remindOn.getTime() < now.getTime(),
     });
   }
 

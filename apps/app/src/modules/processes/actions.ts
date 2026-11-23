@@ -886,6 +886,19 @@ export async function setStageProgress(stageId: string, percent: number | null) 
   revalidatePath("/portal/processos");
 }
 
+/** Define (ou limpa, com null) depois de quantos dias parada nesta etapa a tarefa passa a ser cobrada em Lembretes. */
+export async function setStageAlertDays(stageId: string, days: number | null) {
+  const user = await requireManageAccess();
+  if (days !== null && (!Number.isInteger(days) || days < 1 || days > 365)) throw new Error("Use um número inteiro de dias, de 1 a 365.");
+
+  const result = await prisma.kanbanStage.updateMany({ where: { id: stageId, tenantId: user.tenantId }, data: { alertAfterDays: days } });
+  if (result.count === 0) throw new Error("Etapa não encontrada.");
+
+  revalidatePath("/processos/etapas");
+  revalidatePath("/processos");
+  revalidatePath("/lembretes");
+}
+
 export async function deleteStage(stageId: string) {
   const user = await requireManageAccess();
 

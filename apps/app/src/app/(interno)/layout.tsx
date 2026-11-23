@@ -19,12 +19,14 @@ import {
   Bell,
   Settings,
   Inbox,
+  BellRing,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/rbac";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 import { MobileMenu } from "@/components/mobile-menu";
+import { loadReminderOverview } from "@/modules/reminders/data";
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Administrador",
@@ -49,6 +51,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/dashboard", label: "Dashboard", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: LayoutDashboard },
       { href: "/processos", label: "Área de Trabalho", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: ClipboardList },
       { href: "/calendario", label: "Calendário", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Calendar },
+      { href: "/lembretes", label: "Lembretes", roles: ["ADMIN", "GESTOR", "OPERACIONAL"], icon: BellRing },
       { href: "/tarefas-recorrentes", label: "Tarefas Recorrentes", roles: ["ADMIN", "GESTOR", "OPERACIONAL"], icon: Repeat },
       { href: "/propostas", label: "Propostas", roles: ["ADMIN", "GESTOR", "FINANCEIRO"], icon: FileSignature },
     ],
@@ -96,6 +99,11 @@ export default async function InternoLayout({ children }: { children: React.Reac
     ? await prisma.portalRequest.count({ where: { tenantId: user.tenantId, status: "PENDENTE" } })
     : 0;
 
+  // Lembretes vencidos e tarefas paradas (selo no menu); se algo falhar aqui, o menu continua funcionando.
+  const reminderAttention = await loadReminderOverview(user)
+    .then((o) => o.attentionCount)
+    .catch(() => 0);
+
   const navGroups: NavGroup[] = NAV_GROUPS.map((group) => ({
     label: group.label,
     items: group.items
@@ -104,7 +112,7 @@ export default async function InternoLayout({ children }: { children: React.Reac
         href: item.href,
         label: item.label,
         icon: <item.icon className="h-4 w-4" />,
-        badge: item.href === "/pedidos" ? pendingRequests : undefined,
+        badge: item.href === "/pedidos" ? pendingRequests : item.href === "/lembretes" ? reminderAttention : undefined,
       })),
   })).filter((group) => group.items.length > 0);
 

@@ -38,6 +38,9 @@ import { MarkCommentsRead } from "@/modules/processes/mark-comments-read";
 import { Impediments } from "@/modules/processes/impediments";
 import { Installments } from "@/modules/processes/installments";
 import { ProcessPresence } from "@/modules/processes/process-presence";
+import { RemindersCard } from "@/modules/reminders/reminders-card";
+import { brtDay, reminderTiming } from "@/modules/reminders/logic";
+import { completeReminder, createReminder, deleteReminder, snoozeReminder } from "@/modules/reminders/actions";
 import { EditableTitle } from "@/modules/processes/editable-title";
 import { DocumentList } from "@/modules/documents/document-list";
 import { DocumentRequests } from "@/modules/documents/document-requests";
@@ -154,6 +157,7 @@ export default async function ProcessoDetalhePage({
       },
       installments: { orderBy: { position: "asc" } },
       presence: { include: { user: { select: { id: true, name: true } } } },
+      reminders: { where: { doneAt: null }, orderBy: [{ remindOn: "asc" }, { createdAt: "asc" }], include: { createdBy: { select: { name: true } } } },
       deliverables: {
         orderBy: { createdAt: "desc" },
         include: { document: { select: { id: true, name: true } } },
@@ -575,6 +579,24 @@ export default async function ProcessoDetalhePage({
                   clearPresence={clearPresence}
                 />
               </div>
+            )}
+            {user.role !== "FINANCEIRO" && (
+              <RemindersCard
+                processId={process.id}
+                canWrite={canWrite}
+                todayIso={brtDay(new Date()).toISOString().slice(0, 10)}
+                reminders={process.reminders.map((r) => ({
+                  id: r.id,
+                  remindOn: r.remindOn.toISOString().slice(0, 10),
+                  note: r.note,
+                  createdByName: r.createdBy.name,
+                  timing: reminderTiming(r.remindOn, brtDay(new Date())),
+                }))}
+                create={createReminder}
+                complete={completeReminder}
+                snooze={snoozeReminder}
+                remove={deleteReminder}
+              />
             )}
             <ScheduleCard createdAt={process.createdAt.toISOString()} setStartDate={["ADMIN", "GESTOR"].includes(user.role) ? setProcessStartDate.bind(null, process.id) : undefined} />
           </aside>

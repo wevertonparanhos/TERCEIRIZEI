@@ -15,6 +15,8 @@ type Stage = {
   progressPercent: number | null;
   /** % que o sistema calcularia sozinho (null = etapa de pausa, sem %) */
   autoPercent: number | null;
+  /** Cobrar tarefas paradas nesta etapa por mais de N dias (null = sem alerta) */
+  alertAfterDays: number | null;
 };
 
 export function StageManager({
@@ -24,6 +26,7 @@ export function StageManager({
   deleteStage,
   moveStage,
   setProgress,
+  setAlertDays,
 }: {
   stages: Stage[];
   createStage: (label: string) => Promise<void>;
@@ -31,6 +34,7 @@ export function StageManager({
   deleteStage: (stageId: string) => Promise<void>;
   moveStage: (stageId: string, direction: "up" | "down") => Promise<void>;
   setProgress: (stageId: string, percent: number | null) => Promise<void>;
+  setAlertDays: (stageId: string, days: number | null) => Promise<void>;
 }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -73,8 +77,22 @@ export function StageManager({
     await run(() => setProgress(stage.id, value));
   }
 
+  async function handleAlert(stage: Stage, raw: string) {
+    const value = raw.trim() === "" ? null : Number(raw);
+    if (value !== null && (!Number.isInteger(value) || value < 1 || value > 365)) {
+      setError("Use um número inteiro de dias, de 1 a 365 (ou deixe vazio para não cobrar).");
+      return;
+    }
+    if (value === stage.alertAfterDays) return;
+    await run(() => setAlertDays(stage.id, value));
+  }
+
   return (
     <div>
+      <p className="mb-3 rounded-lg bg-surface-alt px-3 py-2 text-xs text-ink">
+        <b>Cobrar após (dias)</b>: se uma tarefa ficar parada nesta etapa por mais dias que o número informado, ela aparece em <b>Lembretes</b>, no quadro e no aviso do
+        menu, para ninguém esquecer. Deixe vazio nas etapas que não precisam de cobrança. Útil nas etapas que esperam resposta de um órgão.
+      </p>
       <p className="mb-3 rounded-lg bg-accent-soft px-3 py-2 text-xs text-ink">
         <b>% de conclusão</b>: o que o cliente vê no portal quando a tarefa está na etapa. Deixe vazio para o sistema calcular pela posição da etapa
         (o número cinza é a sugestão). Etapas de pausa, como Paralisadas e Suspensas, não têm %: a tarefa mantém o da última etapa por onde passou.
@@ -129,6 +147,26 @@ export function StageManager({
                     %
                   </label>
                 )}
+                <label className="flex w-32 items-center justify-end gap-1 text-xs text-muted" title="Cobrar tarefas paradas nesta etapa por mais de N dias">
+                  cobrar após
+                  <input
+                    key={`${stage.id}-alert-${stage.alertAfterDays ?? "none"}`}
+                    type="number"
+                    min={1}
+                    max={365}
+                    inputMode="numeric"
+                    aria-label={`Cobrar após quantos dias na etapa ${stage.label}`}
+                    defaultValue={stage.alertAfterDays ?? ""}
+                    placeholder="—"
+                    disabled={busy}
+                    onBlur={(e) => handleAlert(stage, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    className="h-7 w-12 rounded-md border border-border-strong bg-surface px-1.5 text-right text-xs text-ink placeholder:text-muted-soft"
+                  />
+                  d
+                </label>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"

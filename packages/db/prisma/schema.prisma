@@ -206,6 +206,8 @@ model User {
   createdInvoices    Invoice[]
   auditLogs          AuditLog[]
   processComments    ProcessComment[]
+  remindersCreated   TaskReminder[] @relation("ReminderCreatedBy")
+  remindersDone      TaskReminder[] @relation("ReminderDoneBy")
   commentReads       ProcessCommentRead[]
   commentMentions    ProcessCommentMention[]
   processPresence    ProcessPresence[]
@@ -561,6 +563,8 @@ model Process {
   // Arquivada: sai do quadro e dos alertas, mas continua valendo no financeiro e no histórico.
   archivedAt        DateTime?      @map("archived_at")
   notes             String?
+  /// Adia o alerta de "tarefa parada na etapa" até esta data (só dia).
+  stageAlertSnoozedUntil DateTime? @map("stage_alert_snoozed_until") @db.Date
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
@@ -583,6 +587,7 @@ model Process {
   impediments  ProcessImpediment[]
   assignees    ProcessAssignee[]
   portalRequest PortalRequest?
+  reminders    TaskReminder[]
   installments ProcessInstallment[]
   presence     ProcessPresence[]
   deliverables ProcessDeliverable[]
@@ -668,6 +673,8 @@ model KanbanStage {
   color       String   @default("#64748B")
   /// % de conclusao que o cliente ve no portal quando a tarefa esta nesta etapa (vazio = calculado pela posicao)
   progressPercent Int?   @map("progress_percent")
+  /// Alerta automático: tarefa parada nesta etapa por mais de N dias aparece em "Lembretes" (vazio = sem alerta)
+  alertAfterDays Int?    @map("alert_after_days")
   createdAt   DateTime @default(now()) @map("created_at")
 
   tenant       Tenant         @relation(fields: [tenantId], references: [id])
@@ -678,6 +685,26 @@ model KanbanStage {
 
   @@unique([workspaceId, position])
   @@map("kanban_stages")
+}
+
+/// Lembrete para verificar uma tarefa numa data ("ver andamento na Junta"). Vale para a equipe: criador e responsáveis.
+model TaskReminder {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  processId   String    @map("process_id") @db.Uuid
+  remindOn    DateTime  @map("remind_on") @db.Date
+  note        String    @default("")
+  createdById String    @map("created_by_id") @db.Uuid
+  doneAt      DateTime? @map("done_at")
+  doneById    String?   @map("done_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("ReminderCreatedBy", fields: [createdById], references: [id])
+  doneBy    User?   @relation("ReminderDoneBy", fields: [doneById], references: [id])
+
+  @@index([processId])
+  @@map("task_reminders")
 }
 
 model ProcessStage {
