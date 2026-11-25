@@ -728,6 +728,56 @@ export async function renameProcess(processId: string, title: string): Promise<{
   return { ok: true };
 }
 
+/**
+ * Troca o cliente da tarefa (Vínculos → Cliente). Os pagamentos vão junto (são da tarefa); os arquivos e pedidos de
+ * documento da tarefa passam para o novo cliente; a empresa relacionada sai se não for do novo cliente.
+ * Só administrador/gestor, e não vale para tarefa que já está numa fatura (a fatura é do cliente antigo).
+ */
+export async function setProcessClient(processId: string, clientId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user || !["ADMIN", "GESTOR"].includes(user.role)) return { ok: false, error: "Só administrador ou gestor pode trocar o cliente da tarefa." };
+
+  const process = await prisma.process.findFirst({
+    where: { id: processId, tenantId: user.tenantId },
+    select: {
+      number: true,
+      clientId: true,
+      companyId: true,
+      company: { select: { clientId: true } },
+      client: { select: { name: true } },
+      _count: { select: { invoiceItems: true } },
+    },
+  });
+  if (!process) return { ok: false, error: "Tarefa não encontrada. Atualize a página." };
+  if (process.clientId === clientId) return { ok: true };
+  if (process._count.invoiceItems > 0) {
+    return { ok: false, error: "Esta tarefa já está numa fatura do cliente atual. Tire-a da fatura antes de trocar o cliente." };
+  }
+
+  const newClient = await prisma.client.findFirst({ where: { id: clientId, tenantId: user.tenantId }, select: { id: true, name: true } });
+  if (!newClient) return { ok: false, error: "Cliente não encontrado. Atualize a página." };
+
+  const keepCompany = process.company?.clientId === newClient.id;
+  await prisma.$transaction([
+    prisma.process.update({ where: { id: processId }, data: { clientId: newClient.id, ...(keepCompany ? {} : { companyId: null }) } }),
+    prisma.document.updateMany({ where: { processId }, data: { clientId: newClient.id } }),
+    prisma.documentRequest.updateMany({ where: { processId }, data: { clientId: newClient.id } }),
+  ]);
+
+  await logAudit({
+    tenantId: user.tenantId,
+    userId: user.id,
+    action: "process.client_changed",
+    entityType: "process",
+    entityId: processId,
+    description: `Cliente da tarefa #${process.number} trocado de ${process.client.name} para ${newClient.name}.`,
+  });
+  FINANCE_PATHS(processId).forEach((p) => revalidatePath(p));
+  revalidatePath(`/clientes/${process.clientId}`);
+  revalidatePath(`/clientes/${newClient.id}`);
+  return { ok: true };
+}
+
 /** Altera a data de início (= criação) da tarefa. É ela que decide em que mês a tarefa entra no relatório
  * financeiro do cliente, então a equipe pode corrigir quando a tarefa foi cadastrada em outra data. Só administrador/gestor. */
 export async function setProcessStartDate(processId: string, date: string): Promise<{ ok: true } | { ok: false; error: string }> {

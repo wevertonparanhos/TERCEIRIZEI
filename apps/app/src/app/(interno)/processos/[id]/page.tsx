@@ -59,6 +59,7 @@ import {
   deleteProcessComment,
   setProcessServiceTypes,
   setProcessStartDate,
+  setProcessClient,
   renameProcess,
   createCategory,
   setProcessValue,
@@ -212,6 +213,15 @@ export default async function ProcessoDetalhePage({
     }),
   ]);
   const userNameById = new Map(stageUsers.map((u) => [u.id, u.name]));
+  // Trocar o cliente da tarefa (Vínculos): só administrador/gestor; lista os clientes ativos e o atual.
+  const isManager = user.role === "ADMIN" || user.role === "GESTOR";
+  const clientOptions = isManager
+    ? await prisma.client.findMany({
+        where: { tenantId: user.tenantId, OR: [{ status: "ativo" }, { id: process.clientId }] },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : undefined;
 
   const paymentSummary = getProcessPaymentSummary(
     process.installments.map((i) => ({ value: Number(i.value), paymentDueDate: i.paymentDueDate, paidAt: i.paidAt }))
@@ -238,6 +248,8 @@ export default async function ProcessoDetalhePage({
         setCategories={setProcessServiceTypes.bind(null, process.id)}
         newCategory={createCategory}
         workspaceId={process.workspaceId}
+        clients={clientOptions}
+        setClient={isManager ? setProcessClient.bind(null, process.id) : undefined}
         finance={{
           total: paymentSummary.totalValue,
           installmentCount: process.installments.length,

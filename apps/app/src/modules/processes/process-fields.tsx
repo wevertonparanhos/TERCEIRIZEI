@@ -308,6 +308,108 @@ function FinanceRows({ finance }: { finance: FinanceProps }) {
   );
 }
 
+/** Cliente da tarefa: o nome leva à ficha do cliente; administrador/gestor podem trocar o vínculo (com confirmação). */
+function ClientLink({
+  client,
+  clients,
+  setClient,
+}: {
+  client: { id: string; name: string };
+  clients?: { id: string; name: string }[];
+  setClient?: (clientId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [target, setTarget] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canChange = !!setClient && !!clients && clients.length > 1;
+  const targetName = clients?.find((c) => c.id === target)?.name;
+
+  async function confirm() {
+    if (!setClient || !target) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await setClient(target);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setEditing(false);
+      setTarget("");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível trocar o cliente.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <span className="flex flex-col items-start gap-2">
+      <span className="flex flex-wrap items-center gap-2">
+        <Link href={`/clientes/${client.id}`} className="inline-flex items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent hover:underline">
+          {client.name}
+        </Link>
+        {canChange && !editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(true);
+              setError(null);
+            }}
+            className="text-xs font-medium text-accent hover:underline"
+          >
+            Trocar cliente
+          </button>
+        )}
+      </span>
+      {editing && clients && (
+        <span className="flex w-full flex-col gap-2 rounded-xl border border-border bg-surface-alt/50 p-2.5">
+          <select value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Novo cliente da tarefa" className={selectClass}>
+            <option value="">Escolha o novo cliente…</option>
+            {clients
+              .filter((c) => c.id !== client.id)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </select>
+          {targetName && (
+            <span className="text-[11px] text-muted">
+              A tarefa, os pagamentos e os arquivos dela passam de <b>{client.name}</b> para <b>{targetName}</b>. A empresa relacionada sai se não for desse cliente.
+            </span>
+          )}
+          <span className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={!target || saving}
+              onClick={confirm}
+              className="rounded-md bg-accent px-3 py-1 text-xs font-semibold text-white hover:bg-accent/90 disabled:opacity-50"
+            >
+              {saving ? "Trocando..." : "Confirmar troca"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false);
+                setTarget("");
+                setError(null);
+              }}
+              className="text-xs font-medium text-muted hover:text-ink"
+            >
+              Cancelar
+            </button>
+          </span>
+        </span>
+      )}
+      {error && <span className="text-xs text-red-600">{error}</span>}
+    </span>
+  );
+}
+
 export function PropertiesCard({
   stages,
   staff,
@@ -318,10 +420,15 @@ export function PropertiesCard({
   newCategory,
   workspaceId,
   finance,
+  clients,
+  setClient,
 }: {
   stages: { id: string; label: string; color: string }[];
   staff: { id: string; name: string }[];
   client: { id: string; name: string };
+  /** Clientes para trocar o vínculo da tarefa (só administrador/gestor recebem). */
+  clients?: { id: string; name: string }[];
+  setClient?: (clientId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Tipos de solicitação (etiquetas) da tarefa; o primeiro é o principal. */
   categoryIds: string[];
   categories: { id: string; name: string }[];
@@ -405,12 +512,7 @@ export function PropertiesCard({
 
       <Group title="Vínculos">
         <Row icon={User} label="Cliente">
-          <Link
-            href={`/clientes/${client.id}`}
-            className="inline-flex items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent hover:underline"
-          >
-            {client.name}
-          </Link>
+          <ClientLink client={client} clients={clients} setClient={setClient} />
         </Row>
         <Row icon={Tag} label="Tipos">
           <span className="flex flex-wrap items-center gap-2">
