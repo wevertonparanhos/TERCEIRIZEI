@@ -39,6 +39,11 @@ export const createProcessSchema = z.object({
   priority: z.enum(DEMAND_PRIORITIES),
   value: z.string().optional(),
   paymentDueDate: z.string().optional(),
+  /** Pagamentos parcelados, cada um com a sua data prevista (têm prioridade sobre value/paymentDueDate). */
+  payments: z
+    .array(z.object({ title: z.string().max(80).optional(), value: z.string(), paymentDueDate: z.string().optional() }))
+    .max(24, "No máximo 24 pagamentos por tarefa.")
+    .optional(),
   requestedDeadline: z.string().optional(),
   notes: z.string().optional(),
   // Assistente "Nova Tarefa" (inspirado no FreelaPRO): coluna inicial,

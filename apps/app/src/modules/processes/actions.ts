@@ -157,8 +157,17 @@ export async function createProcess(input: CreateProcessInput) {
     });
   }
 
+  // Pagamento parcelado: cada linha do plano vira uma parcela, com a própria data prevista (ex.: 50% no início e 50% no final).
+  const plan = (data.payments ?? []).flatMap((p) => {
+    const value = parseMoneyInput(p.value);
+    return value === null ? [] : [{ title: p.title?.trim().slice(0, 80) || null, value, paymentDueDate: p.paymentDueDate ? new Date(p.paymentDueDate) : null }];
+  });
   const initialValue = data.value ? Number(data.value) : template?.defaultPrice ? Number(template.defaultPrice) : null;
-  if (initialValue) {
+  if (plan.length > 0) {
+    await prisma.processInstallment.createMany({
+      data: plan.map((p, i) => ({ processId: process.id, position: i + 1, value: p.value, paymentDueDate: p.paymentDueDate, title: p.title })),
+    });
+  } else if (initialValue) {
     await prisma.processInstallment.create({
       data: {
         processId: process.id,

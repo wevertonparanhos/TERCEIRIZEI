@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, FileText, Check } from "lucide-react";
+import { Plus, X, FileText, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,8 @@ import { Modal, Stepper } from "@/components/ui/modal";
 import { PRIORITY_LABELS } from "@/modules/processes/labels";
 import type { CreateProcessInput } from "@/lib/validations/process";
 import { parseStartDate } from "@/modules/processes/start-date";
+import { emptyPayment, filledPayments, installmentTitles, MAX_PAYMENTS, moneyToInput, paymentsError, splitTotal, sumPayments, type PaymentRow } from "@/modules/processes/payment-plan";
+import { parseMoneyInput } from "@/modules/processes/text-input";
 
 type Workspace = { id: string; name: string; stages: { id: string; label: string }[] };
 type Client = { id: string; name: string };
@@ -114,8 +116,10 @@ export function NewTaskWizard({
   const [dueAt, setDueAt] = useState("");
   const [plannedDeliveryAt, setPlannedDeliveryAt] = useState("");
   const [hasPayment, setHasPayment] = useState(false);
-  const [value, setValue] = useState("");
-  const [paymentDueDate, setPaymentDueDate] = useState("");
+  // Pagamentos: uma ou mais linhas, cada uma com valor e data prevista própria (pagamento parcelado).
+  const [payments, setPayments] = useState<PaymentRow[]>([emptyPayment()]);
+  const [splitTotalInput, setSplitTotalInput] = useState("");
+  const [splitParts, setSplitParts] = useState("2");
 
   const workspace = workspaces.find((w) => w.id === workspaceId);
   const clientCompanies = useMemo(() => companies.filter((c) => c.clientId === clientId), [companies, clientId]);
@@ -140,8 +144,9 @@ export function NewTaskWizard({
     setDueAt("");
     setPlannedDeliveryAt("");
     setHasPayment(false);
-    setValue("");
-    setPaymentDueDate("");
+    setPayments([emptyPayment()]);
+    setSplitTotalInput("");
+    setSplitParts("2");
   }
 
   function close() {
@@ -161,10 +166,24 @@ export function NewTaskWizard({
     if (tpl.defaultPriority) setPriority(tpl.defaultPriority as CreateProcessInput["priority"]);
     if (tpl.defaultPrice) {
       setHasPayment(true);
-      setValue(tpl.defaultPrice);
+      setPayments((rows) => rows.map((row, i) => (i === 0 && !row.value ? { ...row, value: tpl.defaultPrice! } : row)));
     }
     if (tpl.defaultDeadlineDays) setDueAt(inputDateFromNow(tpl.defaultDeadlineDays));
     if (tpl.defaultNotes) setNotes(tpl.defaultNotes);
+  }
+
+  function updatePayment(index: number, patch: Partial<PaymentRow>) {
+    setPayments((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  /** Divide o total em N parcelas iguais (2 vira 50% de entrada + 50% no final); as datas ficam por conta da pessoa. */
+  function applySplit() {
+    const total = parseMoneyInput(splitTotalInput);
+    const parts = Number(splitParts);
+    const values = total ? splitTotal(total, parts) : [];
+    if (values.length === 0) return;
+    const titles = installmentTitles(parts);
+    setPayments(values.map((v, i) => ({ title: titles[i], value: moneyToInput(v), due: payments[i]?.due ?? "" })));
   }
 
   function toggleServiceType(id: string) {
@@ -179,9 +198,7 @@ export function NewTaskWizard({
       const parsed = parseStartDate(startedAt);
       if (!parsed.ok) return parsed.error;
     }
-    if (step === 6 && hasPayment && Number(value) > 0 && !paymentDueDate) {
-      return "Informe a data prevista de pagamento — sem ela o valor não aparece no Financeiro.";
-    }
+    if (step === 6 && hasPayment) return paymentsError(payments);
     return null;
   }
 
@@ -215,8 +232,9 @@ export function NewTaskWizard({
         plannedStartAt,
         dueAt,
         plannedDeliveryAt: hasDelivery ? plannedDeliveryAt : "",
-        value: hasPayment ? value : "",
-        paymentDueDate: hasPayment ? paymentDueDate : "",
+        value: "",
+        paymentDueDate: "",
+        payments: hasPayment ? filledPayments(payments).map((p) => ({ title: p.title.trim(), value: p.value, paymentDueDate: p.due })) : [],
         checklist,
       });
       close();
@@ -547,14 +565,76 @@ export function NewTaskWizard({
               hint="Ative para tarefas remuneradas. Deixe desativado para tarefas internas ou sem cobrança."
             />
             {hasPayment ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="wz-value">Valor (R$)</Label>
-                  <Input id="wz-value" type="number" step="0.01" min="0" value={value} onChange={(e) => setValue(e.target.value)} />
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  {payments.map((p, i) => (
+                    <div key={i} className="rounded-xl border border-border bg-surface-alt/40 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-muted">{payments.length > 1 ? `Pagamento ${i + 1}` : "Pagamento"}</span>
+                        {payments.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setPayments((rows) => rows.filter((_, idx) => idx !== i))}
+                            aria-label={`Remover pagamento ${i + 1}`}
+                            title="Remover este pagamento"
+                            className="rounded-md p-1 text-muted-soft transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.2fr_1fr_1fr]">
+                        <div className="space-y-1">
+                          <Label htmlFor={`wz-pay-title-${i}`}>Título (opcional)</Label>
+                          <Input id={`wz-pay-title-${i}`} value={p.title} onChange={(e) => updatePayment(i, { title: e.target.value })} placeholder="Ex.: Entrada (50%)" maxLength={80} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`wz-pay-value-${i}`}>Valor (R$)</Label>
+                          <Input id={`wz-pay-value-${i}`} type="number" step="0.01" min="0" value={p.value} onChange={(e) => updatePayment(i, { value: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`wz-pay-date-${i}`}>Data prevista</Label>
+                          <Input id={`wz-pay-date-${i}`} type="date" value={p.due} onChange={(e) => updatePayment(i, { due: e.target.value })} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="wz-pay-date">Data prevista de pagamento</Label>
-                  <Input id="wz-pay-date" type="date" value={paymentDueDate} onChange={(e) => setPaymentDueDate(e.target.value)} />
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Button type="button" variant="outline" size="sm" disabled={payments.length >= MAX_PAYMENTS} onClick={() => setPayments((rows) => [...rows, emptyPayment()])}>
+                    <Plus className="mr-1.5 h-4 w-4" /> Adicionar pagamento
+                  </Button>
+                  {sumPayments(payments) > 0 && (
+                    <p className="text-sm text-muted">
+                      {filledPayments(payments).length} pagamento(s) · total{" "}
+                      <b className="font-mono text-ink">{sumPayments(payments).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</b>
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-dashed border-border-strong p-3">
+                  <p className="text-sm font-semibold text-ink">Parcelar um valor</p>
+                  <p className="mb-2 text-xs text-muted">Informe o total e em quantas vezes. Dividido em 2, vira 50% de entrada e 50% no final. Depois ajuste as datas.</p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="wz-split-total">Valor total (R$)</Label>
+                      <Input id="wz-split-total" type="number" step="0.01" min="0" value={splitTotalInput} onChange={(e) => setSplitTotalInput(e.target.value)} className="w-36" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="wz-split-parts">Em quantas vezes</Label>
+                      <Select id="wz-split-parts" value={splitParts} onChange={(e) => setSplitParts(e.target.value)} className="w-28">
+                        {[2, 3, 4, 5, 6, 8, 10, 12].map((n) => (
+                          <option key={n} value={String(n)}>
+                            {n}x
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <Button type="button" variant="outline" onClick={applySplit} disabled={!(Number(splitTotalInput) > 0)}>
+                      Dividir
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
