@@ -610,6 +610,8 @@ model Workspace {
   tenantId  String   @map("tenant_id") @db.Uuid
   name      String
   position  Int
+  /// Área arquivada: sai das abas e da Nova Tarefa; as tarefas continuam valendo (vazio = ativa)
+  archivedAt DateTime? @map("archived_at")
   createdAt DateTime @default(now()) @map("created_at")
 
   tenant    Tenant        @relation(fields: [tenantId], references: [id])

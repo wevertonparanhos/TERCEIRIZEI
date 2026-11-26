@@ -14,7 +14,7 @@ import {
   isDueToday,
   serviceTypeLabel,
 } from "@/modules/processes/labels";
-import { updateProcessStage, createWorkspace, createProcess, createCategory } from "@/modules/processes/actions";
+import { updateProcessStage, createWorkspace, createProcess, createCategory, setWorkspaceArchived, deleteWorkspace } from "@/modules/processes/actions";
 import { NewTaskWizard } from "@/modules/processes/process-wizard";
 import { ManageMenu } from "@/modules/processes/manage-menu";
 import { loadReminderOverview, type StageAlertItem } from "@/modules/reminders/data";
@@ -71,11 +71,15 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
   const canManage = user.role === "ADMIN" || user.role === "GESTOR";
   const showArchived = searchParams.arquivadas === "1";
 
-  const workspaces = await prisma.workspace.findMany({
+  const allWorkspaces = await prisma.workspace.findMany({
     where: { tenantId: user.tenantId },
     orderBy: { position: "asc" },
   });
-  const activeWorkspace = workspaces.find((w) => w.id === searchParams.area) ?? workspaces[0];
+  // Áreas arquivadas saem das abas; ainda dá para abrir uma pelo link (?area=) para ver as tarefas ou restaurar.
+  const workspaces = allWorkspaces.filter((w) => !w.archivedAt);
+  const archivedWorkspaces = allWorkspaces.filter((w) => w.archivedAt);
+  const activeWorkspace = allWorkspaces.find((w) => w.id === searchParams.area) ?? workspaces[0] ?? allWorkspaces[0];
+  const tabWorkspaces = activeWorkspace?.archivedAt ? [...workspaces, activeWorkspace] : workspaces;
 
   // Tudo que depende só da área ativa roda junto (antes a contagem de arquivadas
   // esperava sozinha uma ida ao banco antes das demais consultas).
@@ -93,7 +97,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
     canManage
       ? Promise.all([
           prisma.workspace.findMany({
-            where: { tenantId: user.tenantId },
+            where: { tenantId: user.tenantId, archivedAt: null },
             orderBy: { position: "asc" },
             select: { id: true, name: true, stages: { orderBy: { position: "asc" }, select: { id: true, label: true } } },
           }),
@@ -251,7 +255,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
           {canManage && activeWorkspace && wizardData && (
             <NewTaskWizard
               workspaces={wizardData[0]}
-              defaultWorkspaceId={activeWorkspace.id}
+              defaultWorkspaceId={activeWorkspace.archivedAt ? (workspaces[0]?.id ?? activeWorkspace.id) : activeWorkspace.id}
               clients={wizardData[1]}
               companies={wizardData[2]}
               templates={wizardData[3].map((t) => ({
@@ -275,10 +279,15 @@ export default async function ProcessosPage({ searchParams }: { searchParams: { 
       {activeWorkspace && (
         <div className="mt-3 flex-none">
           <WorkspaceTabs
-            workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+            workspaces={tabWorkspaces.map((w) => ({ id: w.id, name: w.name, archived: !!w.archivedAt }))}
             activeId={activeWorkspace.id}
             basePath="/processos"
             createWorkspace={createWorkspace}
+            options={
+              canManage
+                ? { archived: archivedWorkspaces.map((w) => ({ id: w.id, name: w.name })), setArchived: setWorkspaceArchived, deleteWorkspace }
+                : undefined
+            }
           />
         </div>
       )}

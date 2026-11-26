@@ -14,6 +14,7 @@ import {
   createWorkspace,
   renameWorkspace,
   deleteWorkspace,
+  setWorkspaceArchived,
   moveWorkspace,
 } from "@/modules/processes/actions";
 
@@ -22,12 +23,15 @@ export default async function EtapasPage({ searchParams }: { searchParams: { are
   if (!user) return null;
   if (user.role !== "ADMIN" && user.role !== "GESTOR") redirect("/processos");
 
-  const workspaces = await prisma.workspace.findMany({
+  const allWorkspaces = await prisma.workspace.findMany({
     where: { tenantId: user.tenantId },
     orderBy: { position: "asc" },
   });
+  const workspaces = allWorkspaces.filter((w) => !w.archivedAt);
+  const archivedWorkspaces = allWorkspaces.filter((w) => w.archivedAt);
 
-  const activeWorkspace = workspaces.find((w) => w.id === searchParams.area) ?? workspaces[0];
+  const activeWorkspace = allWorkspaces.find((w) => w.id === searchParams.area) ?? workspaces[0] ?? allWorkspaces[0];
+  const tabWorkspaces = activeWorkspace?.archivedAt ? [...workspaces, activeWorkspace] : workspaces;
   if (!activeWorkspace) redirect("/processos");
 
   const stages = await prisma.kanbanStage.findMany({
@@ -44,16 +48,18 @@ export default async function EtapasPage({ searchParams }: { searchParams: { are
       <h1 className="mt-2 text-2xl font-bold text-ink">Áreas de trabalho e etapas do Kanban</h1>
       <p className="mt-1 text-sm text-muted">
         Cada área de trabalho tem seu próprio quadro. Crie, renomeie, reordene ou remova áreas e etapas conforme o
-        fluxo de trabalho — uma etapa ou área só pode ser removida quando não houver tarefas nela.
+        fluxo de trabalho — uma etapa ou área só pode ser excluída quando não houver tarefas nela; para tirar uma área do
+        caminho sem perder nada, use Arquivar (botão ⋯ ao lado das abas).
       </p>
 
       <div className="mt-6">
         <WorkspaceTabs
-          workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+          workspaces={tabWorkspaces.map((w) => ({ id: w.id, name: w.name, archived: !!w.archivedAt }))}
           activeId={activeWorkspace.id}
           basePath="/processos/etapas"
           createWorkspace={createWorkspace}
-          manage={{ renameWorkspace, deleteWorkspace, moveWorkspace }}
+          manage={{ renameWorkspace, moveWorkspace }}
+          options={{ archived: archivedWorkspaces.map((w) => ({ id: w.id, name: w.name })), setArchived: setWorkspaceArchived, deleteWorkspace }}
         />
       </div>
 

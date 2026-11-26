@@ -35,7 +35,7 @@ export default async function PedidosDoPortalPage({ searchParams }: { searchPara
       },
     }),
     prisma.portalRequest.groupBy({ by: ["status"], where: { tenantId: user.tenantId }, _count: { _all: true } }),
-    prisma.workspace.findMany({ where: { tenantId: user.tenantId }, orderBy: { position: "asc" }, select: { id: true, name: true } }),
+    prisma.workspace.findMany({ where: { tenantId: user.tenantId, archivedAt: null }, orderBy: { position: "asc" }, select: { id: true, name: true } }),
   ]);
 
   const countOf = (status: string | null) => (status ? counts.find((c) => c.status === status)?._count._all ?? 0 : counts.reduce((s, c) => s + c._count._all, 0));

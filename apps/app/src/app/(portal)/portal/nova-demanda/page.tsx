@@ -20,7 +20,7 @@ export default async function PortalNovaDemandaPage() {
     );
   }
 
-  const entryWorkspace = await prisma.workspace.findFirst({ where: { tenantId: user.tenantId }, orderBy: { position: "asc" }, select: { id: true } });
+  const entryWorkspace = await prisma.workspace.findFirst({ where: { tenantId: user.tenantId, archivedAt: null }, orderBy: { position: "asc" }, select: { id: true } });
 
   const [questions, companies, serviceTypes] = await Promise.all([
     prisma.clientPortalQuestion.findMany({

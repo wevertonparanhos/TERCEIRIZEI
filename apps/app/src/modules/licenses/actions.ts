@@ -103,7 +103,7 @@ export async function ensureAutoRenewalTasks(tenantId: string): Promise<void> {
   const due = candidates.filter((l) => isWithinReminderWindow(l.expiresAt, l.reminderDaysBefore, now));
   if (due.length === 0) return;
 
-  const workspace = await prisma.workspace.findFirst({ where: { tenantId }, orderBy: { position: "asc" } });
+  const workspace = await prisma.workspace.findFirst({ where: { tenantId, archivedAt: null }, orderBy: { position: "asc" } });
   if (!workspace) return;
   const firstStage = await prisma.kanbanStage.findFirst({ where: { workspaceId: workspace.id }, orderBy: { position: "asc" } });
   if (!firstStage) return;

@@ -212,7 +212,7 @@ async function openProcessForClientRequest(p: OpenRequestProcessParams) {
 
   const workspace = p.workspaceId
     ? await prisma.workspace.findFirst({ where: { id: p.workspaceId, tenantId: p.tenantId } })
-    : await prisma.workspace.findFirst({ where: { tenantId: p.tenantId }, orderBy: { position: "asc" } });
+    : await prisma.workspace.findFirst({ where: { tenantId: p.tenantId, archivedAt: null }, orderBy: { position: "asc" } });
   if (!workspace) throw new Error("Nenhuma área de trabalho configurada para este tenant.");
 
   const firstStage = await prisma.kanbanStage.findFirst({ where: { workspaceId: workspace.id }, orderBy: { position: "asc" } });
@@ -1045,25 +1045,101 @@ export async function renameWorkspace(workspaceId: string, name: string) {
   revalidatePath("/processos/etapas");
 }
 
-export async function deleteWorkspace(workspaceId: string) {
-  const user = await requireManageAccess();
+export type WorkspaceResult = { ok: true } | { ok: false; error: string };
 
-  const workspace = await prisma.workspace.findFirst({ where: { id: workspaceId, tenantId: user.tenantId } });
-  if (!workspace) throw new Error("Área de trabalho não encontrada.");
-
-  const totalWorkspaces = await prisma.workspace.count({ where: { tenantId: user.tenantId } });
-  if (totalWorkspaces <= 1) throw new Error("Precisa existir pelo menos uma área de trabalho.");
-
-  const inUse = await prisma.process.count({ where: { workspaceId } });
-  if (inUse > 0) throw new Error(`Existem ${inUse} tarefa(s) nesta área — mova-as antes de excluir.`);
-
-  await prisma.$transaction([
-    prisma.kanbanStage.deleteMany({ where: { workspaceId } }),
-    prisma.workspace.delete({ where: { id: workspaceId } }),
-  ]);
-
+function revalidateWorkspaces() {
   revalidatePath("/processos");
   revalidatePath("/processos/etapas");
+  revalidatePath("/processos/tipos");
+  revalidatePath("/pedidos");
+}
+
+/** Arquivar tira a área das abas e da Nova Tarefa (as tarefas continuam valendo); restaurar devolve. */
+export async function setWorkspaceArchived(workspaceId: string, archived: boolean): Promise<WorkspaceResult> {
+  try {
+    const user = await requireManageAccess();
+    const workspace = await prisma.workspace.findFirst({ where: { id: workspaceId, tenantId: user.tenantId } });
+    if (!workspace) return { ok: false, error: "Área de trabalho não encontrada." };
+
+    if (archived) {
+      const activeCount = await prisma.workspace.count({ where: { tenantId: user.tenantId, archivedAt: null } });
+      if (!workspace.archivedAt && activeCount <= 1) return { ok: false, error: "Precisa ficar pelo menos uma área de trabalho ativa." };
+    }
+
+    await prisma.workspace.update({ where: { id: workspaceId }, data: { archivedAt: archived ? new Date() : null } });
+    await logAudit({
+      tenantId: user.tenantId,
+      userId: user.id,
+      action: archived ? "workspace.archive" : "workspace.restore",
+      entityType: "workspace",
+      entityId: workspaceId,
+      description: `Área de trabalho "${workspace.name}" ${archived ? "arquivada" : "restaurada"}.`,
+    });
+    revalidateWorkspaces();
+    return { ok: true };
+  } catch (err) {
+    console.error("[área de trabalho] arquivar falhou:", err);
+    return { ok: false, error: err instanceof Error && err.message ? err.message : "Não foi possível concluir. Tente de novo." };
+  }
+}
+
+/** Excluir de vez: só área vazia. Se tem tarefas (mesmo arquivadas) ou deixou histórico/etiquetas em uso
+ * em outras tarefas, a exclusão é bloqueada com o motivo — nesses casos o caminho é arquivar. */
+export async function deleteWorkspace(workspaceId: string): Promise<WorkspaceResult> {
+  try {
+    const user = await requireManageAccess();
+
+    const workspace = await prisma.workspace.findFirst({ where: { id: workspaceId, tenantId: user.tenantId } });
+    if (!workspace) return { ok: false, error: "Área de trabalho não encontrada." };
+
+    const activeCount = await prisma.workspace.count({ where: { tenantId: user.tenantId, archivedAt: null } });
+    if (!workspace.archivedAt && activeCount <= 1) return { ok: false, error: "Precisa ficar pelo menos uma área de trabalho ativa." };
+
+    const [tasks, history, tagUse] = await Promise.all([
+      prisma.process.count({ where: { workspaceId } }),
+      // tarefas que já passaram por esta área (e foram movidas) guardam o histórico de etapas dela
+      prisma.processStage.count({ where: { OR: [{ toStage: { workspaceId } }, { fromStage: { workspaceId } }] } }),
+      // etiquetas (tipos de solicitação) desta área usadas em tarefas ou pedidos do portal
+      Promise.all([
+        prisma.process.count({ where: { serviceType: { workspaceId } } }),
+        prisma.processServiceType.count({ where: { serviceType: { workspaceId } } }),
+        prisma.portalRequest.count({ where: { serviceType: { workspaceId } } }),
+      ]).then((counts) => counts.reduce((a, b) => a + b, 0)),
+    ]);
+
+    if (tasks > 0) {
+      return {
+        ok: false,
+        error: `Esta área tem ${tasks} tarefa${tasks === 1 ? "" : "s"} (contando as arquivadas). Mova as tarefas para outra área ou arquive a área em vez de excluir.`,
+      };
+    }
+    if (history > 0 || tagUse > 0) {
+      return {
+        ok: false,
+        error: "Tarefas de outras áreas ainda usam o histórico ou as etiquetas desta área. Para não perder essas informações, arquive a área em vez de excluir.",
+      };
+    }
+
+    await prisma.$transaction([
+      prisma.serviceType.deleteMany({ where: { workspaceId, tenantId: user.tenantId } }),
+      prisma.kanbanStage.deleteMany({ where: { workspaceId } }),
+      prisma.workspace.delete({ where: { id: workspaceId } }),
+    ]);
+    await logAudit({
+      tenantId: user.tenantId,
+      userId: user.id,
+      action: "workspace.delete",
+      entityType: "workspace",
+      entityId: workspaceId,
+      description: `Área de trabalho "${workspace.name}" excluída.`,
+    });
+
+    revalidateWorkspaces();
+    return { ok: true };
+  } catch (err) {
+    console.error("[área de trabalho] excluir falhou:", err);
+    return { ok: false, error: "Não foi possível excluir a área. Se ela já foi usada, arquive em vez de excluir." };
+  }
 }
 
 async function swapWorkspacePositions(workspaceAId: string, workspaceBId: string) {

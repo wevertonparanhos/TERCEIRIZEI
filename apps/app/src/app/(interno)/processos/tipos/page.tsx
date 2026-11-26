@@ -10,7 +10,7 @@ export default async function TiposDeSolicitacaoPage({ searchParams }: { searchP
   if (!["ADMIN", "GESTOR"].includes(user.role)) redirect("/processos");
 
   const [workspaces, types] = await Promise.all([
-    prisma.workspace.findMany({ where: { tenantId: user.tenantId }, orderBy: { position: "asc" }, select: { id: true, name: true } }),
+    prisma.workspace.findMany({ where: { tenantId: user.tenantId, archivedAt: null }, orderBy: { position: "asc" }, select: { id: true, name: true } }),
     prisma.serviceType.findMany({
       where: { tenantId: user.tenantId },
       orderBy: { name: "asc" },
