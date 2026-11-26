@@ -103,7 +103,8 @@ export function RemindersList({
         {r.timing === "atrasado" ? "Atrasado · " : r.timing === "hoje" ? "Hoje · " : ""}
         {dateBr(r.remindOn)}
       </span>
-      <div className="min-w-0 flex-1">
+      {/* No celular o nome da tarefa ganha a linha inteira (etiqueta em cima, botões embaixo). */}
+      <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
         <Link href={`/processos/${r.processId}`} className="block truncate text-sm font-semibold text-ink hover:underline">
           #{r.processNumber} — {r.processTitle}
         </Link>
@@ -153,7 +154,7 @@ export function RemindersList({
                 <span className="flex flex-none items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
                   <Hourglass className="h-3 w-3" /> há {daysLabel(a.daysInStage)}
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
                   <Link href={`/processos/${a.processId}`} className="block truncate text-sm font-semibold text-ink hover:underline">
                     #{a.processNumber} — {a.processTitle}
                   </Link>

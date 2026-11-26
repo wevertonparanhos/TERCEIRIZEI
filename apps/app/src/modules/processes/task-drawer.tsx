@@ -126,7 +126,7 @@ export function TaskDrawer({
     <aside
       ref={panelRef}
       aria-label="Tarefa aberta"
-      className="fixed inset-x-0 bottom-0 top-14 z-30 flex flex-col overflow-y-auto border-l border-border bg-surface shadow-[-16px_0_40px_rgba(27,37,88,0.12)] sm:left-auto sm:w-[440px]"
+      className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-14 z-30 flex flex-col md:bottom-0 overflow-y-auto border-l border-border bg-surface shadow-[-16px_0_40px_rgba(27,37,88,0.12)] sm:left-auto sm:w-[440px]"
     >
       <div className="sticky top-0 z-10 space-y-2.5 border-b border-border bg-surface px-5 pb-4 pt-4">
         <div className="flex items-center gap-2">

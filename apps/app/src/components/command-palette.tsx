@@ -10,6 +10,9 @@ import type { CommandHit, CommandSearchResult } from "@/modules/command/actions"
 
 export type CommandLink = { href: string; label: string };
 
+/** Evento que abre a busca (usado pela barra de baixo do celular). */
+export const OPEN_SEARCH_EVENT = "terceirizei:abrir-busca";
+
 type Entry = { key: string; href: string; title: string; subtitle?: string; group: string; icon: React.ReactNode };
 
 /** Busca geral do sistema: Ctrl K (ou Cmd K) em qualquer tela. Acha tarefas, clientes e empresas, leva às telas e às ações de criar. */
@@ -37,7 +40,7 @@ export function CommandPalette({
 
   useEffect(() => setMounted(true), []);
 
-  // Ctrl K / Cmd K abre e fecha de qualquer tela.
+  // Ctrl K / Cmd K abre e fecha de qualquer tela; no celular, o botão Buscar da barra de baixo abre.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -45,8 +48,13 @@ export function CommandPalette({
         setOpen((o) => !o);
       }
     };
+    const openSearch = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_SEARCH_EVENT, openSearch);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_SEARCH_EVENT, openSearch);
+    };
   }, []);
 
   useEffect(() => setOpen(false), [pathname]);

@@ -28,6 +28,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 import { MobileMenu } from "@/components/mobile-menu";
 import { CommandPalette } from "@/components/command-palette";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { CreateMenu, type CreateAction } from "@/components/create-menu";
 import { searchCommand } from "@/modules/command/actions";
 import { loadReminderOverview } from "@/modules/reminders/data";
@@ -206,8 +207,14 @@ export default async function InternoLayout({ children }: { children: React.Reac
         </header>
         {/* overflow-x-clip (e não hidden): corta o que vaza para o lado sem virar área de rolagem, assim os
             elementos "sticky" das páginas (índice da tarefa, editor de proposta) ficam presos ao rolar. */}
-        <main className="min-w-0 flex-1 overflow-x-clip">{children}</main>
+        {/* No celular sobra espaço embaixo para o conteúdo não ficar atrás da barra de navegação. */}
+        <main className="min-w-0 flex-1 overflow-x-clip pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
       </div>
+      <MobileBottomNav
+        createActions={createActions}
+        showReminders={["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)}
+        reminderBadge={reminderAttention}
+      />
     </div>
   );
 }

@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, X } from "lucide-react";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 
-/** Celular: botão de menu na barra superior que abre o menu lateral por cima da tela. */
+/** Evento que a barra de baixo do celular dispara para abrir o menu. */
+export const OPEN_MOBILE_MENU_EVENT = "terceirizei:abrir-menu";
+
+/** Celular: logo na barra superior e o menu lateral completo, aberto pelo botão "Menu" da barra de baixo. */
 export function MobileMenu({
   groups,
   userName,
@@ -24,6 +28,13 @@ export function MobileMenu({
 
   useEffect(() => setMounted(true), []);
 
+  // A barra de baixo (botão "Menu") abre este mesmo menu.
+  useEffect(() => {
+    const openMenu = () => setOpen(true);
+    window.addEventListener(OPEN_MOBILE_MENU_EVENT, openMenu);
+    return () => window.removeEventListener(OPEN_MOBILE_MENU_EVENT, openMenu);
+  }, []);
+
   // Fecha o menu ao navegar para outra tela.
   useEffect(() => setOpen(false), [pathname]);
 
@@ -39,14 +50,10 @@ export function MobileMenu({
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Abrir menu"
-        onClick={() => setOpen(true)}
-        className="mr-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink transition-colors hover:bg-surface-alt md:hidden"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      <Link href="/hoje" aria-label="Terceirizei — ir para Hoje" className="mr-auto flex h-10 items-center rounded-lg px-1 dark:bg-white md:hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-terceirizei.png" alt="Terceirizei" className="h-7 w-auto" />
+      </Link>
 
       {/* O cabeçalho usa backdrop-blur, que prende elementos fixos dentro dele: o painel vai direto para o body. */}
       {open &&
