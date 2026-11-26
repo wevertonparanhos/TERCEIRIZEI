@@ -204,7 +204,9 @@ export default async function InternoLayout({ children }: { children: React.Reac
             <Settings className="h-[18px] w-[18px]" />
           </Link>
         </header>
-        <main className="flex-1 overflow-x-hidden">{children}</main>
+        {/* overflow-x-clip (e não hidden): corta o que vaza para o lado sem virar área de rolagem, assim os
+            elementos "sticky" das páginas (índice da tarefa, editor de proposta) ficam presos ao rolar. */}
+        <main className="min-w-0 flex-1 overflow-x-clip">{children}</main>
       </div>
     </div>
   );

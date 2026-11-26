@@ -799,3 +799,66 @@ export function CopyLinkButton() {
     </Button>
   );
 }
+
+/** Topo do bloco Detalhes: início, entrega prevista e valor num relance, e em que etapa a tarefa está. */
+export function DetailsSummary({
+  createdAt,
+  stages,
+  totalValue,
+  paidValue,
+}: {
+  createdAt: string;
+  stages: { id: string; label: string; color: string }[];
+  totalValue: number;
+  paidValue: number;
+}) {
+  const { fields, stageId } = useFields();
+  const brDate = (iso: string) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "");
+  const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  const start = new Date(createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const current = Math.max(0, stages.findIndex((s) => s.id === stageId));
+  const stage = stages[current];
+  const today = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const late = !!fields.dueAt && fields.dueAt < today && !["Concluído", "Cancelado"].includes(stage?.label ?? "");
+
+  const box = "flex flex-col gap-1 rounded-xl bg-surface-alt px-4 py-3";
+  return (
+    <div className="space-y-4 rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className={box}>
+          <span className="text-xs text-muted">Início</span>
+          <b className="text-sm text-ink">{start}</b>
+        </div>
+        <div className={box}>
+          <span className="text-xs text-muted">Entrega prevista</span>
+          <b className={cn("text-sm", late ? "text-red-600 dark:text-red-400" : "text-ink")}>
+            {fields.dueAt ? `${brDate(fields.dueAt)}${late ? " · atrasada" : ""}` : "Sem data"}
+          </b>
+        </div>
+        <div className={box}>
+          <span className="text-xs text-muted">Valor</span>
+          <b className="text-sm tabular-nums text-ink">
+            {totalValue > 0 ? money.format(totalValue) : "Sem valor"}
+            {totalValue > 0 && paidValue > 0 && <span className="ml-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">({money.format(paidValue)} pago)</span>}
+          </b>
+        </div>
+      </div>
+      {stages.length > 1 && stage && (
+        <div className="space-y-1.5">
+          <div className="flex gap-1" aria-hidden>
+            {stages.map((s, i) => (
+              <span
+                key={s.id}
+                className={cn("h-1.5 flex-1 rounded-full", i < current ? "bg-brand-blue" : i === current ? "" : "bg-surface-alt")}
+                style={i === current ? { backgroundColor: s.color } : undefined}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted">
+            Etapa {current + 1} de {stages.length} · <b className="text-ink">{stage.label}</b>
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

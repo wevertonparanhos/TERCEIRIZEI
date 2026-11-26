@@ -22,11 +22,12 @@ import {
   PAYMENT_STATUS_LABELS,
   serviceTypeLabel,
 } from "@/modules/processes/labels";
-import { ProcessTabs } from "@/modules/processes/process-tabs";
+import { ProcessSections } from "@/modules/processes/process-sections";
 import {
   ProcessFieldsProvider,
   PropertiesCard,
   NotesCard,
+  DetailsSummary,
   ScheduleCard,
   PortalToggleButton,
   SaveIndicator,
@@ -92,8 +93,9 @@ import {
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const isoDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
-// Ordem das abas: Atividade logo depois de Detalhes.
-const TAB_ORDER = ["detalhes", "atividade", "checklist", "impedimentos", "entregas", "financeiro", "cliente"];
+// Ordem das partes na página única (como no novo layout aprovado): o que se usa no dia a dia primeiro;
+// a conversa (que cresce muito) vem depois das partes curtas, e o índice leva direto a ela.
+const TAB_ORDER = ["detalhes", "checklist", "financeiro", "impedimentos", "entregas", "atividade", "cliente"];
 const sortTabs = <T extends { key: string }>(tabs: T[]): T[] =>
   [...tabs].sort((a, b) => TAB_ORDER.indexOf(a.key) - TAB_ORDER.indexOf(b.key));
 
@@ -238,6 +240,7 @@ export default async function ProcessoDetalhePage({
 
   const detailsTab = (
     <div className="space-y-4">
+      <DetailsSummary createdAt={process.createdAt.toISOString()} stages={stages} totalValue={paymentSummary.totalValue} paidValue={paidTotal} />
       <NotesCard />
       <PropertiesCard
         stages={stages}
@@ -284,7 +287,7 @@ export default async function ProcessoDetalhePage({
         notes: process.notes ?? "",
       }}
     >
-      <div className="mx-auto max-w-6xl space-y-4 p-8">
+      <div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-8">
         <MarkCommentsRead processId={process.id} markCommentsRead={markCommentsRead} />
 
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -328,15 +331,16 @@ export default async function ProcessoDetalhePage({
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="rounded-2xl border border-border/70 bg-surface p-5 shadow-sm">
-            <ProcessTabs
+          <div className="min-w-0">
+            <ProcessSections
               initialKey={searchParams.tab}
-              tabs={sortTabs([
+              sections={sortTabs([
                 {
                   key: "detalhes",
                   label: "Detalhes",
                   icon: <LayoutList className="h-4 w-4" />,
                   content: detailsTab,
+                  bare: true,
                 },
                 {
                   key: "checklist",
