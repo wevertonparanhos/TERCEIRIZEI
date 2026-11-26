@@ -421,7 +421,7 @@ export function TaskDrawer({
 
             {task.notes.trim() && (
               <Section title="Observações">
-                <p className="line-clamp-4 whitespace-pre-line text-[13px] leading-relaxed text-muted">{task.notes}</p>
+                <p className="whitespace-pre-line break-words text-[13px] leading-relaxed text-ink">{task.notes}</p>
               </Section>
             )}
 
@@ -443,7 +443,7 @@ export function TaskDrawer({
                       <b className="text-ink">{c.authorName}</b>
                       {c.fromClient && <span className="ml-1 rounded bg-brand-orange/15 px-1 text-[10px] font-semibold text-brand-orange">cliente</span>} · {timeAgo(c.createdAt)}
                     </p>
-                    <p className="mt-0.5 line-clamp-4 whitespace-pre-line text-ink">{c.body}</p>
+                    <p className="mt-0.5 whitespace-pre-line break-words text-ink">{c.body}</p>
                   </li>
                 ))}
               </ul>
