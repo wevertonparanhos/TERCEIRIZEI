@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { PRIORITY_LABELS, PRIORITY_BADGE_VARIANT, initials, isDueToday, type PaymentStatus } from "@/modules/processes/labels";
 import { matchesSearch } from "@/modules/processes/search";
 import { SearchInput, usePersistentSearch } from "@/modules/processes/search-input";
+import { TaskDrawer } from "@/modules/processes/task-drawer";
 
 export type Stage = { id: string; label: string; color: string };
 
@@ -200,20 +201,39 @@ function Card({ card, dragging = false }: { card: KanbanCard; dragging?: boolean
   );
 }
 
-function DraggableCard({ card, canDrag }: { card: KanbanCard; canDrag: boolean }) {
+function DraggableCard({
+  card,
+  canDrag,
+  selected,
+  onOpen,
+}: {
+  card: KanbanCard;
+  canDrag: boolean;
+  selected: boolean;
+  onOpen: (id: string) => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: card.id,
     disabled: !canDrag,
   });
 
   return (
-    <Link href={`/processos/${card.id}`} className="block">
+    <Link
+      href={`/processos/${card.id}`}
+      className="block"
+      onClick={(e) => {
+        // Clique simples abre o painel ao lado; Ctrl/Cmd/Shift + clique continua abrindo a página (nova aba).
+        if (isDragging || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        onOpen(card.id);
+      }}
+    >
       <div
         ref={setNodeRef}
         {...(canDrag ? listeners : {})}
         {...(canDrag ? attributes : {})}
         style={{ opacity: isDragging ? 0.4 : 1 }}
-        className="mb-2"
+        className={`mb-2 rounded-lg ${selected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface-alt" : ""}`}
         onClick={(e) => {
           if (isDragging) e.preventDefault();
         }}
@@ -224,7 +244,19 @@ function DraggableCard({ card, canDrag }: { card: KanbanCard; canDrag: boolean }
   );
 }
 
-function DroppableColumn({ stage, cards, canDrag }: { stage: Stage; cards: KanbanCard[]; canDrag: boolean }) {
+function DroppableColumn({
+  stage,
+  cards,
+  canDrag,
+  openId,
+  onOpen,
+}: {
+  stage: Stage;
+  cards: KanbanCard[];
+  canDrag: boolean;
+  openId: string | null;
+  onOpen: (id: string) => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
@@ -245,7 +277,7 @@ function DroppableColumn({ stage, cards, canDrag }: { stage: Stage; cards: Kanba
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
         {cards.map((card) => (
-          <DraggableCard key={card.id} card={card} canDrag={canDrag} />
+          <DraggableCard key={card.id} card={card} canDrag={canDrag} selected={card.id === openId} onOpen={onOpen} />
         ))}
       </div>
     </div>
@@ -275,6 +307,10 @@ export function KanbanBoard({
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } })
   );
   const [items, setItems] = useState(cards);
+  // Depois de um router.refresh() (ex.: mudança feita no painel da tarefa) o quadro mostra os dados novos.
+  useEffect(() => setItems(cards), [cards]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const closeDrawer = useCallback(() => setOpenId(null), []);
   const [query, setQuery] = usePersistentSearch(searchKey);
   const [filterText, setFilterText] = usePersistentSearch(`${searchKey}:filtro`);
   const filter: CardFilter = filterText in FILTER_TEST ? (filterText as CardFilter) : "all";
@@ -351,6 +387,7 @@ export function KanbanBoard({
         </p>
       )}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        {/* Com o painel aberto, sobra espaço à direita para rolar as últimas colunas para fora de baixo dele. */}
         <div className="flex h-[70vh] gap-3 overflow-x-auto pb-2 md:h-auto md:min-h-0 md:flex-1">
           {stages.map((stage) => (
             <DroppableColumn
@@ -358,11 +395,15 @@ export function KanbanBoard({
               stage={stage}
               cards={visibleItems.filter((c) => c.stageId === stage.id)}
               canDrag={canDrag}
+              openId={openId}
+              onOpen={(id) => setOpenId((current) => (current === id ? null : id))}
             />
           ))}
+          {openId && <div aria-hidden className="hidden w-[428px] flex-none sm:block" />}
         </div>
         <DragOverlay>{activeCard && <Card card={activeCard} dragging />}</DragOverlay>
       </DndContext>
+      {openId && <TaskDrawer taskId={openId} preview={items.find((c) => c.id === openId)} onClose={closeDrawer} />}
     </div>
   );
 }
