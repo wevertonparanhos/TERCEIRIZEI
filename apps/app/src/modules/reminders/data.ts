@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@terceirizei/db";
 import type { CurrentUser } from "@/lib/rbac";
 import { brtDay, reminderTiming, stageAlert, type ReminderTiming } from "@/modules/reminders/logic";
@@ -41,8 +42,9 @@ function scopeFor(user: CurrentUser) {
   return user.role === "OPERACIONAL" ? { assignees: { some: { userId: user.id } } } : {};
 }
 
-/** Lembretes em aberto e tarefas paradas (alerta de etapa) que a pessoa pode ver. Financeiro não usa lembretes. */
-export async function loadReminderOverview(user: CurrentUser): Promise<ReminderOverview> {
+/** Lembretes em aberto e tarefas paradas (alerta de etapa) que a pessoa pode ver. Financeiro não usa lembretes.
+ * Em cache por requisição: o menu (selo) e a página (Hoje, Lembretes) usam o mesmo resultado. */
+export const loadReminderOverview = cache(async (user: CurrentUser): Promise<ReminderOverview> => {
   if (!["ADMIN", "GESTOR", "OPERACIONAL"].includes(user.role)) return { reminders: [], stageAlerts: [], attentionCount: 0 };
   const today = brtDay(new Date());
 
@@ -124,4 +126,4 @@ export async function loadReminderOverview(user: CurrentUser): Promise<ReminderO
 
   const attentionCount = reminders.filter((r) => r.timing !== "futuro").length + stageAlerts.length;
   return { reminders, stageAlerts, attentionCount };
-}
+});

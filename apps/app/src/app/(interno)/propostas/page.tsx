@@ -7,7 +7,7 @@ import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE_VARIANT, getProposalDispl
 import { parseContent } from "@/modules/proposals/content";
 import { ProposalsToolbar, ProposalRowActions } from "@/modules/proposals/proposals-toolbar";
 
-export default async function PropostasPage() {
+export default async function PropostasPage({ searchParams }: { searchParams: { nova?: string } }) {
   const user = await getCurrentUser();
   if (!user) return null;
   if (!["ADMIN", "GESTOR", "FINANCEIRO"].includes(user.role)) redirect("/dashboard");
@@ -38,7 +38,7 @@ export default async function PropostasPage() {
           <h1 className="text-2xl font-bold text-ink">Propostas</h1>
           <p className="text-sm text-muted">Crie e gerencie suas propostas comerciais.</p>
         </div>
-        {canManage && <ProposalsToolbar clients={clients} templates={templateSummaries} />}
+        {canManage && <ProposalsToolbar clients={clients} templates={templateSummaries} autoOpen={searchParams.nova === "1"} />}
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-2xl border border-border/70 bg-surface shadow-sm">

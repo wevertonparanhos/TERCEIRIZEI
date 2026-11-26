@@ -17,5 +17,5 @@ export default async function RootPage() {
     );
   }
 
-  redirect(user.role === "CLIENTE" ? "/portal" : "/dashboard");
+  redirect(user.role === "CLIENTE" ? "/portal" : "/hoje");
 }

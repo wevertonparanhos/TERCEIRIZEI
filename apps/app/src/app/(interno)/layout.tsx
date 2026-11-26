@@ -20,12 +20,16 @@ import {
   Settings,
   Inbox,
   BellRing,
+  Sun,
   type LucideIcon,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/rbac";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarNav, type NavGroup } from "@/components/sidebar-nav";
 import { MobileMenu } from "@/components/mobile-menu";
+import { CommandPalette } from "@/components/command-palette";
+import { CreateMenu, type CreateAction } from "@/components/create-menu";
+import { searchCommand } from "@/modules/command/actions";
 import { loadReminderOverview } from "@/modules/reminders/data";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -48,6 +52,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Operações",
     items: [
+      { href: "/hoje", label: "Hoje", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Sun },
       { href: "/dashboard", label: "Dashboard", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: LayoutDashboard },
       { href: "/processos", label: "Área de Trabalho", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: ClipboardList },
       { href: "/calendario", label: "Calendário", roles: ["ADMIN", "GESTOR", "OPERACIONAL", "FINANCEIRO"], icon: Calendar },
@@ -116,6 +121,17 @@ export default async function InternoLayout({ children }: { children: React.Reac
       })),
   })).filter((group) => group.items.length > 0);
 
+  // Botão "Criar": só para quem cria tarefas, clientes e propostas (administrador e gestor).
+  const createActions: CreateAction[] =
+    user.role === "ADMIN" || user.role === "GESTOR"
+      ? [
+          { href: "/processos?nova=1", label: "Nova tarefa", hint: "Abre o assistente de nova tarefa" },
+          { href: "/clientes?novo=1", label: "Novo cliente", hint: "Cadastro de cliente e acesso ao portal" },
+          { href: "/propostas?nova=1", label: "Nova proposta", hint: "Proposta comercial a partir de um modelo" },
+        ]
+      : [];
+  const commandLinks = navGroups.flatMap((g) => g.items.map((i) => ({ href: i.href, label: i.label })));
+
   const unreadMentions = await prisma.processCommentMention.count({
     where: { mentionedUserId: user.id, readAt: null, comment: { process: { tenantId: user.tenantId } } },
   });
@@ -130,6 +146,11 @@ export default async function InternoLayout({ children }: { children: React.Reac
             <img src="/logo-terceirizei.png" alt="Terceirizei" className="h-9 w-auto" />
           </div>
           <p className="mt-1 text-center text-[10px] font-semibold uppercase tracking-[1.5px] text-muted-soft">Sistema de gestão</p>
+          {createActions.length > 0 && (
+            <div className="mt-3">
+              <CreateMenu actions={createActions} />
+            </div>
+          )}
         </div>
         <SidebarNav groups={navGroups} />
         <div className="border-t border-border p-3">
@@ -157,6 +178,9 @@ export default async function InternoLayout({ children }: { children: React.Reac
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 flex-none items-center justify-end gap-1 border-b border-border bg-bg/80 px-3 backdrop-blur sm:px-6 print:hidden">
           <MobileMenu groups={navGroups} userName={user.name} userInitials={initials(user.name)} roleLabel={ROLE_LABELS[user.role]} />
+          <div className="flex items-center md:mr-4 md:flex-1">
+            <CommandPalette links={commandLinks} createActions={createActions} search={searchCommand} />
+          </div>
           <ThemeToggle className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-alt hover:text-ink" />
           <Link
             href="/atividades"

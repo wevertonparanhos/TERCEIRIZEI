@@ -12,9 +12,18 @@ import { createProposal, createTemplate, deleteTemplate, cancelProposal, deleteP
 
 type TemplateSummary = { id: string; name: string; services: number };
 
-export function ProposalsToolbar({ clients, templates }: { clients: { id: string; name: string }[]; templates: TemplateSummary[] }) {
+export function ProposalsToolbar({
+  clients,
+  templates,
+  autoOpen = false,
+}: {
+  clients: { id: string; name: string }[];
+  templates: TemplateSummary[];
+  /** abre já no formulário de nova proposta (vindo do botão Criar) */
+  autoOpen?: boolean;
+}) {
   const router = useRouter();
-  const [dialog, setDialog] = useState<null | "nova" | "modelos" | "novo-modelo">(null);
+  const [dialog, setDialog] = useState<null | "nova" | "modelos" | "novo-modelo">(autoOpen ? "nova" : null);
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState("");
   const [templateId, setTemplateId] = useState("");
